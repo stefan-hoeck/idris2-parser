@@ -9,3 +9,7 @@ modules = Data.List.Suffix
         , Text.Lex.Bounded
         , Text.Lex.Core
         , Text.Lex.Util
+
+        , Text.Lex2
+        , Text.Lex2.Core
+        , Text.Lex2.Util

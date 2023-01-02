@@ -18,7 +18,7 @@ import Text.Lex.Idris2.Package
 
 export %inline
 plex :
-     Text.Lex.Core.Lexer
+     Text.Lex2.Core.Lexer
   -> String
   -> (SnocList (Text.Lex.Bounded.WithBounds String), (Nat,Nat,List Char))
 plex l = lex [(l, pack . (<>> []))]

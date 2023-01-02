@@ -1,6 +1,6 @@
 module Test.Lex.Util
 
-import public Text.Lex
+import public Text.Lex2
 import public Libraries.Text.Lexer
 import public Hedgehog
 
@@ -12,7 +12,7 @@ ILexer = Libraries.Text.Lexer.Core.Lexer
 
 public export
 0 PLexer : Type
-PLexer = Text.Lex.Core.Lexer
+PLexer = Text.Lex2.Core.Lexer
 
 public export
 0 ITokenMap : Type -> Type
@@ -20,7 +20,7 @@ ITokenMap = Libraries.Text.Lexer.Core.TokenMap
 
 public export
 0 PTokenMap : Type -> Type
-PTokenMap = Text.Lex.Core.TokenMap
+PTokenMap = Text.Lex2.Core.TokenMap
 
 public export
 0 IBounds : Type
@@ -64,7 +64,7 @@ testTokenLex :
   -> (imap : ITokenMap a)
   -> TestT m ()
 testTokenLex s pmap imap =
-  let res1 := Text.Lex.Core.lex pmap s
+  let res1 := Text.Lex2.Core.lex pmap s
       res2 := Libraries.Text.Lexer.Core.lex imap s
    in res1 === toLexRes res2
      
@@ -72,7 +72,7 @@ export %inline
 testLex :
      Monad m
   => (s     : String)
-  -> (lex   : Text.Lex.Core.Lexer)
+  -> (lex   : Text.Lex2.Core.Lexer)
   -> (lexer : Libraries.Text.Lexer.Core.Lexer)
   -> TestT m ()
 testLex s lex lexer = testTokenLex s [(lex, pack)] [(lexer, id)]

@@ -3,4 +3,9 @@ version = 0.1.0
 authors = "stefan-hoeck"
 sourcedir = "src"
 depends   = parser
-modules = Text.Lex.Idris2.Common
+          , idris2
+
+modules = Core.Name.Namespace.Extra
+
+        , Text.Lex.Idris2.Common
+        , Text.Lex.Idris2.Package

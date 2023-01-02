@@ -2,6 +2,24 @@ module Text.Lex.Util
 
 import Text.Lex.Core
 
+public export %inline
+pack : SnocList Char -> String
+pack = pack . (<>> [])
+
+||| Returns true if the character is a whitespace character.
+|||
+||| This a better-performing alternative to `isSpace` from the Prelude.
+public export
+isWhitespace : Char -> Bool
+isWhitespace ' '    = True
+isWhitespace '\t'   = True
+isWhitespace '\n'   = True
+isWhitespace '\r'   = True
+isWhitespace '\f'   = True
+isWhitespace '\v'   = True
+isWhitespace '\xa0' = True
+isWhitespace _      = False
+
 --------------------------------------------------------------------------------
 --          Rewrites
 --------------------------------------------------------------------------------
@@ -23,6 +41,11 @@ orSnd f cs = mapPrf or2 $ f cs
 export
 is : (x : Char) -> Lexer
 is x = pred (==x)
+
+||| Recognise a single whitespace character.
+export
+space : Lexer
+space = pred isWhitespace
 
 ||| Recognise a single digit.
 export
@@ -104,6 +127,11 @@ ranges start end =
       e := max start end
    in preds (\x => x >= s && x <= e)
 
+||| Recognise a single whitespace character.
+export
+spaces : Lexer
+spaces = preds isWhitespace
+
 export
 newline : Lexer
 newline ('\r' :: '\n' :: t) = Res [<'\r','\n'] t %search
@@ -115,17 +143,29 @@ newline _                   = Stop
 ||| encountered.
 export
 manyTillNewline : Recognise False
-manyTillNewline = go [<]
-  where
-    go : SnocList Char -> Recognise False
-    go sc ts@('\n' :: _) = Res sc ts Same
-    go sc ts@('\r' :: _) = Res sc ts Same
-    go sc    (h    :: t) = go (sc :< h) t ~?> cons1
-    go sc []             = Res sc [] Same
+manyTillNewline = preds0 $ \case {'\n' => False; '\r' => False; _ => True}
 
+||| Reads characters until the next linefeed character (`'\n'`) is
+||| encountered.
+export
+manyTillLineFeed : Recognise False
+manyTillLineFeed = preds0 $ \case {'\n' => False; _ => True}
+
+||| Lexer for single line comments starting with the given prefix.
+|||
+||| This reads until (but does not include) the first newline
+||| character `'\n'` or `'\r'`.
 export
 lineComment : (pre : Lexer) -> Lexer
 lineComment pre = pre <+> manyTillNewline
+
+||| Lexer for single line comments starting with the given prefix.
+|||
+||| This reads until (but does not include) the first line feed
+||| character (`'\n'`).
+export
+linefeedComment : (pre : Lexer) -> Lexer
+linefeedComment pre = pre <+> manyTillLineFeed
 
 --------------------------------------------------------------------------------
 --          Combinators
@@ -164,3 +204,9 @@ export
 stringLit : Lexer
 stringLit ('"' :: cs) = stringHelper [<'"'] cs ~> cons1
 stringLit _           = Stop
+
+||| Recognise an integer literal (possibly with a '-' prefix)
+||| /-?[0-9]+/
+export
+intLit : Lexer
+intLit = opt (is '-') <+> digits

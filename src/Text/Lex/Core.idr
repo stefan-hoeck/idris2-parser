@@ -158,6 +158,12 @@ preds f xs = case pred f xs of
   Res sc cs' p => predsOnto sc f cs' ~~> p
   Stop         => Stop
 
+||| Recogniser consuming characters while they fulfill the given predicate.
+||| This is an optimized version of `many . pred`.
+export %inline
+preds0 : (Char -> Bool) -> Recognise False
+preds0 = predsOnto Lin
+
 cmap : SnocList Char -> (a -> Recognise c) -> (xs : List a) -> Recognise False
 cmap sd f (x :: xs) cs = case f x cs of
    Res sd2 cs2 p2 => cmap (sd ++ sd2) f xs cs2 ~?> p2
@@ -211,8 +217,8 @@ tokenise :
   -> (SnocList (WithBounds a), (Nat, Nat, List Char))
 tokenise f l c sx xs cs (Access rec) = case step l c xs cs of
   Just (ST l2 c2 res rem p) => case f res.val of
-    True  => tokenise f l2 c2 (sx :< res) xs rem (rec rem p)
-    False => tokenise f l2 c2 sx xs rem (rec rem p)
+    False => tokenise f l2 c2 (sx :< res) xs rem (rec rem p)
+    True  => (sx, (l,c,[]))
   Nothing => (sx, (l,c,cs))
 
 export
@@ -229,4 +235,4 @@ lexTo f ts s = tokenise f 0 0 [<] ts (unpack s) (ssAcc _)
 ||| string where there are no recognised tokens.
 export %inline
 lex : TokenMap a -> String -> (SnocList (WithBounds a), (Nat,Nat,List Char))
-lex = lexTo (const True)
+lex = lexTo (const False)

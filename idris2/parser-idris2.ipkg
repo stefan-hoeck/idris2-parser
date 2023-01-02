@@ -1,0 +1,6 @@
+package parser-idris2
+version = 0.1.0
+authors = "stefan-hoeck"
+sourcedir = "src"
+depends   = parser
+modules = Idris2.Lexer.Common

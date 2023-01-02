@@ -111,24 +111,30 @@ newline ('\n' :: t)         = Res [<'\n'] t %search
 newline ('\r' :: t)         = Res [<'\r'] t %search
 newline _                   = Stop
 
+||| Reads characters until the next newline character is
+||| encountered.
 export
-anyTillNewline : Recognise False
-anyTillNewline = go [<]
+manyTillNewline : Recognise False
+manyTillNewline = go [<]
   where
     go : SnocList Char -> Recognise False
-    go sc ('\r' :: '\n' :: t) = Res (sc :< '\r' :<'\n') t %search
-    go sc ('\n' :: t)         = Res (sc :< '\n') t %search
-    go sc ('\r' :: t)         = Res (sc :< '\r') t %search
-    go sc (h    :: t)         = go (sc :< h) t ~?> cons1
-    go sc []                  = Res sc [] Same
+    go sc ts@('\n' :: _) = Res sc ts Same
+    go sc ts@('\r' :: _) = Res sc ts Same
+    go sc    (h    :: t) = go (sc :< h) t ~?> cons1
+    go sc []             = Res sc [] Same
 
 export
 lineComment : (pre : Lexer) -> Lexer
-lineComment pre = pre <+> anyTillNewline
+lineComment pre = pre <+> manyTillNewline
 
 --------------------------------------------------------------------------------
 --          Combinators
 --------------------------------------------------------------------------------
+
+export
+atLeast : (n : Nat) -> Lexer -> Recognise (isSucc n)
+atLeast 0     f = many f
+atLeast (S k) f = f <+> atLeast k f
 
 export
 manyUntil : (stopBefore : Recognise c) -> Lexer -> Recognise False
@@ -140,7 +146,7 @@ someUntil sb l = some (reject sb <+> l)
 
 export
 manyThen : (stopAfter : Recognise c) -> (l : Lexer) -> Recognise c
-manyThen stopAfter l = orFst $ manyUntil stopAfter l <+> stopAfter
+manyThen stopAfter l = manyUntil stopAfter l <+> stopAfter
 
 --------------------------------------------------------------------------------
 --          Literals

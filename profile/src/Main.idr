@@ -3,10 +3,12 @@ module Main
 import LexJSON
 import JSON.Lexer
 import Data.List
+import Data.List1
 import Data.String
 import Profile
 import Text.Lex as L
 import Libraries.Text.Lexer as IL
+import System
 
 --------------------------------------------------------------------------------
 --          Running Lexers
@@ -110,5 +112,14 @@ bench = Group "lexer" [
      , Single "json"   (basic lexJSON jsonStr)
      ]
   ]
+
+fromArgs : List String -> String -> Bool
+fromArgs [_,p] = case split ('=' ==) p of
+  "--only" ::: [s] => isInfixOf s
+  _                => const False
+fromArgs _ = const True
+
 main : IO ()
-main = runDefault (const True) Table show bench
+main = do
+  select <- fromArgs <$> getArgs
+  runDefault select Table show bench

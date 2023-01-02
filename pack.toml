@@ -13,3 +13,13 @@ ipkg = "test.ipkg"
 type = "local"
 path = "profile"
 ipkg = "profile.ipkg"
+
+[custom.all.parser-idris2]
+type = "local"
+path = "idris2"
+ipkg = "parser-idris2.ipkg"
+
+[custom.all.parser-idris2-profile]
+type = "local"
+path = "idris2/profile"
+ipkg = "profile.ipkg"

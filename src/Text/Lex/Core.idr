@@ -2,7 +2,7 @@
 ||| just a (dependent) function, which is guaranteed to consume a non-empty
 ||| prefix of the input list of characters.
 |||
-||| As such, high-performance lexer can be implemented manually, while
+||| As such, high-performance lexers can be written manually, while
 ||| many convenient combinators exist for less performance-critical
 ||| applications.
 module Text.Lex.Core
@@ -107,10 +107,10 @@ stop _ = Stop
 
 ||| Sequencing of two lexers. Consumes, if any of the two consume.
 export
-(<+>) : Recognise b1 -> Recognise b2 -> Recognise (b2 || b1)
+(<+>) : Recognise b1 -> Recognise b2 -> Recognise (b1 || b2)
 (<+>) r1 r2 cs = case r1 cs of
   Res sc1 cs1 p1 => case r2 cs1 of
-    Res sc2 cs2 p2 => Res (sc1 ++ sc2) cs2 (p2 ~> p1)
+    Res sc2 cs2 p2 => Res (sc1 ++ sc2) cs2 (swapOr $ p2 ~> p1)
     Stop           => Stop
   Stop           => Stop
 

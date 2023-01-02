@@ -3,6 +3,7 @@
 ||| from beginning to end (for instance: parsers!).
 module Data.List.Suffix
 
+import Data.Bool
 import Data.Maybe
 import public Control.Relation
 import public Control.WellFounded
@@ -109,6 +110,14 @@ or2 {b1 = True}  {b2 = True}  x = x
 or2 {b1 = True}  {b2 = False} x = weaken x
 or2 {b1 = False} {b2 = True}  x = x
 or2 {b1 = False} {b2 = False} x = x
+
+export
+swapOr : {b1,b2 : Bool} -> Suffix_ (b1 || b2) as bs -> Suffix_ (b2 || b1) as bs
+swapOr x = rewrite orCommutative b2 b1 in x
+
+export
+swapAnd : {b1,b2 : Bool} -> Suffix_ (b1 && b2) as bs -> Suffix_ (b2 && b1) as bs
+swapAnd x = rewrite andCommutative b2 b1 in x
 
 --------------------------------------------------------------------------------
 --          Relations

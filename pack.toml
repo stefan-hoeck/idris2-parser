@@ -1,0 +1,15 @@
+[custom.all.parser]
+type = "local"
+path = "."
+ipkg = "parser.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.parser-test]
+type = "local"
+path = "test"
+ipkg = "test.ipkg"
+
+[custom.all.parser-profile]
+type = "local"
+path = "profile"
+ipkg = "profile.ipkg"

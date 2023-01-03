@@ -292,6 +292,7 @@ public export
 0 TokenMap : (tokenType : Type) -> Type
 TokenMap tokenType = List (Lexer, SnocList Char -> tokenType)
 
+public export
 record Step (a : Type) (cs : List Char) where
   constructor ST
   line  : Nat
@@ -300,14 +301,23 @@ record Step (a : Type) (cs : List Char) where
   rem   : List Char
   0 prf : Suffix True rem cs
 
-step : (l, c : Nat) -> TokenMap a -> (cs : List Char) -> Maybe (Step a cs)
-step l c ((f,g) :: ps) cs = case run f [<] cs of
+export
+step :
+     (l, c : Nat)
+  -> Lexer
+  -> (SnocList Char -> a)
+  -> (cs : List Char)
+  -> Maybe (Step a cs)
+step l c x f cs = case run x [<] cs of
   Res sc cs2 p =>
     let (l2,c2) := lineCol l c 0 sc
         bnds    := Just $ MkBounds l c l2 c2
-     in Just $ ST l2 c2 (MkBounded (g sc) bnds) cs2 (suffix p)
-  Stop         => step l c ps cs
-step _ _ [] _ = Nothing
+     in Just $ ST l2 c2 (MkBounded (f sc) bnds) cs2 (suffix p)
+  Stop         => Nothing
+
+first : (l, c : Nat) -> TokenMap a -> (cs : List Char) -> Maybe (Step a cs)
+first l c ((f,g) :: ps) cs = step l c f g cs <|> first l c ps cs
+first _ _ []            _  = Nothing
 
 tokenise :
      (a -> Bool)
@@ -317,7 +327,7 @@ tokenise :
   -> (cs    : List Char)
   -> (0 acc : SuffixAcc cs)
   -> (SnocList (WithBounds a), (Nat, Nat, List Char))
-tokenise f l c sx xs cs (Access rec) = case step l c xs cs of
+tokenise f l c sx xs cs (Access rec) = case first l c xs cs of
   Just (ST l2 c2 res rem p) => case f res.val of
     False => tokenise f l2 c2 (sx :< res) xs rem (rec rem p)
     True  => (sx, (l,c,[]))

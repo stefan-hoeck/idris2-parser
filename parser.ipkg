@@ -9,4 +9,5 @@ modules = Data.List.Shift
         , Text.Lex
         , Text.Lex.Bounded
         , Text.Lex.Core
+        , Text.Lex.Tokenizer
         , Text.Lex.Util

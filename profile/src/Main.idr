@@ -6,8 +6,8 @@ import Data.List
 import Data.List1
 import Data.String
 import Profile
-import Text.Lex as L
-import Libraries.Text.Lexer as IL
+import Text.Lex
+import Libraries.Text.Lexer
 import System
 
 --------------------------------------------------------------------------------
@@ -70,45 +70,45 @@ bench = Group "lexer" [
    Group "digits" [
        Single "parser_1"   (basic (plex digits) $ digs 1)
      , Single "idris2_1"   (basic (ilex digits) $ digs 1)
-     , Single "parser_10"  (basic (plex digits) $ digs 10)
-     , Single "idris2_10"  (basic (ilex digits) $ digs 10)
-     , Single "parser_100" (basic (plex digits) $ digs 100)
-     , Single "idris2_100" (basic (ilex digits) $ digs 100)
+     , Single "parser_10"   (basic (plex digits) $ digs 10)
+     , Single "idris2_10"   (basic (ilex digits) $ digs 10)
+     , Single "parser_100"   (basic (plex digits) $ digs 100)
+     , Single "idris2_100"   (basic (ilex digits) $ digs 100)
      ]
  , Group "exact" [
        Single "parser_1"  (basic (plex helloP)  $ hello 1)
      , Single "idris2_1"  (basic (ilex helloI)  $ hello 1)
-     , Single "parser_10" (basic (plex helloP)  $ hello 10)
-     , Single "idris2_10" (basic (ilex helloI)  $ hello 10)
-     , Single "parser_100" (basic (plex helloP) $ hello 100)
-     , Single "idris2_100" (basic (ilex helloI) $ hello 100)
+     , Single "parser_10"  (basic (plex helloP)  $ hello 10)
+     , Single "idris2_10"  (basic (ilex helloI)  $ hello 10)
+     , Single "parser_100"  (basic (plex helloP)  $ hello 100)
+     , Single "idris2_100"  (basic (ilex helloI)  $ hello 100)
      ]
  , Group "newline" [
        Single "parser_1"   (basic (plex $ some newline) $ nls 1)
      , Single "idris2_1"   (basic (ilex $ some newline) $ nls 1)
-     , Single "parser_10"  (basic (plex $ some newline) $ nls 10)
-     , Single "idris2_10"  (basic (ilex $ some newline) $ nls 10)
-     , Single "parser_100" (basic (plex $ some newline) $ nls 100)
-     , Single "idris2_100" (basic (ilex $ some newline) $ nls 100)
+     , Single "parser_10"   (basic (plex $ some newline) $ nls 10)
+     , Single "idris2_10"   (basic (ilex $ some newline) $ nls 10)
+     , Single "parser_100"   (basic (plex $ some newline) $ nls 100)
+     , Single "idris2_100"   (basic (ilex $ some newline) $ nls 100)
      ]
  , Group "line comment" [
        Single "parser_1"   (basic (plex $ lineComment (exact "--")) $ line 1)
      , Single "idris2_1"   (basic (ilex $ lineComment (exact "--")) $ line 1)
-     , Single "parser_10"  (basic (plex $ lineComment (exact "--")) $ line 10)
-     , Single "idris2_10"  (basic (ilex $ lineComment (exact "--")) $ line 10)
-     , Single "parser_100" (basic (plex $ lineComment (exact "--")) $ line 100)
-     , Single "idris2_100" (basic (ilex $ lineComment (exact "--")) $ line 100)
+     , Single "parser_10"   (basic (plex $ lineComment (exact "--")) $ line 10)
+     , Single "idris2_10"   (basic (ilex $ lineComment (exact "--")) $ line 10)
+     , Single "parser_100"   (basic (plex $ lineComment (exact "--")) $ line 100)
+     , Single "idris2_100"   (basic (ilex $ lineComment (exact "--")) $ line 100)
      ]
  , Group "stringLit" [
        Single "parser_1"   (basic (plex $ stringLit) $ line 1)
      , Single "idris2_1"   (basic (ilex $ stringLit) $ line 1)
-     , Single "parser_10"  (basic (plex $ stringLit) $ line 10)
-     , Single "idris2_10"  (basic (ilex $ stringLit) $ line 10)
-     , Single "parser_100" (basic (plex $ stringLit) $ line 100)
-     , Single "idris2_100" (basic (ilex $ stringLit) $ line 100)
+     , Single "parser_10"   (basic (plex $ stringLit) $ line 10)
+     , Single "idris2_10"   (basic (ilex $ stringLit) $ line 10)
+     , Single "parser_100"   (basic (plex $ stringLit) $ line 100)
+     , Single "idris2_100"   (basic (ilex $ stringLit) $ line 100)
      ]
  , Group "json" [
-       Single "parser" (basic (lex json) jsonStr)
+       Single "parser" (basic (Lex.Core.lex json) jsonStr)
      , Single "json"   (basic lexJSON jsonStr)
      ]
   ]

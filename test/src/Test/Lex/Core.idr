@@ -42,7 +42,7 @@ prop_digits = property $ do
 prop_someOf : Property
 prop_someOf = property $ do
   str <- forAll asciiStr
-  testLex str (someOf "abcdefghijklmnop") (some $ oneOf "abcdefghijklmnop")
+  testLex str (someOf $ unpack "abcdefghijklmnop") (some $ oneOf "abcdefghijklmnop")
 
 
 export

@@ -21,26 +21,47 @@ isWhitespace '\xa0' = True
 isWhitespace _      = False
 
 --------------------------------------------------------------------------------
---          Rewrites
+--          Shifters
 --------------------------------------------------------------------------------
 
-export %inline
-orFst : Recognise (b || Delay c) -> Recognise b
-orFst f cs = mapPrf or1 $ f cs
+namespace Shifter
+  public export %inline
+  digits : Shifter True Char
+  digits = takeWhile1 isDigit
 
-export %inline
-orSnd : Recognise (b || Delay c) -> Recognise c
-orSnd f cs = mapPrf or2 $ f cs
+  public export
+  intLit : Shifter True Char
+  intLit sc ('-' :: t) = digits (sc :< '-') t ~> sh1
+  intLit sc xs         = digits sc xs
+
+  public export
+  intLitPlus : Shifter True Char
+  intLitPlus sc ('+' :: t) = digits (sc :< '+') t ~> sh1
+  intLitPlus sc xs         = intLit sc xs
+
+  export
+  exactPrefix : Eq t => List t -> Shifter True t
+  exactPrefix (f :: []) sc (h :: t) =
+    if f == h then Res (sc :< h) t %search else Stop
+  exactPrefix (f :: fs) sc (h :: t) =
+    if f == h then exactPrefix fs (sc :< h) t ~> sh1 else Stop
+  exactPrefix _ _ _ = Stop
 
 --------------------------------------------------------------------------------
 --          Single-Character Lexers
 --------------------------------------------------------------------------------
 
-||| Recognise a specific character.
+||| Recognise a specific item.
 ||| /[`x`]/
-export
-is : (x : Char) -> Lexer
+export %inline
+is : Eq t => (x : t) -> Recognise True t
 is x = pred (==x)
+
+||| Recognise anything but the given item.
+||| /[\^`x`]/
+export %inline
+isNot : Eq t => (x : t) -> Recognise True t
+isNot x = pred (/=x)
 
 ||| Recognise a single whitespace character.
 export
@@ -51,12 +72,6 @@ space = pred isWhitespace
 export
 digit : Lexer
 digit = pred isDigit
-
-||| Recognise anything but the given character.
-||| /[\^`x`]/
-export
-isNot : (x : Char) -> Lexer
-isNot x = pred (/=x)
 
 ||| Recognise a specific character (case-insensitive).
 ||| /[`x`]/i
@@ -71,14 +86,14 @@ notLike : (x : Char) -> Lexer
 notLike x = let x' := toUpper x in pred ((x' /=) . toUpper)
 
 ||| Recognises one of the given characters.
-export
-oneOf : String -> Lexer
-oneOf s = let cs := unpack s in pred (`elem` cs)
+export %inline
+oneOf : Eq t => List t -> Recognise True t
+oneOf ts = pred (`elem` ts)
 
 ||| Recognise a character in a range. Also works in reverse!
 ||| /[`start`-`end`]/
-export
-range : (start : Char) -> (end : Char) -> Lexer
+export %inline
+range : Ord t => (start : t) -> (end : t) -> Recognise True t
 range start end =
   let s := min start end
       e := max start end
@@ -88,40 +103,37 @@ range start end =
 --          Multi-Character Lexers
 --------------------------------------------------------------------------------
 
-charsOnto : SnocList Char -> (f : Char -> Char) -> List Char -> Recognise False
-charsOnto sc f (x :: xs) (y :: ys) =
-  if x == f y then charsOnto (sc :< y) f xs ys ~?> cons1  else Stop
-charsOnto sc f (x :: xs) [] = Stop
-charsOnto sc f []        cs = Res sc cs Same
-
-chars : (Char -> Char) -> List Char -> Lexer
-chars f []        = stop
-chars f (x :: xs) =
-  \case (c :: cs) => if x == f c then charsOnto [<c] f xs cs ~~> cons1 else Stop
-        []        => Stop
+export
+prefixBy : (fs : List (t -> Bool)) -> Recognise True t
+prefixBy (f :: []) = pred f
+prefixBy (f :: fs) = pred f <+> prefixBy fs
+prefixBy []        = stop
 
 export
 exact : String -> Lexer
-exact = chars id . unpack
+exact s = let cs := unpack s in Lift $ exactPrefix cs
 
 export
 approx : String -> Lexer
-approx = chars toUpper . map toUpper . unpack
+approx = prefixBy . map check . unpack
+  where
+    check : Char -> Char -> Bool
+    check c d = toLower c == toLower d
 
 ||| Recognise a non-empty sequence of digits.
 export
 digits : Lexer
 digits = preds isDigit
 
-||| Recognises a non-empty sequence of the given characters
-export
-someOf : String -> Lexer
-someOf s = let cs := unpack s in preds (`elem` cs)
+||| Recognises a non-empty sequence of the given items
+export %inline
+someOf : Eq t => List t -> Recognise True t
+someOf ts = preds (`elem` ts)
 
-||| Recognise some characters in a range. Also works in reverse!
+||| Recognise some items in a range. Also works in reverse!
 ||| /[`start`-`end`]/
-export
-ranges : (start : Char) -> (end : Char) -> Lexer
+export %inline
+ranges : Ord t => (start : t) -> (end : t) -> Recognise True t
 ranges start end =
   let s := min start end
       e := max start end
@@ -132,23 +144,25 @@ export
 spaces : Lexer
 spaces = preds isWhitespace
 
+||| Recognise a single newline character sequence
 export
 newline : Lexer
-newline ('\r' :: '\n' :: t) = Res [<'\r','\n'] t %search
-newline ('\n' :: t)         = Res [<'\n'] t %search
-newline ('\r' :: t)         = Res [<'\r'] t %search
-newline _                   = Stop
+newline = Lift $ \sc,cs => case cs of
+  '\r' :: '\n' :: t => Res (sc :< '\r' :< '\n') t %search
+  '\n' ::         t => Res (sc :< '\n') t %search
+  '\r' ::         t => Res (sc :< '\r') t %search
+  _                 => Stop
 
 ||| Reads characters until the next newline character is
 ||| encountered.
 export
-manyTillNewline : Recognise False
+manyTillNewline : Recognise False Char
 manyTillNewline = preds0 $ \case {'\n' => False; '\r' => False; _ => True}
 
 ||| Reads characters until the next linefeed character (`'\n'`) is
 ||| encountered.
 export
-manyTillLineFeed : Recognise False
+manyTillLineFeed : Recognise False Char
 manyTillLineFeed = preds0 $ \case {'\n' => False; _ => True}
 
 ||| Lexer for single line comments starting with the given prefix.
@@ -172,20 +186,20 @@ linefeedComment pre = pre <+> manyTillLineFeed
 --------------------------------------------------------------------------------
 
 export
-atLeast : (n : Nat) -> Lexer -> Recognise (isSucc n)
+atLeast : (n : Nat) -> Recognise True t -> Recognise (isSucc n) t
 atLeast 0     f = many f
 atLeast (S k) f = f <+> atLeast k f
 
 export
-manyUntil : (stopBefore : Recognise c) -> Lexer -> Recognise False
+manyUntil : (stopBefore : Recognise c t) -> Recognise True t -> Recognise False t
 manyUntil sb l = many (reject sb <+> l)
 
 export
-someUntil : (stopBefore : Recognise c) -> Lexer -> Lexer
+someUntil : (stopBefore : Recognise c t) -> Recognise True t -> Recognise True t
 someUntil sb l = some (reject sb <+> l)
 
 export
-manyThen : (stopAfter : Recognise c) -> (l : Lexer) -> Recognise c
+manyThen : (stopAfter : Recognise c t) -> (l : Recognise True t) -> Recognise c t
 manyThen stopAfter l = manyUntil stopAfter l <+> stopAfter
 
 --------------------------------------------------------------------------------
@@ -193,20 +207,25 @@ manyThen stopAfter l = manyUntil stopAfter l <+> stopAfter
 --------------------------------------------------------------------------------
 
 export
-stringHelper : SnocList Char -> Recognise False
-stringHelper sc ('"' :: xs)         = Res (sc :< '"') xs %search
-stringHelper sc ('\\' :: '"' :: xs) =
-  stringHelper (sc :< '\\' :< '"') xs ~?> cons1 ~?> cons1
-stringHelper sc (x :: xs)           = stringHelper (sc :< x) xs ~?> cons1
-stringHelper sc []                  = Stop
+stringShifter : Shifter False Char
+stringShifter sc ('"'       :: xs) = Res (sc :< '"') xs %search
+stringShifter sc ('\\' :: x :: xs) = stringShifter (sc :< '\\' :< x) xs ~?> sh2
+stringShifter sc (x         :: xs) = stringShifter (sc :< x) xs ~?> sh1
+stringShifter sc []                = Stop
 
 export
 stringLit : Lexer
-stringLit ('"' :: cs) = stringHelper [<'"'] cs ~> cons1
-stringLit _           = Stop
+stringLit = Lift $ \sc,cs => case cs of
+  '"' :: t => stringShifter (sc :< '"') t ~> sh1
+  _        => Stop
 
 ||| Recognise an integer literal (possibly with a '-' prefix)
 ||| /-?[0-9]+/
-export
+export %inline
 intLit : Lexer
-intLit = opt (is '-') <+> digits
+intLit = Lift intLit
+
+||| Recognise an integer literal (possibly with a '+' or '-' prefix)
+export %inline
+intLitPlus : Lexer
+intLitPlus = Lift intLitPlus

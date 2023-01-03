@@ -53,7 +53,7 @@ toLexRes :
   -> (SnocList (PWithBounds a), (Nat,Nat,List Char))
 toLexRes (bs, (l,c,s)) =
   (Lin <>< map toWithBounds bs, (cast l, cast c, unpack s))
-     
+
 export
 testTokenLex :
      Monad m
@@ -67,7 +67,7 @@ testTokenLex s pmap imap =
   let res1 := Text.Lex.Core.lex pmap s
       res2 := Libraries.Text.Lexer.Core.lex imap s
    in res1 === toLexRes res2
-     
+
 export %inline
 testLex :
      Monad m

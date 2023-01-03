@@ -3,13 +3,10 @@ version = 0.1.0
 authors = "stefan-hoeck"
 sourcedir = "src"
 depends   = elab-util
-modules = Data.List.Suffix
+modules = Data.List.Shift
+        , Data.List.Suffix
 
         , Text.Lex
         , Text.Lex.Bounded
         , Text.Lex.Core
         , Text.Lex.Util
-
-        , Text.Lex2
-        , Text.Lex2.Core
-        , Text.Lex2.Util

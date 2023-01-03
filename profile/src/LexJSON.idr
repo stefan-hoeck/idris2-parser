@@ -22,17 +22,20 @@ data Token : Type where
 
 %runElab derive "Token" [Show,Eq]
 
-exp : Lexer
-exp = like 'e' <+> opt (oneOf "+-") <+> digits
+exp : Shifter True Char
+exp sc ('e' :: t) = intLitPlus (sc :< 'e') t ~> sh1
+exp sc ('E' :: t) = intLitPlus (sc :< 'E') t ~> sh1
+exp sc _          = Stop
 
-dec : Lexer
-dec = is '.' <+> digits
+dec : Shifter True Char
+dec sc ('.' :: t) = digits (sc :< '.') t ~> sh1
+dec _  _          = Stop
 
 rest : Lexer
-rest = exp <|> (dec <+> opt exp)
+rest = Lift exp <|> (Lift dec <+> opt (Lift exp))
 
 num : Lexer
-num = opt (oneOf "+-") <+> digits <+> (opt rest)
+num = intLitPlus <+> opt rest
 
 export
 json : TokenMap Token

@@ -1,6 +1,6 @@
 module Text.Lex.Idris2.Common
 
-import public Text.Lex2
+import public Text.Lex
 
 %hide Prelude.(<+>)
 %default total

@@ -1,13 +1,11 @@
 module Main
 
-import Lex2JSON
 import LexJSON
 import JSON.Lexer
 import Data.List
 import Data.List1
 import Data.String
 import Profile
-import Text.Lex2
 import Text.Lex
 import Libraries.Text.Lexer
 import System
@@ -18,17 +16,10 @@ import System
 
 export %inline
 plex :
-     Text.Lex2.Core.Lexer
-  -> String
-  -> (SnocList (Text.Lex.Bounded.WithBounds String), (Nat,Nat,List Char))
-plex l = lex [(l, pack . (<>> []))]
-
-export %inline
-slex :
      Text.Lex.Core.Lexer
   -> String
   -> (SnocList (Text.Lex.Bounded.WithBounds String), (Nat,Nat,List Char))
-slex l = lex [(l, pack . (<>> []))]
+plex l = lex [(l, pack . (<>> []))]
 
 export %inline
 ilex :
@@ -41,11 +32,8 @@ ilex l = lex [(l, id)]
 --          Lexers
 --------------------------------------------------------------------------------
 
-helloP : Text.Lex2.Core.Lexer
+helloP : Text.Lex.Core.Lexer
 helloP = exact "hello world"
-
-helloS : Text.Lex.Core.Lexer
-helloS = exact "hello world"
 
 helloI : Libraries.Text.Lexer.Core.Lexer
 helloI = exact "hello world"
@@ -81,62 +69,46 @@ bench : Benchmark Void
 bench = Group "lexer" [
    Group "digits" [
        Single "parser_1"   (basic (plex digits) $ digs 1)
-     , Single "sparser_1"  (basic (slex digits) $ digs 1)
      , Single "idris2_1"   (basic (ilex digits) $ digs 1)
      , Single "parser_10"   (basic (plex digits) $ digs 10)
-     , Single "sparser_10"  (basic (slex digits) $ digs 10)
      , Single "idris2_10"   (basic (ilex digits) $ digs 10)
      , Single "parser_100"   (basic (plex digits) $ digs 100)
-     , Single "sparser_100"  (basic (slex digits) $ digs 100)
      , Single "idris2_100"   (basic (ilex digits) $ digs 100)
      ]
  , Group "exact" [
        Single "parser_1"  (basic (plex helloP)  $ hello 1)
-     , Single "sparser_1"  (basic (slex helloS)  $ hello 1)
      , Single "idris2_1"  (basic (ilex helloI)  $ hello 1)
      , Single "parser_10"  (basic (plex helloP)  $ hello 10)
-     , Single "sparser_10"  (basic (slex helloS)  $ hello 10)
      , Single "idris2_10"  (basic (ilex helloI)  $ hello 10)
      , Single "parser_100"  (basic (plex helloP)  $ hello 100)
-     , Single "sparser_100"  (basic (slex helloS)  $ hello 100)
      , Single "idris2_100"  (basic (ilex helloI)  $ hello 100)
      ]
  , Group "newline" [
        Single "parser_1"   (basic (plex $ some newline) $ nls 1)
-     , Single "sparser_1"   (basic (slex $ some newline) $ nls 1)
      , Single "idris2_1"   (basic (ilex $ some newline) $ nls 1)
      , Single "parser_10"   (basic (plex $ some newline) $ nls 10)
-     , Single "sparser_10"   (basic (slex $ some newline) $ nls 10)
      , Single "idris2_10"   (basic (ilex $ some newline) $ nls 10)
      , Single "parser_100"   (basic (plex $ some newline) $ nls 100)
-     , Single "sparser_100"   (basic (slex $ some newline) $ nls 100)
      , Single "idris2_100"   (basic (ilex $ some newline) $ nls 100)
      ]
  , Group "line comment" [
        Single "parser_1"   (basic (plex $ lineComment (exact "--")) $ line 1)
-     , Single "sparser_1"   (basic (slex $ lineComment (exact "--")) $ line 1)
      , Single "idris2_1"   (basic (ilex $ lineComment (exact "--")) $ line 1)
      , Single "parser_10"   (basic (plex $ lineComment (exact "--")) $ line 10)
-     , Single "sparser_10"   (basic (slex $ lineComment (exact "--")) $ line 10)
      , Single "idris2_10"   (basic (ilex $ lineComment (exact "--")) $ line 10)
      , Single "parser_100"   (basic (plex $ lineComment (exact "--")) $ line 100)
-     , Single "sparser_100"   (basic (slex $ lineComment (exact "--")) $ line 100)
      , Single "idris2_100"   (basic (ilex $ lineComment (exact "--")) $ line 100)
      ]
  , Group "stringLit" [
        Single "parser_1"   (basic (plex $ stringLit) $ line 1)
-     , Single "sparser_1"   (basic (slex $ stringLit) $ line 1)
      , Single "idris2_1"   (basic (ilex $ stringLit) $ line 1)
      , Single "parser_10"   (basic (plex $ stringLit) $ line 10)
-     , Single "sparser_10"   (basic (slex $ stringLit) $ line 10)
      , Single "idris2_10"   (basic (ilex $ stringLit) $ line 10)
      , Single "parser_100"   (basic (plex $ stringLit) $ line 100)
-     , Single "sparser_100"   (basic (slex $ stringLit) $ line 100)
      , Single "idris2_100"   (basic (ilex $ stringLit) $ line 100)
      ]
  , Group "json" [
        Single "parser" (basic (Lex.Core.lex json) jsonStr)
-     , Single "sparser" (basic (Lex2.Core.lex json) jsonStr)
      , Single "json"   (basic lexJSON jsonStr)
      ]
   ]

@@ -58,6 +58,12 @@ public export %inline
 cons1 : StrictSuffix as (a :: as)
 cons1 = Cons Same
 
+||| The empty list is a suffix of any list.
+export
+nil : (as : List a) -> Suffix [] as
+nil []        = Same
+nil (x :: xs) = Cons $ nil xs
+
 ||| We can always set the strictness to `False`.
 export
 weaken : Suffix_ b as bs -> Suffix as bs

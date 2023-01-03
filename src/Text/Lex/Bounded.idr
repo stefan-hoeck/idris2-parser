@@ -64,7 +64,7 @@ namespace WithBounds
   public export %inline
   start : WithBounds ty -> Maybe (Nat, Nat)
   start = map start . bounds
-  
+
   public export %inline
   end : WithBounds ty -> Maybe (Nat, Nat)
   end = map end . bounds

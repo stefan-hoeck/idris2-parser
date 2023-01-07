@@ -2,23 +2,126 @@ module Text.Lex.Util
 
 import Text.Lex.Core
 
+--------------------------------------------------------------------------------
+--          Utility Functions
+--------------------------------------------------------------------------------
+
+||| Returns true if the character is a space (`' '`) character.
+public export %inline
+isSpaceChar : Char -> Bool
+isSpaceChar ' ' = True
+isSpaceChar _   = False
+
+||| Returns true if the character is a line feed (`'\n'`) character.
+public export %inline
+isLineFeed : Char -> Bool
+isLineFeed '\n' = True
+isLineFeed _    = False
+
+public export
+isBinDigit : Char -> Bool
+isBinDigit '0' = True
+isBinDigit '1' = True
+isBinDigit _   = False
+
+--------------------------------------------------------------------------------
+--          (Snoc)List Utilities
+--------------------------------------------------------------------------------
+
 public export %inline
 pack : SnocList Char -> String
 pack = pack . (<>> [])
 
-||| Returns true if the character is a whitespace character.
-|||
-||| This a better-performing alternative to `isSpace` from the Prelude.
 public export
-isWhitespace : Char -> Bool
-isWhitespace ' '    = True
-isWhitespace '\t'   = True
-isWhitespace '\n'   = True
-isWhitespace '\r'   = True
-isWhitespace '\f'   = True
-isWhitespace '\v'   = True
-isWhitespace '\xa0' = True
-isWhitespace _      = False
+stripQuotes : SnocList Char -> String
+stripQuotes (sx :< _) = case sx <>> [] of
+  _ :: t => pack t
+  _      => ""
+stripQuotes [<]       = ""
+
+namespace List
+  export
+  ltrim : List Char -> List Char
+  ltrim (c :: cs) = if isSpace c then ltrim cs else (c :: cs)
+  ltrim []        = []
+  
+  export
+  countHashtag : List Char -> Nat
+  countHashtag ('#' :: t) = S $ countHashtag t
+  countHashtag _          = 0
+
+namespace SnocList
+  export
+  rtrim : SnocList Char -> SnocList Char
+  rtrim (sc :< c) = if isSpace c then rtrim sc else (sc :< c)
+  rtrim [<]       = [<]
+
+  export
+  dropHead : Nat -> SnocList Char -> List Char
+  dropHead n = drop n . (<>> [])
+  
+  export
+  countHashtag : SnocList Char -> Nat
+  countHashtag = countHashtag . (<>> [])
+
+--------------------------------------------------------------------------------
+--          Conversion Functions
+--------------------------------------------------------------------------------
+
+||| Converts a binary digit to an integer. This assumes, that the
+||| digit has already been lexed correctly.
+public export
+fromBinDigit : Char -> Integer
+fromBinDigit '0' = 0
+fromBinDigit _   = 1
+
+||| Converts an octal digit to an integer. This assumes, that the
+||| digit has already been lexed correctly.
+public export
+fromOctDigit : Char -> Integer
+fromOctDigit '0' = 0
+fromOctDigit '1' = 1
+fromOctDigit '2' = 2
+fromOctDigit '3' = 3
+fromOctDigit '4' = 4
+fromOctDigit '5' = 5
+fromOctDigit '6' = 6
+fromOctDigit _   = 7
+
+||| Converts an decimal digit to an integer. This assumes, that the
+||| digit has already been lexed correctly.
+public export
+fromDigit : Char -> Integer
+fromDigit '8' = 8
+fromDigit '9' = 9
+fromDigit c   = fromOctDigit c
+
+||| Converts an hexadecimal digit to an integer. This assumes, that the
+||| digit has already been lexed correctly.
+public export
+fromHexDigit : Char -> Integer
+fromHexDigit '0' = 0
+fromHexDigit '1' = 1
+fromHexDigit '2' = 2
+fromHexDigit '3' = 3
+fromHexDigit '4' = 4
+fromHexDigit '5' = 5
+fromHexDigit '6' = 6
+fromHexDigit '7' = 7
+fromHexDigit '8' = 8
+fromHexDigit '9' = 9
+fromHexDigit 'a' = 10
+fromHexDigit 'b' = 11
+fromHexDigit 'c' = 12
+fromHexDigit 'd' = 13
+fromHexDigit 'e' = 14
+fromHexDigit 'f' = 15
+fromHexDigit 'A' = 10
+fromHexDigit 'B' = 11
+fromHexDigit 'C' = 12
+fromHexDigit 'D' = 13
+fromHexDigit 'E' = 14
+fromHexDigit _   = 15
 
 --------------------------------------------------------------------------------
 --          Shifters
@@ -31,25 +134,35 @@ namespace Shifter
 
   public export
   intLit : Shifter True Char
-  intLit sc ('-' :: t) = digits (sc :< '-') t ~> sh1
+  intLit sc ('-' :: t) = digits _ t ~> sh1
   intLit sc xs         = digits sc xs
 
   public export
   intLitPlus : Shifter True Char
-  intLitPlus sc ('+' :: t) = digits (sc :< '+') t ~> sh1
+  intLitPlus sc ('+' :: t) = digits _ t ~> sh1
   intLitPlus sc xs         = intLit sc xs
 
   export
   exactPrefix : Eq t => List t -> Shifter True t
   exactPrefix (f :: []) sc (h :: t) =
-    if f == h then Res (sc :< h) t %search else Stop
+    if f == h then Res _ t sh1 else Stop
   exactPrefix (f :: fs) sc (h :: t) =
-    if f == h then exactPrefix fs (sc :< h) t ~> sh1 else Stop
+    if f == h then exactPrefix fs _ t ~> sh1 else Stop
   exactPrefix _ _ _ = Stop
 
 --------------------------------------------------------------------------------
 --          Single-Character Lexers
 --------------------------------------------------------------------------------
+
+export
+any : Recognise True t
+any = pred (const True)
+
+||| Recognise any character if the sub-lexer `l` fails.
+||| /(?!`l`)./
+export
+non : (l : Lexer) -> Lexer
+non l = reject l <+> any
 
 ||| Recognise a specific item.
 ||| /[`x`]/
@@ -66,7 +179,7 @@ isNot x = pred (/=x)
 ||| Recognise a single whitespace character.
 export
 space : Lexer
-space = pred isWhitespace
+space = pred isSpace
 
 ||| Recognise a single digit.
 export
@@ -125,6 +238,30 @@ export
 digits : Lexer
 digits = preds isDigit
 
+||| Recognise a single non-whitespace, non-alphanumeric character
+||| /[\^\\sA-Za-z0-9]/
+export
+symbol : Lexer
+symbol = pred (\x => not (isSpace x || isAlphaNum x))
+
+||| Recognise one or more non-whitespace, non-alphanumeric characters
+||| /[\^\\sA-Za-z0-9]+/
+export
+symbols : Lexer
+symbols = some symbol
+
+||| Recognise a single control character
+||| /[\\x00-\\x1f\\x7f-\\x9f]/
+export
+control : Lexer
+control = pred isControl
+
+||| Recognise one or more control characters
+||| /[\\x00-\\x1f\\x7f-\\x9f]+/
+export
+controls : Lexer
+controls = some control
+
 ||| Recognises a non-empty sequence of the given items
 export %inline
 someOf : Eq t => List t -> Recognise True t
@@ -139,18 +276,23 @@ ranges start end =
       e := max start end
    in preds (\x => x >= s && x <= e)
 
-||| Recognise a single whitespace character.
+||| Recognise a non-empty sequence of whitespace characters.
 export
 spaces : Lexer
-spaces = preds isWhitespace
+spaces = preds isSpace
+
+||| Recognise a non-empty sequence of space characters.
+export
+spaceChars : Lexer
+spaceChars = preds isSpaceChar
 
 ||| Recognise a single newline character sequence
 export
 newline : Lexer
 newline = Lift $ \sc,cs => case cs of
-  '\r' :: '\n' :: t => Res (sc :< '\r' :< '\n') t %search
-  '\n' ::         t => Res (sc :< '\n') t %search
-  '\r' ::         t => Res (sc :< '\r') t %search
+  '\r' :: '\n' :: t => Res _ t sh2
+  '\n' ::         t => Res _ t sh1
+  '\r' ::         t => Res _ t sh1
   _                 => Stop
 
 ||| Reads characters until the next newline character is
@@ -202,21 +344,42 @@ export
 manyThen : (stopAfter : Recognise c t) -> (l : Recognise True t) -> Recognise c t
 manyThen stopAfter l = manyUntil stopAfter l <+> stopAfter
 
+||| Recognise zero or more occurrences of a sub-lexer between
+||| delimiting lexers
+||| /`start`(`l`)\*?`end`/
+export
+surround : (start : Lexer) -> (end : Lexer) -> (l : Lexer) -> Lexer
+surround start end l = start <+> manyThen end l
+
+||| Recognise zero or more occurrences of a sub-lexer surrounded
+||| by the same quote lexer on both sides (useful for strings)
+||| /`q`(`l`)\*?`q`/
+export
+quote : (q : Lexer) -> (l : Lexer) -> Lexer
+quote q l = surround q q l
+
+||| Recognise an escape sub-lexer (often '\\') followed by
+||| another sub-lexer
+||| /[`esc`]`l`/
+export
+escape : (esc : Lexer) -> Lexer -> Lexer
+escape esc l = esc <+> l
+
 --------------------------------------------------------------------------------
 --          Literals
 --------------------------------------------------------------------------------
 
 export
 stringShifter : Shifter False Char
-stringShifter sc ('"'       :: xs) = Res (sc :< '"') xs %search
-stringShifter sc ('\\' :: x :: xs) = stringShifter (sc :< '\\' :< x) xs ~?> sh2
-stringShifter sc (x         :: xs) = stringShifter (sc :< x) xs ~?> sh1
+stringShifter sc ('"'       :: xs) = Res _ xs (weaken sh1)
+stringShifter sc ('\\' :: x :: xs) = stringShifter _ xs ~?> sh2
+stringShifter sc (x         :: xs) = stringShifter _ xs ~?> sh1
 stringShifter sc []                = Stop
 
 export
 stringLit : Lexer
 stringLit = Lift $ \sc,cs => case cs of
-  '"' :: t => stringShifter (sc :< '"') t ~> sh1
+  '"' :: t => stringShifter _ t ~> sh1
   _        => Stop
 
 ||| Recognise an integer literal (possibly with a '-' prefix)
@@ -229,3 +392,79 @@ intLit = Lift intLit
 export %inline
 intLitPlus : Lexer
 intLitPlus = Lift intLitPlus
+
+export %inline
+binDigits : Lexer
+binDigits = preds isBinDigit
+
+export %inline
+hexDigits : Lexer
+hexDigits = preds isHexDigit
+
+export %inline
+octDigits : Lexer
+octDigits = preds isOctDigit
+
+||| Recognise a binary literal, prefixed by "0b"
+||| /0b[0-1]+/
+export
+binLit : Lexer
+binLit = exact "0b" <+> binDigits
+
+||| Recognise a hexidecimal literal, prefixed by "0x" or "0X"
+||| /0[Xx][0-9A-Fa-f]+/
+export
+hexLit : Lexer
+hexLit = approx "0x" <+> hexDigits
+
+||| Recognise an octal literal, prefixed by "0o"
+||| /0o[0-9A-Fa-f]+/
+export
+octLit : Lexer
+octLit = exact "0o" <+> preds isOctDigit
+
+||| Recognise a decimal integer literal with optional undescores for
+||| improved readability.
+export
+digitsUnderscoredLit : Lexer
+digitsUnderscoredLit = digits <+> many (is '_' <+> digits)
+
+||| Recognise a binary literal with optional undescores for
+||| improved readability.
+export
+binUnderscoredLit : Lexer
+binUnderscoredLit = binLit <+> many (is '_' <+> binDigits)
+
+||| Recognise a hexadecimal literal with optional undescores for
+||| improved readability.
+export
+hexUnderscoredLit : Lexer
+hexUnderscoredLit = hexLit <+> many (is '_' <+> hexDigits)
+
+||| Recognise an octal literal with optional undescores for
+||| improved readability.
+export
+octUnderscoredLit : Lexer
+octUnderscoredLit = octLit <+> many (is '_' <+> octDigits)
+
+||| Recognise a character literal, including escaped characters.
+||| (Note: doesn't yet handle escape sequences such as \123)
+||| /'(\\\\.|[\^'])'/
+export
+charLit : Lexer
+charLit = let q = '\'' in
+              is q <+> (escape (is '\\') (control <|> any) <|> isNot q) <+> is q
+  where
+    lexStr : List String -> Lexer
+    lexStr [] = stop
+    lexStr (t :: ts) = exact t <|> lexStr ts
+
+    control : Lexer
+    control = lexStr ["NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",
+                      "BS",  "HT",  "LF",  "VT",  "FF",  "CR",  "SO",  "SI",
+                      "DLE", "DC1", "DC2", "DC3", "DC4", "NAK", "SYN", "ETB",
+                      "CAN", "EM",  "SUB", "ESC", "FS",  "GS",  "RS",  "US",
+                      "SP",  "DEL"]
+                <|> (is 'x' <+> hexDigits)
+                <|> (is 'o' <+> octDigits)
+                <|> digits

@@ -43,17 +43,49 @@ export %inline
 sh : Shift b sa (h :: t) sx xs -> Shift True (sa :< h) t sx xs
 sh = SH
 
+public export
+0 SHL : List t -> SnocList t -> List t -> Type 
+SHL ts sa as = Shift (isCons ts) (sa <>< ts) as sa (ts ++ as)
+
 export %inline
-sh1 : Shift True (sa :< x) t sa (x :: t)
+sh1 : SHL [x] st ts
 sh1 = SH Same
 
 export %inline
-sh2 : Shift True (sa :< x :< y) t sa (x :: y :: t)
+sh2 : SHL [x,y] st ts 
 sh2 = SH sh1
 
 export %inline
-sh3 : Shift True (sa :< x :< y :< z) t sa (x :: y :: z :: t)
+sh3 : SHL [x,y,z] st ts
 sh3 = SH sh2
+
+export %inline
+sh4 : SHL [w,x,y,z] st ts
+sh4 = SH sh3
+
+export %inline
+sh5 : SHL [v,w,x,y,z] st ts
+sh5 = SH sh4
+
+export %inline
+sh6 : SHL [u,v,w,x,y,z] st ts
+sh6 = SH sh5
+
+export %inline
+sh7 : SHL [t,u,v,w,x,y,z] st ts
+sh7 = SH sh6
+
+export %inline
+sh8 : SHL [s,t,u,v,w,x,y,z] st ts
+sh8 = SH sh7
+
+export %inline
+sh9 : SHL [r,s,t,u,v,w,x,y,z] st ts
+sh9 = SH sh8
+
+export %inline
+sh10 : SHL [q,r,s,t,u,v,w,x,y,z] st ts
+sh10 = SH sh9
 
 export
 weaken : Shift b sa as sx xs -> Shift False sa as sx xs

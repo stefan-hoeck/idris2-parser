@@ -9,6 +9,7 @@ module Text.Lex.Core
 
 import Data.Bool
 import public Data.List
+import public Data.Vect
 import public Data.List.Shift
 import public Data.List.Suffix
 import public Data.SnocList
@@ -97,22 +98,21 @@ same st ts = Res st ts Same
 ||| A shifter that moves exactly one value
 public export
 head : Shifter True t
-head st (x :: xs) = Res (st :< x) xs %search
+head st (x :: xs) = Res _ xs sh1
 head _  []        = Stop
 
 ||| A shifter that moves exactly one value, if
 ||| it fulfills the given predicate.
 public export
 one : (t -> Bool) -> Shifter True t
-one f st (x :: xs) =
-  if f x then Res (st :< x) xs %search else Stop
+one f st (x :: xs) = if f x then Res _ xs sh1 else Stop
 one _ _  []        = Stop
 
 ||| A shifter that moves exactly `n` values.
 public export
 take : (n : Nat) -> Shifter (isSucc n) t
 take 0     st ts        = Res st ts Same
-take (S k) st (x :: xs) = take k (st :< x) xs ~> sh1
+take (S k) st (x :: xs) = take k _ xs ~> sh1
 take (S k) st []        = Stop
 
 ||| A shifter that moves items while the give predicate returns
@@ -120,14 +120,14 @@ take (S k) st []        = Stop
 public export
 takeWhile : (t -> Bool) -> Shifter False t
 takeWhile f st (x :: xs) =
-  if f x then takeWhile f (st :< x) xs ~?> sh1 else Res st (x :: xs) Same
+  if f x then takeWhile f _ xs ~?> sh1 else Res st (x :: xs) Same
 takeWhile f st []        = Res st [] Same
 
 ||| A strict version of `takeWhile`, which moves at least one item.
 public export
 takeWhile1 : (t -> Bool) -> Shifter True t
 takeWhile1 f st (x :: xs) =
-  if f x then takeWhile f (st :< x) xs ~> sh1 else Stop
+  if f x then takeWhile f _ xs ~> sh1 else Stop
 takeWhile1 f st []        = Stop
 
 ||| A shifter that moves items while the give predicate returns
@@ -135,14 +135,13 @@ takeWhile1 f st []        = Stop
 public export
 takeUntil : (t -> Bool) -> Shifter False t
 takeUntil f st (x :: xs) =
-  if f x then Res st (x :: xs) Same else takeUntil f (st :< x) xs ~?> sh1
+  if f x then Res _ _ Same else takeUntil f _ xs ~?> sh1
 takeUntil f st []        = Res st [] Same
 
 ||| A strict version of `takeUntil`, which moves at least one item.
 public export
 takeUntil1 : (t -> Bool) -> Shifter True t
-takeUntil1 f st (x :: xs) =
-  if f x then Stop else takeUntil f (st :< x) xs ~> sh1
+takeUntil1 f st (x :: xs) = if f x then Stop else takeUntil f _ xs ~> sh1
 takeUntil1 f st []        = Stop
 
 namespace Shifter
@@ -215,6 +214,10 @@ export %inline
 seqSame : Recognise b t -> Recognise b t -> Recognise b t
 seqSame x y = rewrite sym (orSameNeutral b) in x <+> y
 
+export %inline
+altSame : Recognise b t -> Recognise b t -> Recognise b t
+altSame x y = rewrite sym (andSameNeutral b) in x <|> y
+
 ||| The lexer which always fails.
 export
 stop : Recognise True t
@@ -271,6 +274,14 @@ concatMap :
   -> Recognise c t
 concatMap f (x :: [])          = f x
 concatMap f (x :: xs@(_ :: _)) = seqSame (f x) (concatMap f xs)
+
+export
+choiceMap : Foldable t => (a -> Recognise c b) -> t a -> Recognise c b
+choiceMap f = foldl (\v,e => altSame v $ f e) (Lift $ \_,_ => Stop)
+
+export %inline
+choice : Foldable t => t (Recognise c b) -> Recognise c b
+choice = choiceMap id
 
 --------------------------------------------------------------------------------
 --          Lex

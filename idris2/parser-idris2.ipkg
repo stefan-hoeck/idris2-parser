@@ -9,3 +9,4 @@ modules = Core.Name.Namespace.Extra
 
         , Text.Lex.Idris2.Common
         , Text.Lex.Idris2.Package
+        , Text.Lex.Idris2.Source

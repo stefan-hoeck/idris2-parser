@@ -1,9 +1,11 @@
 module Text.Lex.Idris2.Common
 
+import Derive.Prelude
 import public Text.Lex
 
 %hide Prelude.(<+>)
 %default total
+%language ElabReflection
 
 ||| In `comment` we are careful not to parse closing delimiters as
 ||| valid comments. i.e. you may not write many dashes followed by
@@ -14,6 +16,8 @@ comment = linefeedComment $ is '-' <+> preds (== '-') <+> reject (is '}')
 
 public export
 data Flavour = AllowDashes | Capitalised | Normal
+
+%runElab derive "Flavour" [Show,Eq,Ord]
 
 isIdentStart : Flavour -> Char -> Bool
 isIdentStart _           '_' = True

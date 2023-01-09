@@ -55,12 +55,6 @@ eqop = is '=' <+> is '='
 andop : Lexer
 andop = is '&' <+> is '&'
 
-stripQuotes : SnocList Char -> String
-stripQuotes (sx :< _) = case sx <>> [] of
-  _ :: t => pack t
-  _      => ""
-stripQuotes [<]       = ""
-
 rawTokens : TokenMap Token
 rawTokens =
   [ (comment, \sc => Comment $ pack . drop 2 $ sc <>> [])

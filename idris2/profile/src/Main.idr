@@ -18,7 +18,7 @@ import Text.Lex.Idris2.Package
 
 export %inline
 plex :
-     Text.Lex2.Core.Lexer
+     Text.Lex.Core.Lexer
   -> String
   -> (SnocList (Text.Lex.Bounded.WithBounds String), (Nat,Nat,List Char))
 plex l = lex [(l, pack . (<>> []))]
@@ -102,10 +102,8 @@ bench = Group "lexer" [
      ]
   , Group "spaces" [
        Single "parser_1"   (basic (plex spaces) $ spaces 1)
-     , Single "parser_isSpace_1"   (basic (plex $ preds isSpace) $ spaces 1)
      , Single "idris2_1"   (basic (ilex spacesOrNewlines) $ spaces 1)
      , Single "parser_10"  (basic (plex spaces) $ spaces 10)
-     , Single "parser_isSpace_10"  (basic (plex $ preds isSpace) $ spaces 10)
      , Single "idris2_10"  (basic (ilex spacesOrNewlines) $ spaces 10)
      ]
   , Group "package" [

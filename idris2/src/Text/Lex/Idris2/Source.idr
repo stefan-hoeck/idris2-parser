@@ -27,6 +27,10 @@ data DebugInfo =
   | DebugLine
   | DebugCol
 
+public export
+debugInfos : List DebugInfo
+debugInfos = [DebugLoc, DebugFile, DebugLine, DebugCol]
+
 %runElab derive "DebugInfo" [Show, Eq]
 
 export
@@ -194,10 +198,6 @@ keywords = ["data", "module", "where", "let", "in", "do", "record",
             "infixl", "infixr", "infix", "prefix",
             "total", "partial", "covering"]
 
-public export
-debugInfo : List DebugInfo
-debugInfo = [ DebugLoc, DebugFile, DebugLine, DebugCol ]
-
 -- Reserved words for internal syntax
 special : List String
 special = ["%lam", "%pi", "%imppi", "%let"]
@@ -300,13 +300,13 @@ rawTokens =
   <|> Match docComment (DocComment . pack . ltrim . dropHead 3)
   <|> Match cgDirective mkDirective
   <|> Match holeIdent (HoleIdent . pack . dropHead 1)
+  <|> Match (choice $ map (exact . interpolate) debugInfos) (parseIdent . pack)
   <|> Compose (choice $ exact <$> groupSymbols)
               (Symbol . pack)
               id
               (\_ => rawTokens)
               (exact . groupClose . pack)
               (Symbol . pack)
-  <|> choiceMap (\d => Match (exact "\{d}") (const $ MagicDebugInfo d)) debugInfo
   <|> Match (choice $ exact <$> symbols) (Symbol . pack)
   <|> Match doubleLit (DoubleLit . cast . pack)
   <|> Match binUnderscoredLit (IntegerLit . fromBinLit)
@@ -335,6 +335,10 @@ rawTokens =
   <|> Match symbol (Unrecognised . pack)
   where
     parseIdent : String -> Token
+    parseIdent "__LOC__"  = MagicDebugInfo DebugLoc
+    parseIdent "__FILE__" = MagicDebugInfo DebugFile
+    parseIdent "__LINE__" = MagicDebugInfo DebugLine
+    parseIdent "__COL__"  = MagicDebugInfo DebugCol
     parseIdent x = if x `elem` keywords then Keyword x else Ident x
 
     parseNamespace : SnocList Char -> Token

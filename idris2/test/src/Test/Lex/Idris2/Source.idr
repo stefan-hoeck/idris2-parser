@@ -3,6 +3,7 @@ module Test.Lex.Idris2.Source
 import Parser.Lexer.Source
 import Libraries.Text.Lexer.Tokenizer
 import Text.Lex.Idris2.Source
+import Test.Lex.Idris2.Gen
 import Test.Lex.Util
 
 %default total
@@ -74,22 +75,51 @@ toRes (Right (bs,cs)) =
 --          Generators
 --------------------------------------------------------------------------------
 
-nonControl : Gen Char
-nonControl = adj <$> latin
-  where
-    adj : Char -> Char
-    adj c = if isControl c then ' ' else c
-
-comment : Gen String
-comment = (\s => "--" ++ pack s ++ "\n") <$> list (linear 0 20)  nonControl
+testLex : Monad m => String -> TestT m ()
+testLex str =
+  Lex.Idris2.Source.lex str === toRes (Lexer.Source.lex str)
 
 prop_comment : Property
-prop_comment = property $ do
-  str <- forAll comment
-  Lex.Idris2.Source.lex str === toRes (Lexer.Source.lex str)
+prop_comment = property $ forAll comment >>= testLex
+
+prop_keyword : Property
+prop_keyword = property $ forAll sourceKeyword >>= testLex
+
+prop_debugInfo : Property
+prop_debugInfo = property $ forAll debugInfo >>= testLex
+
+prop_docComment : Property
+prop_docComment = property $ forAll docComment >>= testLex
+
+prop_blockComment : Property
+prop_blockComment = property $ forAll blockComment >>= testLex
+
+prop_cgDirective : Property
+prop_cgDirective = property $ forAll cgDirective >>= testLex
+
+prop_hole : Property
+prop_hole = property $ forAll hole >>= testLex
+
+prop_dotIdent : Property
+prop_dotIdent = property $ forAll dotIdent >>= testLex
+
+prop_pragma : Property
+prop_pragma = property $ forAll pragma >>= testLex
+
+prop_source : Property
+prop_source = withTests 1 $ property $ testLex src
 
 export
 props : Group
 props = MkGroup "Lex.Idris2.Package" [
     ("prop_comment", prop_comment)
+  , ("prop_keyword", prop_keyword)
+  , ("prop_debugInfo", prop_debugInfo)
+  , ("prop_docComment", prop_docComment)
+  , ("prop_blockComment", prop_blockComment)
+  , ("prop_cgDirective", prop_cgDirective)
+  , ("prop_hole", prop_hole)
+  , ("prop_dotIdent", prop_dotIdent)
+  , ("prop_pragma", prop_pragma)
+  , ("prop_source", prop_source)
   ]

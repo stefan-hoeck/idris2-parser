@@ -3,6 +3,7 @@ module Data.List.Shift
 import Data.Bool
 import Data.List
 import Data.List.Suffix
+import Data.List.Tail
 import Text.Lex.Bounded
 
 %default total
@@ -93,9 +94,17 @@ weaken Same   = Same
 weaken (SH x) = SH x
 
 export
+tail : Shift b sa as sx xs -> Tail b as xs
+tail Same   = Same
+tail (SH x) = Uncons $ tail x
+
+export
 suffix : Shift b sa as sx xs -> Suffix b as xs
-suffix Same   = Same
-suffix (SH x) = weakenS $ consLeft $ suffix x
+suffix s = suffix $ tail s
+
+export %inline
+shiftToNat : Shift b sa as sx xs -> Nat
+shiftToNat s = tailToNat $ tail s
 
 export
 and1 : {b1,b2 : Bool} -> Shift b1 sa as sx xs -> Shift (b1 && b2) sa as sx xs

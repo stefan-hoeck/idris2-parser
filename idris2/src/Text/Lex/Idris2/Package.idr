@@ -57,9 +57,9 @@ andop = is '&' <+> is '&'
 
 rawTokens : TokenMap Token
 rawTokens =
-  [ (comment, \sc => Comment $ pack . drop 2 $ sc <>> [])
+  [ (comment, Comment . pack . drop 2 . (<>> []))
   , (namespacedIdent, uncurry DotSepIdent . mkNamespacedIdent)
-  , (identAllowDashes, DotSepIdent Nothing . pack . (<>> []))
+  , (identAllowDashes, DotSepIdent Nothing . pack)
   , (separator, const Separator)
   , (dot, const Dot)
   , (lte, const LTE)

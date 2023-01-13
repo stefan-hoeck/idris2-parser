@@ -12,6 +12,7 @@ import public Data.List
 import public Data.Vect
 import public Data.List.Shift
 import public Data.List.Suffix
+import public Data.List.Tail
 import public Data.SnocList
 import public Text.Lex.Bounded
 
@@ -156,7 +157,6 @@ namespace Shifter
   public export
   stop : Shifter True t
   stop _ _ = Stop
-
 
 --------------------------------------------------------------------------------
 --          Recognise
@@ -326,36 +326,7 @@ step l c x f cs = case run x [<] cs of
      in Just $ ST l2 c2 (MkBounded (f sc) bnds) cs2 (suffix p)
   Stop         => Nothing
 
+export
 first : (l, c : Nat) -> TokenMap a -> (cs : List Char) -> Maybe (Step a cs)
 first l c ((f,g) :: ps) cs = step l c f g cs <|> first l c ps cs
 first _ _ []            _  = Nothing
-
-tokenise :
-     (a -> Bool)
-  -> (line, col : Nat)
-  -> SnocList (WithBounds a)
-  -> TokenMap a
-  -> (cs    : List Char)
-  -> (0 acc : SuffixAcc cs)
-  -> (SnocList (WithBounds a), (Nat, Nat, List Char))
-tokenise f l c sx xs cs (Access rec) = case first l c xs cs of
-  Just (ST l2 c2 res rem p) => case f res.val of
-    False => tokenise f l2 c2 (sx :< res) xs rem (rec rem p)
-    True  => (sx, (l,c,[]))
-  Nothing => (sx, (l,c,cs))
-
-export
-lexTo :
-     (a -> Bool)
-  -> TokenMap a
-  -> String
-  -> (SnocList (WithBounds a), (Nat, Nat , List Char))
-lexTo f ts s = tokenise f 0 0 [<] ts (unpack s) (ssAcc _)
-
-||| Given a mapping from lexers to token generating functions (the
-||| TokenMap a) and an input string, return a list of recognised tokens,
-||| and the line, column, and remainder of the input at the first point in the
-||| string where there are no recognised tokens.
-export %inline
-lex : TokenMap a -> String -> (SnocList (WithBounds a), (Nat,Nat,List Char))
-lex = lexTo (const False)

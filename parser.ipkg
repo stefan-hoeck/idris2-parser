@@ -5,9 +5,13 @@ sourcedir = "src"
 depends   = elab-util
 modules = Data.List.Shift
         , Data.List.Suffix
+        , Data.List.Tail
 
         , Text.Lex
         , Text.Lex.Bounded
         , Text.Lex.Core
         , Text.Lex.Tokenizer
         , Text.Lex.Util
+
+        , Text.Parse.Core
+        , Text.Parse.FC

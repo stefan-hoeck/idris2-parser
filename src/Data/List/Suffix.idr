@@ -31,6 +31,11 @@ data Suffix : (strict : Bool) -> (as : List a) -> (bs : List a) -> Type where
   ||| need the strictness flag to be set or not.
   Cons : Suffix b1 as bs -> Suffix b2 as (b :: bs)
 
+public export
+suffixToNat : Suffix b as bs -> Nat
+suffixToNat Same     = Z
+suffixToNat (Cons x) = S $ suffixToNat x
+
 --------------------------------------------------------------------------------
 --          Utilities
 --------------------------------------------------------------------------------
@@ -58,13 +63,13 @@ nil (x :: xs) = Cons $ nil xs
 export
 weaken : Suffix b as bs -> Suffix False as bs
 weaken Same     = Same
-weaken (Cons x) = Cons (weaken x)
+weaken (Cons x) = Cons x
 
 ||| We can always set the strictness to `False`.
 export
-weakenS : Suffix True as bs -> Suffix b as bs
-weakenS (Cons x) = Cons x
-weakenS Same impossible
+weakens : Suffix True as bs -> Suffix b as bs
+weakens (Cons x) = Cons x
+weakens Same impossible
 
 ||| If `h :: t` is a suffix of `bs`, then `t` is a strict
 ||| suffix of `bs`.
@@ -77,12 +82,12 @@ consLeft (Cons x) = Cons (consLeft x)
 ||| strictness guarantees.
 export
 consLeft_ : Suffix b (h :: t) bs -> Suffix b t bs
-consLeft_ = weakenS . consLeft
+consLeft_ = weakens . consLeft
 
 export
 and1 : {b1,b2 : Bool} -> Suffix b1 as bs -> Suffix (b1 && b2) as bs
 and1 {b1 = True}  {b2 = True}  x = x
-and1 {b1 = True}  {b2 = False} x = weakenS x
+and1 {b1 = True}  {b2 = False} x = weakens x
 and1 {b1 = False} {b2 = True}  x = x
 and1 {b1 = False} {b2 = False} x = x
 
@@ -97,7 +102,7 @@ export
 and2 : {b1,b2 : Bool} -> Suffix b2 as bs -> Suffix (b1 && b2) as bs
 and2 {b1 = True}  {b2 = True}  x = x
 and2 {b1 = True}  {b2 = False} x = x
-and2 {b1 = False} {b2 = True}  x = weakenS x
+and2 {b1 = False} {b2 = True}  x = weakens x
 and2 {b1 = False} {b2 = False} x = x
 
 export

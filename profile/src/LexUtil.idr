@@ -2,6 +2,7 @@ module LexUtil
 
 import Data.String
 import JSON.Lexer
+import JSON.Parser
 import LexJSON
 import Libraries.Text.Lexer
 import Profile
@@ -14,11 +15,19 @@ import Text.Lex
 --------------------------------------------------------------------------------
 
 export %inline
+ptok :
+     Tokenizer a
+  -> (s : String)
+  -> (Nat,Nat,SnocList (Text.Lex.Bounded.WithBounds a), StopReason, List Char)
+ptok t s = case lex t s of
+  TR l c res r rem _ => (l,c,res,r,rem)
+
+export %inline
 plex :
      Text.Lex.Core.Lexer
-  -> String
-  -> (SnocList (Text.Lex.Bounded.WithBounds String), (Nat,Nat,List Char))
-plex l = lex [(l, pack . (<>> []))]
+  -> (s : String)
+  -> (Nat,Nat,SnocList (Text.Lex.Bounded.WithBounds String), StopReason, List Char)
+plex l = ptok $ Match [(l,pack)]
 
 export %inline
 ilex :
@@ -133,7 +142,7 @@ bench = Group "lexer" [
     , Single "idris2_hex"   (basic (ilex hexUnderscoredLit) hexLit)
     ]
   , Group "json" [
-      Single "parser" (basic (Lex.Core.lex json) jsonStr)
+      Single "parser" (basic (ptok json) jsonStr)
     , Single "json"   (basic lexJSON jsonStr)
     ]
   ]

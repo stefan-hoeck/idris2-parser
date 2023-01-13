@@ -20,6 +20,15 @@ record Bounds where
 
 %runElab derive "Bounds" [Show,Eq]
 
+%inline
+pos : Nat -> Nat -> String
+pos l c = show (l+1) ++ ":" ++ show (c+1)
+
+export
+Interpolation Bounds where
+  interpolate (MkBounds sl sc el ec) =
+    "\{pos sl sc}--\{pos el ec}"
+
 namespace Bounds
   public export
   start : Bounds -> (Nat, Nat)

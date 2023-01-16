@@ -54,6 +54,11 @@ toLexRes :
 toLexRes (bs, (l,c,s)) =
   (Lin <>< map toWithBounds bs, (cast l, cast c, unpack s))
 
+toLexRes' :
+     TokRes False s StopReason a
+  -> (SnocList (PWithBounds a), (Nat,Nat,List Char))
+toLexRes' (TR line col res reason rem prf) = (res, line, col, rem)
+
 export
 testTokenLex :
      Monad m
@@ -64,9 +69,9 @@ testTokenLex :
   -> (imap : ITokenMap a)
   -> TestT m ()
 testTokenLex s pmap imap =
-  let res1 := Text.Lex.Core.lex pmap s
+  let res1 := Text.Lex.Tokenizer.lex (Match pmap) s
       res2 := Libraries.Text.Lexer.Core.lex imap s
-   in res1 === toLexRes res2
+   in toLexRes' res1 === toLexRes res2
 
 export %inline
 testLex :

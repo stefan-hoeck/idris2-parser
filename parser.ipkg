@@ -1,8 +1,9 @@
 package parser
-version = 0.1.0
-authors = "stefan-hoeck"
+version   = 0.1.0
+authors   = "stefan-hoeck"
 sourcedir = "src"
 depends   = elab-util
+
 modules = Data.List.Shift
         , Data.List.Suffix
         , Data.List.Tail
@@ -13,5 +14,7 @@ modules = Data.List.Shift
         , Text.Lex.Tokenizer
         , Text.Lex.Util
 
+        , Text.Parse
         , Text.Parse.Core
+        , Text.Parse.Err
         , Text.Parse.FC

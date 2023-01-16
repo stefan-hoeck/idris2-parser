@@ -84,65 +84,65 @@ data CommentState =
   | InStringLit -- part of string literal
   | InLineComment -- part of line comment
 
-commentSH : (k : Nat) -> CommentState -> Shifter False Char
-commentSH 0       st sc cs = Res sc cs Same
-commentSH n@(S k) st sc cs = case st of
+commentSH : (k : Nat) -> CommentState -> AutoShift False Char
+commentSH 0       st cs = Res cs
+commentSH n@(S k) st cs = case st of
   -- We are at an arbitrary position in a block comment
   -- of nesting level `n`.
   Block         => case cs of
     -- Start a new nesting of block comments.
-    '{' :: '-' :: t => commentSH (S n) Opening (sc :< '{' :< '-') t ~?> sh2
+    '{' :: '-' :: t => commentSH (S n) Opening t
     -- Close the current block comment, reducing the nesting level by one.
-    '-' :: '}' :: t => commentSH k Block (sc :< '-' :< '}') t ~?> sh2
+    '-' :: '}' :: t => commentSH k Block t
     -- Start a line comment or block closing sequence.
-    '-' :: '-' :: t => commentSH n Hyphens (sc :< '-' :< '-') t ~?> sh2
+    '-' :: '-' :: t => commentSH n Hyphens t
     -- Start a string literal
-    '"'        :: t => commentSH n InStringLit (sc :< '"') t ~?> sh1
+    '"'        :: t => commentSH n InStringLit t
     -- Continue in block
-    h          :: t => commentSH n Block (sc :< h) t ~?> sh1
-    []              => Res sc [] Same
+    h          :: t => commentSH n Block t
+    []              => Res []
   Opening       => case cs of
     -- Start a new nesting of block comments.
-    '{' :: '-' :: t => commentSH (S n) Opening (sc :< '{' :< '-') t ~?> sh2
+    '{' :: '-' :: t => commentSH (S n) Opening t
     -- Close the current block comment, reducing the nesting level by one.
-    '-' :: '}' :: t => commentSH k Block (sc :< '-' :< '}') t ~?> sh2
+    '-' :: '}' :: t => commentSH k Block t
     -- Add one more hyphen to the block opening sequence
-    '-'        :: t => commentSH n Opening (sc :< '-') t ~?> sh1
+    '-'        :: t => commentSH n Opening t
     -- Start a string literal
-    '"'        :: t => commentSH n InStringLit (sc :< '"') t ~?> sh1
+    '"'        :: t => commentSH n InStringLit t
     -- Continue in block
-    h          :: t => commentSH n Block (sc :< h) t ~?> sh1
-    []              => Res sc [] Same
+    h          :: t => commentSH n Block t
+    []              => Res []
   Hyphens     => case cs of
     -- Add one more hyphen to sequence.
-    '-'  :: t => commentSH n Hyphens (sc :< '-') t ~?> sh1
+    '-'  :: t => commentSH n Hyphens t
     -- End of line: Abort line comment.
-    '\n' :: t => commentSH n Block (sc :< '\n') t ~?> sh1
+    '\n' :: t => commentSH n Block t
     -- Interpret hyphens as block closing sequence.
-    '}'  :: t => commentSH k Block (sc :< '}') t ~?> sh1
+    '}'  :: t => commentSH k Block t
     -- Interpret hyphens as line comment.
-    h    :: t => commentSH n InLineComment (sc :< h) t ~?> sh1
-    []        => Res sc [] Same
+    h    :: t => commentSH n InLineComment t
+    []        => Res []
   InStringLit   => case cs of
     -- We can escape any character in a string literal.
-    '\\' :: c :: t => commentSH n InStringLit (sc :< '\\' :< c) t ~?> sh2
+    '\\' :: c :: t => commentSH n InStringLit t
     -- Close a string literal.
-    '"'       :: t => commentSH n Block (sc :< '"') t ~?> sh1
+    '"'       :: t => commentSH n Block t
     -- Continue in string literal.
-    h         :: t => commentSH n InStringLit (sc :< h) t ~?> sh1
+    h         :: t => commentSH n InStringLit t
     -- We don't accept string literals that are not properly closed.
     []             => Stop
   InLineComment => case cs of
     -- Terminate line comment.
-    '\n' :: t => commentSH n Block (sc :< '\n') t ~?> sh1
+    '\n' :: t => commentSH n Block t
     -- Continue in line comment.
-    h    :: t => commentSH n InLineComment (sc :< h) t ~?> sh1
-    []        => Res sc [] Same
+    h    :: t => commentSH n InLineComment t
+    []        => Res []
 
 export
 blockComment : Lexer
 blockComment = Lift $ \sc,cs => case cs of
-  '{' :: '-' :: t => commentSH 1 Opening (sc :< '{' :< '-') t ~> sh2
+  '{' :: '-' :: t => commentSH 1 Opening {pre = sc :< '{' :< '-'} t
   _               => Stop
 
 docComment : Lexer
@@ -276,17 +276,17 @@ fromOctLit = go 1 0
       c   => go (8 * pow) (fromOctDigit c * 8 + sum) sc
     go pow sum [<] = sum
 
-stringTokens : Bool -> Nat -> Tokenizer Char Token
+stringTokens : Bool -> Nat -> Tokenizer Token
 
-rawTokens : Tokenizer Char Token
+rawTokens : Tokenizer Token
 
 stringTokens multi hashtag =
   let escapeChars := "\\" ++ replicate hashtag '#'
       interpStart := escapeChars ++ "{"
       escapeLexer := escape (exact escapeChars) any
       charLexer   := non $ exact (if multi then multilineEnd hashtag else stringEnd hashtag)
-   in Match (someUntil (exact interpStart) (escapeLexer <|> charLexer))
-            (\x => StringLit hashtag $ pack x)
+   in Match [(someUntil (exact interpStart) (escapeLexer <|> charLexer),
+            \x => StringLit hashtag $ pack x)]
       <|> Compose (exact interpStart)
                   (const InterpBegin)
                   (const ())
@@ -295,24 +295,26 @@ stringTokens multi hashtag =
                   (const InterpEnd)
 
 rawTokens =
-      Match comment (const Comment)
-  <|> Match blockComment (const Comment)
-  <|> Match docComment (DocComment . pack . ltrim . dropHead 3)
-  <|> Match cgDirective mkDirective
-  <|> Match holeIdent (HoleIdent . pack . dropHead 1)
-  <|> Match (choice $ map (exact . interpolate) debugInfos) (parseIdent . pack)
+      Match
+        [ (comment, const Comment)
+        , (blockComment, const Comment)
+        , (docComment, DocComment . pack . ltrim . dropHead 3)
+        , (cgDirective, mkDirective)
+        , (holeIdent, HoleIdent . pack . dropHead 1)
+        , (choice $ map (exact . interpolate) debugInfos, parseIdent . pack)
+        , (doubleLit, DoubleLit . cast . pack)
+        , (binUnderscoredLit, IntegerLit . fromBinLit)
+        , (hexUnderscoredLit, IntegerLit . fromHexLit)
+        , (octUnderscoredLit, IntegerLit . fromOctLit)
+        , (digitsUnderscoredLit, IntegerLit . cast . pack)
+        ]
   <|> Compose (choice $ exact <$> groupSymbols)
               (Symbol . pack)
               id
               (\_ => rawTokens)
               (exact . groupClose . pack)
               (Symbol . pack)
-  <|> Match (choice $ exact <$> symbols) (Symbol . pack)
-  <|> Match doubleLit (DoubleLit . cast . pack)
-  <|> Match binUnderscoredLit (IntegerLit . fromBinLit)
-  <|> Match hexUnderscoredLit (IntegerLit . fromHexLit)
-  <|> Match octUnderscoredLit (IntegerLit . fromOctLit)
-  <|> Match digitsUnderscoredLit (IntegerLit . cast . pack)
+  <|> Match [(choice $ exact <$> symbols, Symbol . pack)]
   <|> Compose multilineBegin
               (const $ StringBegin Multi)
               countHashtag
@@ -325,14 +327,16 @@ rawTokens =
               (stringTokens False)
               (\hashtag => exact (stringEnd hashtag) <+> reject (is '"'))
               (const StringEnd)
-  <|> Match charLit (CharLit . stripQuotes)
-  <|> Match dotIdent (DotIdent . pack . dropHead 1)
-  <|> Match namespacedIdent parseNamespace
-  <|> Match identNormal (parseIdent . pack)
-  <|> Match pragma (Pragma . pack . dropHead 1)
-  <|> Match space (const Space)
-  <|> Match validSymbol (Symbol . pack)
-  <|> Match symbol (Unrecognised . pack)
+  <|> Match
+        [ (charLit, CharLit . stripQuotes)
+        , (dotIdent, DotIdent . pack . dropHead 1)
+        , (namespacedIdent, parseNamespace)
+        , (identNormal, parseIdent . pack)
+        , (pragma, Pragma . pack . dropHead 1)
+        , (space, const Space)
+        , (validSymbol, Symbol . pack)
+        , (symbol, Unrecognised . pack)
+        ]
   where
     parseIdent : String -> Token
     parseIdent "__LOC__"  = MagicDebugInfo DebugLoc

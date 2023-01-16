@@ -82,8 +82,8 @@ keep _           = True
 export
 lex : String -> Either (Nat, Nat, String) (List (WithBounds Token))
 lex str =
-  case lex rawTokens str of
-   (st, (l, c, [])) =>
+  case lex (Match rawTokens) str of
+   TR l c st _ [] _ =>
      let eoi := MkBounded EndOfInput (Just $ MkBounds l c l c)
       in Right . filter (keep . val) $ st <>> [eoi]
-   (_, (l,c,cs))               => Left (l, c, pack cs)
+   TR l c _ _ cs _ => Left (l, c, pack cs)

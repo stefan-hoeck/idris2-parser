@@ -104,8 +104,8 @@ tokenise :
   -> TokRes False cs StopReason a
 tokenise _   _ l c ts [] _                = TR l c ts EndInput [] Same
 tokenise rej t l c ts cs acc@(Access rec) = case run rej [<] cs of
-  Res _ _ _ => TR l c ts EndInput cs Same
-  Stop      => case next t cs acc of
+  Res _ => TR l c ts EndInput cs Same
+  Stop  => case next t cs acc of
     Right (TR l2 c2 ts2 _ cs2 p) =>
       tokenise rej t l2 c2 ts2 cs2 (rec cs2 p) ~?> p
     Left r => TR l c ts r cs Same

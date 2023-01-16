@@ -38,7 +38,7 @@ toReason : Lexer.Tokenizer.StopReason -> Lex.Tokenizer.StopReason
 toReason EndInput = EndInput
 toReason NoRuleApply = NoRuleApply
 toReason (ComposeNotClosing (a,b) (c,d)) =
-  ComposeNotClosing (cast a, cast b) (cast c, cast d)
+  ComposeNotClosing $ MkBounds (cast a) (cast b) (cast c) (cast d)
 
 toToken : IToken -> PToken
 toToken (CharLit str) = CharLit str

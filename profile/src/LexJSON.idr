@@ -40,52 +40,70 @@ str :
   -> (cs : List Char)
   -> {auto prf : Tail True cs cs'}
   -> DirectRes cs' Token
-str sc ('\\' :: '"'  :: xs) = str (sc :< '"') xs
-str sc ('\\' :: '\\' :: xs) = str (sc :< '\\') xs
-str sc ('"'  ::        xs) = Succ (TStr $ pack sc) xs
-str sc (c    ::        xs) = str (sc :< c) xs
-str sc []                  = Fail
+str sc ('\\' :: c  :: xs) = case c of
+  '"'  => str (sc :< '"') xs
+  'n'  => str (sc :< '\n') xs
+  'f'  => str (sc :< '\f') xs
+  'b'  => str (sc :< '\b') xs
+  'r'  => str (sc :< '\r') xs
+  't'  => str (sc :< '\t') xs
+  '\\' => str (sc :< '\\') xs
+  '/'  => str (sc :< '/') xs
+  'u'  => case xs of
+    w :: x :: y :: z :: t' =>
+      if isHexDigit w && isHexDigit x && isHexDigit y && isHexDigit z
+        then
+          let c := cast $ fromHexDigit w * 0x1000 +
+                          fromHexDigit x * 0x100 +
+                          fromHexDigit y * 0x10 +
+                          fromHexDigit z 
+           in str (sc :< c) t'
+        else Fail
+    _    => Fail
+  _    => Fail
+str sc ('\\' :: []) = Fail
+str sc ('"'  :: xs) = Succ (TStr $ pack sc) xs
+str sc (c    :: xs) = str (sc :< c) xs
+str sc []           = Fail
 
 toNum : DirectRes cs (SnocList Char) -> DirectRes cs Token
 toNum (Succ x ds) = Succ (TNum $ cast $ pack x) ds
 toNum Fail        = Fail
 
-digs,rest,dot,exp,exp1,exp2,exp3 :
+digits,int,exp,dot,rest,digs :
      SnocList Char
   -> (cs : List Char)
   -> {auto prf : Tail True cs cs'}
   -> DirectRes cs' (SnocList Char)
-
-exp3 sc (d :: ds) = if isDigit d then exp3 (sc :< d) ds else Succ sc (d :: ds)
-exp3 sc []        = Succ sc []
-
-exp2 sc (d :: ds) = if isDigit d then exp3 (sc :< d) ds else Fail
-exp2 sc []        = Fail
-
-exp1 sc ('-' :: ds) = exp1 (sc :< '-') ds
-exp1 sc ('+' :: ds) = exp1 (sc :< '+') ds
-exp1 sc ds          = exp2 sc ds
-
-exp sc ('e' :: ds) = exp1 (sc :< 'e') ds
-exp sc ('E' :: ds) = exp1 (sc :< 'e') ds
-exp sc ds          = Succ sc ds
-
-dot sc (d :: ds) = if isDigit d then dot (sc :< d) ds else exp sc (d :: ds)
-dot sc [] = Succ sc []
-
-rest sc ('.' :: d :: ds) = if isDigit d then dot (sc :< '.' :< d) ds else Fail
-rest sc ds               = exp sc ds
-
-digs sc (d :: ds) = if isDigit d then digs (sc :< d) ds else rest sc (d :: ds)
-digs sc []        = Succ sc []
 
 num :
      SnocList Char
   -> (cs : List Char)
   -> {auto prf : Tail False cs cs'}
   -> DirectRes cs' (SnocList Char)
+
+digits sc (x :: xs) = if isDigit x then digits (sc :< x) xs else Succ sc (x::xs)
+digits sc []        = Succ sc []
+
+int sc ('+' :: xs) = digits (sc :< '+') xs
+int sc ('-' :: xs) = digits (sc :< '-') xs
+int sc xs          = digits sc xs
+
+exp sc ('e' :: xs) = int (sc :< 'e') xs
+exp sc ('E' :: xs) = int (sc :< 'e') xs
+exp sc xs          = Succ sc xs
+
+dot sc (x :: xs) = if isDigit x then dot (sc :< x) xs else exp sc (x::xs)
+dot sc []        = Succ sc []
+
+rest sc ('.' :: x :: xs) = if isDigit x then dot (sc :< '.' :< x) xs else Fail
+rest sc xs               = exp sc xs
+
+digs sc (x :: xs) = if isDigit x then digs (sc :< x) xs else rest sc (x::xs)
+digs sc []        = Succ sc []
+
 num sc ('0' :: xs) = rest (sc :< '0') xs
-num sc (d :: xs)   = if isDigit d then digs (sc :< d) xs else Fail
+num sc (x :: xs)   = if isDigit x then digs (sc :< x) xs else Fail
 num sc []          = Fail
 
 term : (cs : List Char) -> DirectRes cs Token
@@ -93,6 +111,10 @@ term (x :: xs) = case x of
   ',' => Succ TComma xs
   '"' => str [<] xs
   ':' => Succ TColon xs
+  '[' => Succ TBracketO xs
+  ']' => Succ TBracketC xs
+  '{' => Succ TBraceO xs
+  '}' => Succ TBraceC xs
   'n' => case xs of
     'u' :: 'l' :: 'l' :: t => Succ TNull t
     _                      => Fail
@@ -107,29 +129,24 @@ term (x :: xs) = case x of
   
 term []        = Fail
 
-brace : SnocList Char -> Token
-brace [<'['] = TBracketO
-brace [<'{'] = TBraceO
-brace [<']'] = TBracketC
-brace _      = TBraceC
-
-tag : SnocList Char -> Paren
-tag [<'['] = Bracket
-tag _      = Brace
-
-close : Paren -> Lexer
-close Bracket = is ']'
-close Brace   = is '}'
-
-opn : Lexer
-opn = Lift $ \sc,cs => case cs of
-  '[' :: xs => Res _ xs sh1
-  '{' :: xs => Res _ xs sh1
-  _         => Stop
+go :
+     SnocList (WithBounds Token)
+ -> (l,c   : Nat)
+ -> (cs    : List Char)
+ -> (0 acc : SuffixAcc cs)
+ -> (SnocList (WithBounds Token),Nat,Nat,List Char)
+go sx l c ('\n' :: xs) (Access rec) = go sx (l+1) 0 xs (rec xs %search)
+go sx l c (x :: xs)    (Access rec) =
+  if isSpace x
+     then go sx l (c+1) xs (rec xs %search)
+     else case term (x::xs) of
+       Succ t xs' @{prf} =>
+         let c2 := c + tailToNat prf
+             bt := MkBounded t $ Just (MkBounds l c l c2)
+          in go (sx :< bt) l c2 xs' (rec xs' $ suffix prf)
+       Fail              => (sx,l,c,x::xs)
+go sx l c []           acc = (sx,l,c,[])
 
 export
-json : Tokenizer Token
-json =
-      Direct term
-  <|> Compose opn brace tag (\_ => json) close brace
-  <|> Match [(spaces, const TSpace)]
+json : String -> (SnocList (WithBounds Token),Nat,Nat,List Char)
+json s = go [<] 0 0 (unpack s) (ssAcc _)

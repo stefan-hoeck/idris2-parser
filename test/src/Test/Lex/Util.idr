@@ -31,12 +31,12 @@ public export
 PBounds = Text.Lex.Bounded.Bounds
 
 public export
-0 IWithBounds : Type -> Type
-IWithBounds = Libraries.Text.Bounded.WithBounds
+0 IBounded : Type -> Type
+IBounded = Libraries.Text.Bounded.WithBounds
 
 public export
-0 PWithBounds : Type -> Type
-PWithBounds = Text.Lex.Bounded.WithBounds
+0 PBounded : Type -> Type
+PBounded = Text.Lex.Bounded.Bounded
 
 export
 toBounds : IBounds -> PBounds
@@ -44,19 +44,19 @@ toBounds (MkBounds sl sc el ec) =
   MkBounds (cast sl) (cast sc) (cast el) (cast ec)
 
 export
-toWithBounds : IWithBounds a -> PWithBounds a
-toWithBounds (MkBounded val False bs) = MkBounded val $ Just $ toBounds bs
-toWithBounds (MkBounded val True bs) = MkBounded val Nothing
+toWithBounds : IBounded a -> PBounded a
+toWithBounds (MkBounded val False bs) = MkBounded val $ toBounds bs
+toWithBounds (MkBounded val True bs) = MkBounded val NoBounds
 
 toLexRes :
-     (List (IWithBounds a), (Int,Int,String))
-  -> (SnocList (PWithBounds a), (Nat,Nat,List Char))
+     (List (IBounded a), (Int,Int,String))
+  -> (SnocList (PBounded a), (Nat,Nat,List Char))
 toLexRes (bs, (l,c,s)) =
   (Lin <>< map toWithBounds bs, (cast l, cast c, unpack s))
 
 toLexRes' :
      TokRes False s StopReason a
-  -> (SnocList (PWithBounds a), (Nat,Nat,List Char))
+  -> (SnocList (PBounded a), (Nat,Nat,List Char))
 toLexRes' (TR line col res reason rem prf) = (res, line, col, rem)
 
 export

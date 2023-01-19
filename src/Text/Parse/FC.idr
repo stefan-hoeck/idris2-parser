@@ -22,11 +22,19 @@ public export
 record FileContext where
   constructor FC
   origin : Origin
-  bounds : Maybe Bounds
+  bounds : Bounds
+
+public export
+fromBounded : String -> Bounded a -> (FileContext, a)
+fromBounded s (MkBounded val bounds) = (FC (FileSrc s) bounds, val)
+
+public export
+virtualFromBounded : Bounded a -> (FileContext, a)
+virtualFromBounded (MkBounded val bounds) = (FC Virtual bounds, val)
 
 %runElab derive "FileContext" [Show,Eq]
 
 export
 Interpolation FileContext where
-  interpolate (FC o $ Just b) = "\{o}: \{b}"
-  interpolate (FC o Nothing)  = interpolate o
+  interpolate (FC o NoBounds) = interpolate o
+  interpolate (FC o b)        = "\{o}: \{b}"

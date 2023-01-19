@@ -1,6 +1,6 @@
 module Text.Parse.Err
 
-import Text.Lex.Tokenizer
+import Text.Lex
 import Text.Parse.FC
 import Derive.Prelude
 
@@ -8,43 +8,22 @@ import Derive.Prelude
 %default total
 
 public export
-data ParseErr : Type -> Type where
-  EOI         : ParseErr e
-  ExpectedEOI : ParseErr e
-  Custom      : (err : e) -> ParseErr e
+data ParseErr : (token, err : Type) -> Type where
+  EOI         : ParseErr t e
+  ExpectedEOI : ParseErr t e
+  Expected    : t -> ParseErr t e
+  Unexpected  : t -> ParseErr t e
+  Custom      : (err : e) -> ParseErr t e
 
 %runElab derive "ParseErr" [Show,Eq]
 
 public export
-Functor ParseErr where
-  map _ EOI         = EOI
-  map _ ExpectedEOI = ExpectedEOI
-  map f (Custom v)  = Custom (f v)
+data ReadError : Type -> Type -> Type where
+  LexFailed   : FileContext -> StopReason -> ReadError t e
+  ParseFailed : List1 (FileContext, ParseErr t e) -> ReadError t e
+
+%runElab derive "ReadError" [Show,Eq]
 
 public export
-Foldable ParseErr where
-  foldr f acc (Custom v) = f v acc
-  foldr f acc _          = acc
-
-  foldl f acc (Custom v) = f acc v
-  foldl f acc _          = acc
-
-  foldMap f (Custom v) = f v
-  foldMap f _          = neutral
-
-  toList (Custom v) = [v]
-  toList _          = []
-
-  null (Custom v) = False
-  null _          = True
-
-public export
-Traversable ParseErr where
-  traverse f EOI         = pure EOI
-  traverse f ExpectedEOI = pure ExpectedEOI
-  traverse f (Custom v)  = Custom <$> f v
-
-public export
-data ReadError : Type -> Type where
-  LexFailed   : FileContext -> StopReason -> ReadError e
-  ParseFailed : List1 (FileContext, ParseErr e) -> ReadError e
+parseFailed : Origin -> List1 (Bounded $ ParseErr t e) -> ReadError t e
+parseFailed o = ParseFailed . map (\b => (FC o b.bounds, b.val))

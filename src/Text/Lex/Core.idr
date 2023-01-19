@@ -172,7 +172,7 @@ record Step (a : Type) (cs : List Char) where
   constructor ST
   line  : Nat
   col   : Nat
-  res   : WithBounds a
+  res   : Bounded a
   rem   : List Char
   0 prf : Suffix True rem cs
 
@@ -186,8 +186,7 @@ step :
 step l c x f cs = case run x [<] cs of
   Res {pre = sc} cs2 @{p} =>
     let (l2,c2) := lineCol l c 0 sc
-        bnds    := Just $ MkBounds l c l2 c2
-     in Just $ ST l2 c2 (MkBounded (f sc) bnds) cs2 (toSuffix p)
+     in Just $ ST l2 c2 (bounded (f sc) l c l2 c2) cs2 (toSuffix p)
   Stop         => Nothing
 
 export

@@ -1,5 +1,6 @@
 module LexJSON
 
+import JSON
 import Derive.Prelude
 import Text.Lex
 
@@ -20,26 +21,22 @@ data Err : Type where
 %runElab derive "Err" [Show,Eq]
 
 public export
-data Token : Type where
-  TBracketO : Token
-  TBracketC : Token
-  TBraceO   : Token
-  TBraceC   : Token
-  TComma    : Token
-  TColon    : Token
-  TNull     : Token
-  TBool     : Bool   -> Token
-  TNum      : Double -> Token
-  TStr      : String -> Token
-  TSpace    : Token
+data Tok : Type where
+  TBracketO : Tok
+  TBracketC : Tok
+  TBraceO   : Tok
+  TBraceC   : Tok
+  TComma    : Tok
+  TColon    : Tok
+  TLit     : JSON -> Tok
 
-%runElab derive "Token" [Show,Eq]
+%runElab derive "Tok" [Show,Eq]
 
 str :
      SnocList Char
   -> (cs : List Char)
   -> {auto prf : Tail True cs cs'}
-  -> DirectRes cs' Token
+  -> DirectRes cs' Tok
 str sc ('\\' :: c  :: xs) = case c of
   '"'  => str (sc :< '"') xs
   'n'  => str (sc :< '\n') xs
@@ -62,12 +59,12 @@ str sc ('\\' :: c  :: xs) = case c of
     _    => Fail
   _    => Fail
 str sc ('\\' :: []) = Fail
-str sc ('"'  :: xs) = Succ (TStr $ pack sc) xs
+str sc ('"'  :: xs) = Succ (TLit $ JString $ pack sc) xs
 str sc (c    :: xs) = str (sc :< c) xs
 str sc []           = Fail
 
-toNum : DirectRes cs (SnocList Char) -> DirectRes cs Token
-toNum (Succ x ds) = Succ (TNum $ cast $ pack x) ds
+toNum : DirectRes cs (SnocList Char) -> DirectRes cs Tok
+toNum (Succ x ds) = Succ (TLit $ JNumber $ cast $ pack x) ds
 toNum Fail        = Fail
 
 digits,int,exp,dot,rest,digs :
@@ -106,7 +103,7 @@ num sc ('0' :: xs) = rest (sc :< '0') xs
 num sc (x :: xs)   = if isDigit x then digs (sc :< x) xs else Fail
 num sc []          = Fail
 
-term : (cs : List Char) -> DirectRes cs Token
+term : (cs : List Char) -> DirectRes cs Tok
 term (x :: xs) = case x of
   ',' => Succ TComma xs
   '"' => str [<] xs
@@ -116,13 +113,13 @@ term (x :: xs) = case x of
   '{' => Succ TBraceO xs
   '}' => Succ TBraceC xs
   'n' => case xs of
-    'u' :: 'l' :: 'l' :: t => Succ TNull t
+    'u' :: 'l' :: 'l' :: t => Succ (TLit JNull) t
     _                      => Fail
   't' => case xs of
-    'r' :: 'u' :: 'e' :: t => Succ (TBool True) t
+    'r' :: 'u' :: 'e' :: t => Succ (TLit $ JBool True) t
     _                      => Fail
   'f' => case xs of
-    'a' :: 'l' :: 's' :: 'e' :: t => Succ (TBool False) t
+    'a' :: 'l' :: 's' :: 'e' :: t => Succ (TLit $ JBool False) t
     _                             => Fail
   '-' => toNum $ num [<'-'] xs
   d   => toNum $ num [<] (d :: xs)
@@ -130,11 +127,11 @@ term (x :: xs) = case x of
 term []        = Fail
 
 go :
-     SnocList (WithBounds Token)
+     SnocList (Bounded Tok)
  -> (l,c   : Nat)
  -> (cs    : List Char)
  -> (0 acc : SuffixAcc cs)
- -> (SnocList (WithBounds Token),Nat,Nat,List Char)
+ -> (SnocList (Bounded Tok),Nat,Nat,List Char)
 go sx l c ('\n' :: xs) (Access rec) = go sx (l+1) 0 xs (rec xs %search)
 go sx l c (x :: xs)    (Access rec) =
   if isSpace x
@@ -142,11 +139,11 @@ go sx l c (x :: xs)    (Access rec) =
      else case term (x::xs) of
        Succ t xs' @{prf} =>
          let c2 := c + tailToNat prf
-             bt := MkBounded t $ Just (MkBounds l c l c2)
+             bt := bounded t l c l c2
           in go (sx :< bt) l c2 xs' (rec xs' $ suffix prf)
        Fail              => (sx,l,c,x::xs)
 go sx l c []           acc = (sx,l,c,[])
 
 export
-json : String -> (SnocList (WithBounds Token),Nat,Nat,List Char)
+json : String -> (SnocList (Bounded Tok),Nat,Nat,List Char)
 json s = go [<] 0 0 (unpack s) (ssAcc _)

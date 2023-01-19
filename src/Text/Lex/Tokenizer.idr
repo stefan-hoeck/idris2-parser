@@ -74,7 +74,7 @@ record TokRes (strict : Bool) (cs : List Char) (r,a : Type) where
   constructor TR
   line   : Nat
   col    : Nat
-  res    : SnocList (WithBounds a)
+  res    : SnocList (Bounded a)
   reason : r
   rem    : List Char
   0 prf  : Suffix strict rem cs
@@ -98,7 +98,7 @@ tokenise :
      (reject    : Lexer)
   -> (tokenizer : Tokenizer a)
   -> (line, col : Nat)
-  -> (toks      : SnocList (WithBounds a))
+  -> (toks      : SnocList (Bounded a))
   -> (cs        : List Char)
   -> (0 acc : SuffixAcc cs)
   -> TokRes False cs StopReason a
@@ -118,7 +118,7 @@ tokenise rej t l c ts cs acc@(Access rec) = case run rej [<] cs of
     next (Direct f) cs _ = case f cs of
       Succ x ds @{sfx} => 
         let c2  := c + tailToNat sfx
-            res := MkBounded x $ Just (MkBounds l c l c2)
+            res := bounded x l c l c2
          in Right (TR l c2 (ts :< res) () ds $ suffix sfx)
       Fail      => Left NoRuleApply
     next (Match m) cs _ = case first l c m cs of

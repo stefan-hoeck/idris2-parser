@@ -5,8 +5,11 @@ import JSON.Lexer
 import JSON.Parser
 import LexJSON
 import Libraries.Text.Lexer
+import ParseJSON
+import ParseJ
 import Profile
 import Text.Lex
+import Text.Parse
 
 %default total
 
@@ -18,7 +21,7 @@ export %inline
 ptok :
      Tokenizer a
   -> (s : String)
-  -> (Nat,Nat,SnocList (Text.Lex.Bounded.WithBounds a), StopReason, List Char)
+  -> (Nat,Nat,SnocList (Text.Lex.Bounded.Bounded a), StopReason, List Char)
 ptok t s = case lex t s of
   TR l c res r rem _ => (l,c,res,r,rem)
 
@@ -26,7 +29,7 @@ export %inline
 plex :
      Text.Lex.Core.Lexer
   -> (s : String)
-  -> (Nat,Nat,SnocList (Text.Lex.Bounded.WithBounds String), StopReason, List Char)
+  -> (Nat,Nat,SnocList (Text.Lex.Bounded.Bounded String), StopReason, List Char)
 plex l = ptok $ Match [(l,pack)]
 
 export %inline
@@ -144,10 +147,20 @@ bench = Group "lexer" [
     , Single "parser_hex"   (basic (plex hexUnderscoredLit) hexLit)
     , Single "idris2_hex"   (basic (ilex hexUnderscoredLit) hexLit)
     ]
-  , Group "json" [
+  , Group "lexJSON" [
       Single "parser" (basic LexJSON.json jsonStr)
     , Single "json"   (basic lexJSON jsonStr)
     , Single "parser2" (basic LexJSON.json jsonStr2)
     , Single "json2"   (basic lexJSON jsonStr2)
+    ]
+  , Group "parseJSON" [
+      Single "fastParse" (basic fastParse jsonStr)
+    , Single "niceParse" (basic niceParse jsonStr)
+    , Single "json"      (basic parseErr jsonStr)
+    , Single "stateParse" (basic stateParse jsonStr)
+    , Single "fastParse2" (basic fastParse jsonStr2)
+    , Single "niceParse2" (basic niceParse jsonStr2)
+    , Single "json2"      (basic parseErr jsonStr2)
+    , Single "stateParse2" (basic stateParse jsonStr2)
     ]
   ]

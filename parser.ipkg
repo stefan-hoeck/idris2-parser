@@ -6,7 +6,6 @@ depends   = elab-util
 
 modules = Data.List.Shift
         , Data.List.Suffix
-        , Data.List.Tail
 
         , Text.Lex
         , Text.Lex.Bounded

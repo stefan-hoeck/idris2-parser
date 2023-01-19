@@ -12,7 +12,6 @@ import public Data.List
 import public Data.Vect
 import public Data.List.Shift
 import public Data.List.Suffix
-import public Data.List.Tail
 import public Data.SnocList
 import public Text.Lex.Bounded
 
@@ -41,7 +40,7 @@ public export
 run : Recognise b t -> Shifter b t
 run (Lift f)  st ts = f st ts
 run (x <+> y) st ts = case run x st ts of
-  Res {pre = st2} ts2 @{p2} => run y st2 ts2 ~> p2
+  Res {pre = st2} ts2 @{p2} => swapOr $ run y st2 ts2 ~> p2
   Stop                      => Stop
 run (x <|> y) st ts = run x st ts <|> run y st ts
 
@@ -93,14 +92,15 @@ manyOnto :
   -> (ts    : List t)
   -> (0 acc : SuffixAcc ts)
   -> Rec False st ts
-manyOnto f st ts (Access rec) = case run f st ts of
-  Res {pre = st2} ts2 @{p2} => manyOnto f st2 ts2 (rec ts2 $ toSuffix p2) ~?> p2
+manyOnto f st ts (SA rec) = case run f st ts of
+  Res {pre = st2} ts2 @{p2} =>
+    let 0 x := suffix p2 in manyOnto f st2 ts2 rec ~?> p2
   Stop                      => Res ts
 
 ||| Runs the given lexer zero or more times.
 export
 many : Recognise True t -> Recognise False t
-many r = Lift $ \sx,xs => manyOnto r sx xs (ssAcc _)
+many r = Lift $ \sx,xs => manyOnto r sx xs suffixAcc
 
 ||| Runs the given lexer several times, but at least once.
 export
@@ -174,7 +174,7 @@ record Step (a : Type) (cs : List Char) where
   col   : Nat
   res   : Bounded a
   rem   : List Char
-  0 prf : Suffix True rem cs
+  prf   : Suffix True rem cs
 
 export
 step :
@@ -186,7 +186,7 @@ step :
 step l c x f cs = case run x [<] cs of
   Res {pre = sc} cs2 @{p} =>
     let (l2,c2) := lineCol l c 0 sc
-     in Just $ ST l2 c2 (bounded (f sc) l c l2 c2) cs2 (toSuffix p)
+     in Just $ ST l2 c2 (bounded (f sc) l c l2 c2) cs2 (suffix p)
   Stop         => Nothing
 
 export

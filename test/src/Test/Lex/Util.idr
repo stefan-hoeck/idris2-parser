@@ -41,12 +41,12 @@ PBounded = Text.Lex.Bounded.Bounded
 export
 toBounds : IBounds -> PBounds
 toBounds (MkBounds sl sc el ec) =
-  MkBounds (cast sl) (cast sc) (cast el) (cast ec)
+  BS (cast sl) (cast sc) (cast el) (cast ec)
 
 export
 toWithBounds : IBounded a -> PBounded a
-toWithBounds (MkBounded val False bs) = MkBounded val $ toBounds bs
-toWithBounds (MkBounded val True bs) = MkBounded val NoBounds
+toWithBounds (MkBounded val False bs) = BD val $ toBounds bs
+toWithBounds (MkBounded val True bs) = BD val NoBounds
 
 toLexRes :
      (List (IBounded a), (Int,Int,String))

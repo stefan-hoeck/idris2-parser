@@ -3,7 +3,7 @@ module Data.List.Shift
 import Data.Bool
 import Data.List
 import Data.List.Suffix
-import Data.List.Tail
+import Data.Nat
 import Text.Lex.Bounded
 
 %default total
@@ -21,140 +21,75 @@ import Text.Lex.Bounded
 ||| characters does not change during lexing.
 |||
 ||| @ strict : `True` if at least one element was shifted
-||| @ sa     : the current snoclist
-||| @ as     : the current list
+||| @ sx     : the current snoclist
+||| @ xs     : the current list
 ||| @ giro   : the initial snoclist
 ||| @ orig   : the initial list
 public export
 data Shift :
      (strict : Bool)
-  -> (sa     : SnocList a)
-  -> (as     : List a)
+  -> (sx     : SnocList a)
+  -> (xs     : List a)
   -> (giro   : SnocList a)
   -> (orig   : List a)
   -> Type where
-  [search strict as giro orig]
+  [search strict xs giro orig]
 
   ||| Doing nothing results in a non-strict `Shift`
-  Same : Shift False sa as sa as
+  Same : Shift False sx xs sx xs
 
   ||| We arrive at a new result by shifting one more value.
-  SH   : Shift b1 sa (h :: t) sx xs -> Shift b2 (sa :< h) t sx xs
+  SH   : Shift b1 sx (h :: t) sy ys -> Shift b2 (sx :< h) t sy ys
 
 export %inline
-sh : Shift b sa (h :: t) sx xs -> Shift True (sa :< h) t sx xs
+sh : Shift b sx (h :: t) sx xs -> Shift True (sx :< h) t sx xs
 sh = SH
 
 public export
-0 SHL : List t -> SnocList t -> List t -> Type 
-SHL ts sa as = Shift (isCons ts) (sa <>< ts) as sa (ts ++ as)
-
-export %inline
-sh1 : SHL [x] st ts
-sh1 = SH Same
-
-export %inline
-sh2 : SHL [x,y] st ts 
-sh2 = SH sh1
-
-export %inline
-sh3 : SHL [x,y,z] st ts
-sh3 = SH sh2
-
-export %inline
-sh4 : SHL [w,x,y,z] st ts
-sh4 = SH sh3
-
-export %inline
-sh5 : SHL [v,w,x,y,z] st ts
-sh5 = SH sh4
-
-export %inline
-sh6 : SHL [u,v,w,x,y,z] st ts
-sh6 = SH sh5
-
-export %inline
-sh7 : SHL [t,u,v,w,x,y,z] st ts
-sh7 = SH sh6
-
-export %inline
-sh8 : SHL [s,t,u,v,w,x,y,z] st ts
-sh8 = SH sh7
-
-export %inline
-sh9 : SHL [r,s,t,u,v,w,x,y,z] st ts
-sh9 = SH sh8
-
-export %inline
-sh10 : SHL [q,r,s,t,u,v,w,x,y,z] st ts
-sh10 = SH sh9
-
-export
-weaken : Shift b sa as sx xs -> Shift False sa as sx xs
+weaken : Shift b sx xs sy ys -> Shift False sx xs sy ys
 weaken Same   = Same
 weaken (SH x) = SH x
 
-export
-weakens : Shift True sa as sx xs -> Shift b sa as sx xs
+public export
+weakens : Shift True sx xs sy ys -> Shift b sx xs sy ys
 weakens (SH x) = SH x
 weakens Same impossible
 
-export
-toTail : Shift b sa as sx xs -> Tail b as xs
-toTail Same   = Same
-toTail (SH x) = Uncons $ toTail x
+public export
+suffix : Shift b sx xs sy ys -> Suffix b xs ys
+suffix Same   = Same
+suffix (SH x) = Uncons $ suffix x
+
+public export %inline
+toNat : Shift b sx xs sy ys -> Nat
+toNat s = toNat $ suffix s
+
+public export
+and1 : Shift b1 sx xs sy ys -> Shift (b1 && b2) sx xs sy ys
+and1 Same   = Same
+and1 (SH x) = SH x
+
+public export
+and2 : Shift b2 sx xs sy ys -> Shift (b1 && b2) sx xs sy ys
+and2 s = rewrite andCommutative b1 b2 in (and1 s)
+
+public export
+trans :
+     Shift b1 sx xs sb bs
+  -> Shift b2 sb bs sy cy
+  -> Shift (b1 || b2) sx xs sy cy
+trans Same y   = y
+trans (SH x) y = SH $ trans x y
+
+%transform "shiftTransPlus" Shift.trans x y = believe_me (toNat x + toNat y)
 
 export
-toSuffix : Shift b sa as sx xs -> Suffix b as xs
-toSuffix s = suffix $ toTail s
-
-export %inline
-toNat : Shift b sa as sx xs -> Nat
-toNat s = tailToNat $ toTail s
+swapOr : Shift (b1 || b2) sx xs sy ys -> Shift (b2 || b1) sx xs sy ys
+swapOr x = replace {p = \x => Shift x sx xs sy ys} orCommFD x
 
 export
-and1 : {b1,b2 : Bool} -> Shift b1 sa as sx xs -> Shift (b1 && b2) sa as sx xs
-and1 {b1 = True}  {b2 = True}  x = x
-and1 {b1 = True}  {b2 = False} x = weaken x
-and1 {b1 = False}              x = x
-
-export
-or1 : {b1,b2 : Bool} -> Shift (b1 || b2) sa as sb bs -> Shift b1 sa as sb bs
-or1 {b1 = True}               x = x
-or1 {b1 = False} {b2 = True}  x = weaken x
-or1 {b1 = False} {b2 = False} x = x
-
-export
-and2 : {b1,b2 : Bool} -> Shift b1 sa as sx xs -> Shift (b2 && b1) sa as sx xs
-and2 {b1 = True}  {b2 = True}  x = x
-and2 {b1 = True}  {b2 = False} x = weaken x
-and2 {b1 = False} {b2 = True}  x = x
-and2 {b1 = False} {b2 = False} x = x
-
-export
-or2 : {b1,b2 : Bool} -> Shift (b1 || b2) sa as sb bs -> Shift b2 sa as sb bs
-or2 {b1 = True}  {b2 = True}  x = x
-or2 {b1 = True}  {b2 = False} x = weaken x
-or2 {b1 = False}              x = x
-
-export
-sleft : Shift b sa (h :: bs) sc cs -> Shift True (sa :< h) bs sc cs
-sleft Same   = SH Same
-sleft (SH x) = SH (sleft x)
-
-export
-trans : Shift b1 sa as sb bs -> Shift b2 sb bs sc cs -> Shift (b1 || b2) sa as sc cs
-trans Same y        = y
-trans (SH x) Same   = SH x
-trans (SH x) (SH y) = SH $ trans x (sleft y)
-
-export
-swapOr : {b1,b2 : Bool} -> Shift (b1 || b2) sa as sx xs -> Shift (b2 || b1) sa as sx xs
-swapOr x = rewrite orCommutative b2 b1 in x
-
-export
-swapAnd : {b1,b2 : Bool} -> Shift (b1 && b2) sa as sx xs -> Shift (b2 && b1) sa as sx xs
-swapAnd x = rewrite andCommutative b2 b1 in x
+swapAnd : Shift (b1 && b2) sx xs sy ys -> Shift (b2 && b1) sx xs sy ys
+swapAnd x = replace {p = \x => Shift x sx xs sy ys} andCommFD x
 
 --------------------------------------------------------------------------------
 --          Rec
@@ -178,53 +113,52 @@ data Rec :
 
   Stop : Rec s st ts
 
-  Res :  {0 st      : SnocList t}
-      -> {0 ts      : List t}
-      -> {pre       : SnocList t}
-      -> (post      : List t)
-      -> {auto 0 sh : Shift b pre post st ts}
+  Res :  {0 st    : SnocList t}
+      -> {0 ts    : List t}
+      -> {pre     : SnocList t}
+      -> (post    : List t)
+      -> {auto sh : Shift b pre post st ts}
       -> Rec b st ts
 
-||| This is the identity at runtime
-export
-mapPrf :
-     {0 t     : Type}
-  -> {0 sa,sb : SnocList t}
-  -> {0 as,bs : List t}
-  -> (0 f :
-          {st : SnocList t}
-       -> {ts : List t}
-       -> Shift b1 st ts sa as
-       -> Shift b2 st ts sb bs
-     )
-  -> Rec b1 sa as
-  -> Rec b2 sb bs
-mapPrf f Stop              = Stop
-mapPrf f (Res toks @{prf}) = Res toks @{f prf}
+public export
+toSuffix : (SnocList t -> a) -> Rec {t} b st ts -> SuffixRes b t ts a
+toSuffix f Stop                   = Fail
+toSuffix f (Res {pre} post @{sh}) = Succ (f pre) post @{suffix sh}
 
 namespace Rec
-  export %inline
-  weaken : Rec b1 sa as -> Rec False sa as
-  weaken = mapPrf weaken
+  public export
+  weaken : Rec b sx xs -> Rec False sx xs
+  weaken Stop             = Stop
+  weaken (Res post @{sh}) = Res post @{weaken sh}
 
-  export %inline
-  weakens : Rec True sa as -> Rec b sa as
-  weakens = mapPrf weakens
+  public export
+  weakens : Rec True sx xs -> Rec b sx xs
+  weakens Stop             = Stop
+  weakens (Res post @{sh}) = Res post @{weakens sh}
 
-export %inline
-(~>) : Rec s1 sa as -> (0 p : Shift s2 sa as sb bs) -> Rec (s2 || s1) sb bs
-r ~> p = mapPrf (\q => swapOr $ trans q p) r
-
-export %inline
-(~?>) : Rec s1 sa as -> (0 p : Shift s2 sa as sb bs) -> Rec False sb bs
-r ~?> p = mapPrf (\q => weaken $ trans q p) r
-
-namespace Rec
   export
-  (<|>) : Rec b1 sx xs -> Lazy (Rec b2 sx xs) -> Rec (b1 && b2) sx xs
-  (<|>) r@(Res _) _  = mapPrf and1 r
-  (<|>) Stop      r  = mapPrf and2 r
+  swapOr : Rec (b1 || b2) sx xs -> Rec (b2 || b1) sx xs
+  swapOr x = replace {p = \x => Rec x sx xs} orCommFD x
 
+  export
+  swapAnd : Rec (b1 && b2) sx xs -> Rec (b2 && b1) sx xs
+  swapAnd x = replace {p = \x => Rec x sx xs} andCommFD x
+
+public export
+(~>) : Rec s1 sx xs -> (p : Shift s2 sx xs sb bs) -> Rec (s1 || s2) sb bs
+Res post @{q} ~> p = Res post @{trans q p}
+Stop          ~> p = Stop
+
+public export
+(~?>) : Rec s1 sx xs -> (p : Shift s2 sx xs sb bs) -> Rec False sb bs
+r ~?> p = weaken (r ~> p)
+
+public export
+(<|>) : Rec b1 sx xs -> Lazy (Rec b2 sx xs) -> Rec (b1 && b2) sx xs
+Res post @{q} <|> _             = Res post @{and1 q}
+Stop          <|> Res post @{q} = Res post @{and2 q}
+Stop          <|> Stop          = Stop
+ 
 --------------------------------------------------------------------------------
 --          Shifters
 --------------------------------------------------------------------------------
@@ -252,12 +186,12 @@ stop _ _ = Stop
 public export
 0 AutoShift : Bool -> Type -> Type
 AutoShift s a =
-     {0 b       : Bool}
-  -> {0 giro    : SnocList a}
-  -> {0 orig    : List a}
-  -> {pre       : SnocList a}
-  -> (post      : List a)
-  -> {auto 0 sh : Shift b pre post giro orig}
+     {0 b     : Bool}
+  -> {0 giro  : SnocList a}
+  -> {0 orig  : List a}
+  -> {pre     : SnocList a}
+  -> (post    : List a)
+  -> {auto sh : Shift b pre post giro orig}
   -> Rec (s || b) giro orig
 
 ||| A shifter that doesn't move anything.

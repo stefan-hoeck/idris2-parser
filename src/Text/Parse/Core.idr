@@ -35,21 +35,14 @@ data Res :
     -> (err      : List1 $ Bounded $ ParseErr t e)
     -> Res b t ts state e a
 
-  Pure :
-       {0 state,t,e,a : Type}
-    -> state
-    -> (res   : Bounded a)
-    -> (toks  : List $ Bounded t)
-    -> Res False t toks state e a
-
   Succ :
        {0 b : Bool}
     -> {0 state,t,e,a : Type}
     -> {0 ts : List $ Bounded t}
     -> state
-    -> (res   : Bounded a)
-    -> (toks  : List $ Bounded t)
-    -> (0 prf : Suffix True toks ts)
+    -> (res  : Bounded a)
+    -> (toks : List $ Bounded t)
+    -> (prf  : Suffix b toks ts)
     -> Res b t ts state e a
 
 namespace Res
@@ -67,7 +60,7 @@ namespace Res
   
   public export %inline
   parseFailLoc : Bounds -> ParseErr t e -> Res b t ts s e a
-  parseFailLoc b err = fail_ (MkBounded err b)
+  parseFailLoc b err = fail_ (BD err b)
   
   public export %inline
   failLoc : Bounds -> e -> Res b t ts s e a
@@ -76,14 +69,13 @@ namespace Res
 public export
 merge : Bounded z -> Res b t ts s e a -> Res b t ts s e a
 merge x (Succ y res toks prf) = Succ y (x *> res) toks prf
-merge x (Pure y res toks)     = Pure y (x *> res) toks
 merge x v                     = v
 
 export
-succ : Res b t ts s e a -> (0 p : Suffix True ts ts') -> Res b1 t ts' s e a
+succ : Res b t ts s e a -> (p : Suffix True ts ts') -> Res b1 t ts' s e a
 succ (Fail c err)          p = Fail c err
-succ (Pure x res ts)       p = Succ x res ts p
-succ (Succ x res toks prf) p = Succ x res toks (prf ~> p)
+succ (Succ x res toks prf) p =
+  Succ x res toks (weakens $ rewrite sym (orTrueTrue b) in prf ~> p)
 
 --------------------------------------------------------------------------------
 --          Grammar
@@ -176,7 +168,7 @@ fail err = fail_ (pure $ Custom err)
 ||| Always fail with a message and a location
 public export %inline
 failLoc : {0 state,t,e,a : Type} -> Bounds -> e -> Grammar b state t e a
-failLoc bs err = fail_ (MkBounded (Custom err) bs)
+failLoc bs err = fail_ (BD (Custom err) bs)
 
 -------------------------------------------------------------------------------
 --         Core Parsers
@@ -213,7 +205,7 @@ public export %inline
 
 public export %inline
 pure : {0 state,t,e,a : Type} -> (res : a) -> Grammar False state t e a
-pure res = Lift $ \s,ts => Pure s (pure res) ts
+pure res = Lift $ \s,ts => Succ s (pure res) ts Same
 
 public export
 Functor (Grammar b s t e) where
@@ -252,14 +244,14 @@ public export
 nextIs : Lazy e -> (t -> Bool) -> Grammar False s t e t
 nextIs err f = Lift $ \s,cs => case cs of
   h :: t =>
-    if f h.val then Pure s h _ else failLoc h.bounds err
+    if f h.val then Succ s h (h::t) Same else failLoc h.bounds err
   []     => parseFail EOI
 
 ||| Look at the next token in the input
 public export
 peek : Grammar False s t e t
 peek = Lift $ \s,cs => case cs of
-  h :: t => Pure s h _
+  h :: t => Succ s h (h::t) Same
   []     => parseFail EOI
 
 ||| Look at the next token in the input
@@ -267,7 +259,7 @@ public export
 readHead : (t -> Either (ParseErr t e) a) -> Grammar True s t e a
 readHead f = Lift $ \s,cs => case cs of
   h :: t => case f h.val of
-    Right v  => Succ s (MkBounded v h.bounds) t %search
+    Right v  => Succ s (BD v h.bounds) t %search
     Left err => parseFailLoc h.bounds err
   []     => parseFail EOI
 
@@ -423,68 +415,62 @@ prs :
   -> state
   -> (consumed : Bool)
   -> (ts : List $ Bounded t)
-  -> (0 acc : SuffixAcc ts)
+  -> (0 sa : SuffixAcc ts)
   -> Res b t ts state e a
 prs (Lift f) s1 c1 ts1 _ = case f s1 ts1 of
   Fail c2 err         => Fail (c1 || c2) err
-  Pure x res ts1      => Pure x res ts1
   Succ x res toks prf => Succ x res toks prf
 
-prs (App x y) s1 c1 ts1 (Access rec) = case prs x s1 c1 ts1 (Access rec) of
-  Succ s2 rf ts2 p2 => case prs y s2 True ts2 (rec ts2 p2) of
+prs (App x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
+  Succ s2 rf ts1 Same => case prs y s2 c1 ts1 sa of
     Fail c2 err       => Fail c2 err
-    Pure s3 ra ts2    => Succ s3 (rf <*> ra) ts2 p2
-    Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 (p3 ~> p2)
-  Pure s2 rf ts1 => case prs y s2 c1 ts1 (Access rec) of
-    Fail c2 err       => Fail c2 err
-    Pure s3 ra ts1    => Pure s3 (rf <*> ra) ts1
     Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 p3
-  Fail c2 err => Fail c2 err
-
-prs (AppEat x y) s1 c1 ts1 (Access rec) = case prs x s1 c1 ts1 (Access rec) of
-  Succ s2 rf ts2 p2 => case prs y s2 True ts2 (rec ts2 p2) of
+  Succ s2 rf ts2 (Uncons p2) => case prs y s2 True ts2 rec of
     Fail c2 err       => Fail c2 err
-    Pure s3 ra ts2    => Succ s3 (rf <*> ra) ts2 p2
-    Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 (p3 ~> p2)
+    Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 (Uncons p2 <~ p3)
   Fail c2 err => Fail c2 err
 
-prs (BindEat x y) s1 c1 ts1 (Access rec) = case prs x s1 c1 ts1 (Access rec) of
-  Succ s2 res ts2 p => merge res $ succ (prs (y res.val) s2 True ts2 (rec ts2 p)) p
+prs (AppEat x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
+  Succ s2 rf ts2 p2 => case prs y s2 True ts2 rec of
+    Fail c2 err       => Fail c2 err
+    Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 (p2 <~ p3)
+  Fail c2 err => Fail c2 err
+
+prs (BindEat x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
+  Succ s2 res ts2 p => merge res $ succ (prs (y res.val) s2 True ts2 rec) p
   Fail c2 err       => Fail c2 err
 
-prs (Bind x y) s1 c1 ts1 (Access rec) = case prs x s1 c1 ts1 (Access rec) of
-  Succ s2 res ts2 p => merge res $ succ (prs (y res.val) s2 True ts2 (rec ts2 p)) p
-  Pure s2 res ts1   => merge res $ prs (y res.val) s2 c1 ts1 (Access rec)
+prs (Bind x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
+  Succ s2 res ts2 (Uncons p) =>
+    merge res $ succ (prs (y res.val) s2 True ts2 rec) (Uncons p)
+  Succ s2 res ts2 Same       => merge res $ prs (y res.val) s2 c1 ts2 sa
+  Fail c2 err                => Fail c2 err
+
+prs (ThenEat x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
+  Succ s2 res ts2 p => merge res $ succ (prs y s2 True ts2 rec) p
   Fail c2 err       => Fail c2 err
 
-prs (ThenEat x y) s1 c1 ts1 (Access rec) = case prs x s1 c1 ts1 (Access rec) of
-  Succ s2 res ts2 p => merge res $ succ (prs y s2 True ts2 (rec ts2 p)) p
-  Fail c2 err       => Fail c2 err
+prs (Then x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
+  Succ s2 res ts2 (Uncons p) =>
+    merge res $ succ (prs y s2 True ts2 rec) (Uncons p)
+  Succ s2 res ts2 Same       => merge res $ prs y s2 c1 ts2 sa
+  Fail c2 err                => Fail c2 err
 
-prs (Then x y) s1 c1 ts1 (Access rec) = case prs x s1 c1 ts1 (Access rec) of
-  Succ s2 res ts2 p => merge res $ succ (prs y s2 True ts2 (rec ts2 p)) p
-  Pure s2 res ts1   => merge res $ prs y s2 c1 ts1 (Access rec)
-  Fail c2 err       => Fail c2 err
-
-prs (Alt x y) s1 c1 ts1 acc = case prs x s1 False ts1 acc of
-  Succ s2 res ts2 p => Succ s2 res ts2 p
-  Pure s2 res ts1   => Pure s2 res ts1
+prs (Alt x y) s1 c1 ts1 sa = case prs x s1 False ts1 sa of
+  Succ s2 res ts2 p => Succ s2 res ts2 (and1 p)
   Fail True err     => Fail True err
-  Fail {b = b1} False err  => case prs y s1 False ts1 acc of
-    Succ s2 res ts2 p => Succ s2 res ts2 p
-    Pure s2 res ts2   => rewrite andFalseFalse b1 in Pure s2 res ts2
+  Fail {b = b1} False err  => case prs y s1 False ts1 sa of
+    Succ s2 res ts2 p => Succ s2 res ts2 (and2 p)
     Fail True err2    => Fail True err2
     Fail False err2   => Fail c1 $ err ++ err2
 
-prs (Bounds x) s1 c1 ts1 acc = case prs x s1 c1 ts1 acc of
-  Succ s2 res ts2 p => Succ s2 (MkBounded res res.bounds) ts2 p
-  Pure s2 res ts2   => Pure s2 (MkBounded res res.bounds) ts2
+prs (Bounds x) s1 c1 ts1 sa = case prs x s1 c1 ts1 sa of
+  Succ s2 res ts2 p => Succ s2 (BD res res.bounds) ts2 p
   Fail c2 err       => Fail c2 err
 
-prs (Try x) s1 c1 ts1 acc = case prs x s1 c1 ts1 acc of
+prs (Try x) s1 c1 ts1 sa = case prs x s1 c1 ts1 sa of
   Fail _ err => Fail False err
   res        => res
-
 
 export
 parse :
@@ -493,9 +479,8 @@ parse :
   -> state
   -> (ts : List $ Bounded t)
   -> Either (List1 $ Bounded $ ParseErr t e) (state, a, List $ Bounded t)
-parse g s ts = case prs g s False ts (ssAcc _) of
+parse g s ts = case prs g s False ts suffixAcc of
   Fail _ errs         => Left errs
-  Pure x res ts       => Right (x, res.val, ts)
   Succ x res toks prf => Right (x, res.val, toks)
 
 --------------------------------------------------------------------------------
@@ -526,4 +511,4 @@ lexAndParse orig tm keep gr s str = case lex tm str of
     Left x          => Left $ parseFailed orig x
     Right (s2,a,[]) => Right (s2,a)
     Right (s2,a,ts) => Right (s2,a)
-  TR l c st r _ _ => Left (LexFailed (FC orig $ MkBounds l c l (c+1)) r)
+  TR l c st r _ _ => Left (LexFailed (FC orig $ BS l c l (c+1)) r)

@@ -26,11 +26,11 @@ record FileContext where
 
 public export
 fromBounded : String -> Bounded a -> (FileContext, a)
-fromBounded s (MkBounded val bounds) = (FC (FileSrc s) bounds, val)
+fromBounded s (BD val bounds) = (FC (FileSrc s) bounds, val)
 
 public export
 virtualFromBounded : Bounded a -> (FileContext, a)
-virtualFromBounded (MkBounded val bounds) = (FC Virtual bounds, val)
+virtualFromBounded (BD val bounds) = (FC Virtual bounds, val)
 
 %runElab derive "FileContext" [Show,Eq]
 

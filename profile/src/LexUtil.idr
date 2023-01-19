@@ -6,7 +6,6 @@ import JSON.Parser
 import LexJSON
 import Libraries.Text.Lexer
 import ParseJSON
-import ParseJ
 import Profile
 import Text.Lex
 import Text.Parse
@@ -157,10 +156,8 @@ bench = Group "lexer" [
       Single "fastParse" (basic fastParse jsonStr)
     , Single "niceParse" (basic niceParse jsonStr)
     , Single "json"      (basic parseErr jsonStr)
-    , Single "stateParse" (basic stateParse jsonStr)
     , Single "fastParse2" (basic fastParse jsonStr2)
     , Single "niceParse2" (basic niceParse jsonStr2)
     , Single "json2"      (basic parseErr jsonStr2)
-    , Single "stateParse2" (basic stateParse jsonStr2)
     ]
   ]

@@ -39,8 +39,8 @@ toToken (StringLit str) = StringLit str
 toToken (IntegerLit i) = IntegerLit i
 
 toRes :
-     Either (Int,Int,String) (List (IWithBounds IToken))
-  -> Either (Nat,Nat,String) (List (PWithBounds PToken))
+     Either (Int,Int,String) (List (IBounded IToken))
+  -> Either (Nat,Nat,String) (List (PBounded PToken))
 toRes (Left (l,c,s)) = Left (cast l, cast c, s)
 toRes (Right x) = Right $ map (toWithBounds . map toToken) x
 

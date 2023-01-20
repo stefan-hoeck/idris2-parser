@@ -8,19 +8,6 @@ import Text.Lex
 %default total
 
 public export
-data Paren = Bracket | Brace
-
-%runElab derive "Paren" [Show,Eq,Ord]
-
-public export
-data Err : Type where
-  Unclosed     : Paren -> Err
-  Unexpected   : Paren -> Err
-  Unrecognised : Err
-
-%runElab derive "Err" [Show,Eq]
-
-public export
 data Tok : Type where
   BracketO : Tok
   BracketC : Tok

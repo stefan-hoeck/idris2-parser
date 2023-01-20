@@ -38,7 +38,7 @@ toReason : Lexer.Tokenizer.StopReason -> Lex.Tokenizer.StopReason
 toReason EndInput = EndInput
 toReason NoRuleApply = NoRuleApply
 toReason (ComposeNotClosing (a,b) (c,d)) =
-  ComposeNotClosing (cast a, cast b) (cast c, cast d)
+  ComposeNotClosing $ BS (cast a) (cast b) (cast c) (cast d)
 
 toToken : IToken -> PToken
 toToken (CharLit str) = CharLit str
@@ -65,8 +65,8 @@ toToken (MagicDebugInfo x) = MagicDebugInfo (toInfo x)
 toToken (Unrecognised str) = Unrecognised str
 
 toRes :
-     Either (IReason, Int, Int, String) (List (IWithBounds ()), List (IWithBounds IToken))
-  -> Either (PReason, Nat, Nat, String) (List (PWithBounds ()), List (PWithBounds PToken))
+     Either (IReason, Int, Int, String) (List (IBounded ()), List (IBounded IToken))
+  -> Either (PReason, Nat, Nat, String) (List (PBounded ()), List (PBounded PToken))
 toRes (Left (r,c,l,s)) = Left (toReason r, cast c, cast l, s)
 toRes (Right (bs,cs)) =
   Right (map toWithBounds bs, map (map toToken . toWithBounds) cs)

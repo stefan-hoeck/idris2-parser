@@ -7,49 +7,75 @@ import Derive.Prelude
 %language ElabReflection
 
 public export
-record Bounds where
-  constructor MkBounds
-  ||| 0-based first line
-  startLine : Nat
-  ||| 0-based first col
-  startCol : Nat
-  ||| 0-based last line of bound
-  endLine : Nat
-  ||| 0-based first column after bound
-  endCol : Nat
+data Bounds : Type where
+  BS :
+      (startLine : Nat)
+   -> (startCol  : Nat)
+   -> (endLine   : Nat)
+   -> (endCol    : Nat)
+   -> Bounds
+  NoBounds : Bounds
 
 %runElab derive "Bounds" [Show,Eq]
 
-namespace Bounds
-  public export
-  start : Bounds -> (Nat, Nat)
-  start b = (b.startLine, b.startCol)
+%inline
+pos : Nat -> Nat -> String
+pos l c = show (l+1) ++ ":" ++ show (c+1)
 
-  public export
-  end : Bounds -> (Nat, Nat)
-  end b = (b.endLine, b.endCol)
+export
+Interpolation Bounds where
+  interpolate (BS sl sc el ec) =
+    "\{pos sl sc}--\{pos el ec}"
+  interpolate NoBounds = ""
 
 public export
 Semigroup Bounds where
-  x <+> y =
-    let (ur, uc) := min (start x) (start y)
-        (lr, lc) := max (end x) (end y)
-     in MkBounds ur uc lr lc
+  NoBounds <+> y        = y
+  x        <+> NoBounds = x
+  BS ll1 lc1 ul1 uc1 <+> BS ll2 lc2 ul2 uc2 =
+    BS (min ll1 ll2) (min lc1 lc2) (max ul1 ul2) (max uc1 uc2)
 
 public export
-record WithBounds ty where
-  constructor MkBounded
+Monoid Bounds where
+  neutral = NoBounds
+
+public export
+record Bounded ty where
+  constructor BD
   val    : ty
-  bounds : Maybe Bounds
+  bounds : Bounds
 
-%runElab derive "WithBounds" [Show,Eq]
-
-public export
-Functor WithBounds where
-  map f (MkBounded val bs) = MkBounded (f val) bs
+%runElab derive "Bounded" [Show,Eq]
 
 public export
-Foldable WithBounds where
+bounded : a -> (lstart,cstart,lstop,cstop : Nat) -> Bounded a
+bounded v w x y z = BD v $ BS w x y z
+
+public export
+app : Bounded (a -> b) -> Bounded a -> Bounded b
+app (BD vf b1) (BD va b2) = BD (vf va) (b1 <+> b2)
+
+public export
+bind : Bounded a -> (a -> Bounded b) -> Bounded b
+bind (BD va b1) f =
+  let BD vb b2 = f va
+   in BD vb (b1 <+> b2)
+
+public export
+Functor Bounded where
+  map f (BD val bs) = BD (f val) bs
+
+public export %inline
+Applicative Bounded where
+  pure v = BD v neutral
+  (<*>) = app
+
+public export %inline
+Monad Bounded where
+  (>>=) = bind
+
+public export
+Foldable Bounded where
   foldr c n b = c b.val n
   foldl c n b = c n b.val
   foldMap f b = f b.val
@@ -57,27 +83,5 @@ Foldable WithBounds where
   toList b = [b.val]
 
 public export
-Traversable WithBounds where
-  traverse f (MkBounded v bs) = (`MkBounded` bs) <$> f v
-
-namespace WithBounds
-  public export %inline
-  start : WithBounds ty -> Maybe (Nat, Nat)
-  start = map start . bounds
-
-  public export %inline
-  end : WithBounds ty -> Maybe (Nat, Nat)
-  end = map end . bounds
-
-public export %inline
-irrelevantBounds : ty -> WithBounds ty
-irrelevantBounds x = MkBounded x Nothing
-
-public export
-mergeBounds : WithBounds ty -> WithBounds ty' -> WithBounds ty'
-mergeBounds (MkBounded _ $ Just x) (MkBounded val $ Just y) = MkBounded val (Just $ x <+> y)
-mergeBounds (MkBounded _ x)        (MkBounded val y)        = MkBounded val (x <|> y)
-
-public export
-joinBounds : WithBounds (WithBounds ty) -> WithBounds ty
-joinBounds b = mergeBounds b b.val
+Traversable Bounded where
+  traverse f (BD v bs) = (`BD` bs) <$> f v

@@ -1,49 +1,50 @@
 module Text.Lex.Tokenizer
 
 import Derive.Prelude
-import public Text.Lex
+import Text.Lex.Core
 
 %default total
 %language ElabReflection
 
 ||| Description of a language's tokenization rule.
 public export
-data Tokenizer : (charType, tokenType : Type) -> Type where
-  Match :
-       {0 charType, tokenType : Type}
-    -> Recognise True charType
-    -> (SnocList charType -> tokenType)
-    -> Tokenizer charType tokenType
+data Tokenizer : (tokenType : Type) -> Type where
+  ||| Use this for fast, direct lexing of constant tokens.
+  ||| Note: It is assumed that the lexed characters do *NOT* contain
+  ||| any line breaks.
+  Direct : ((cs : List Char) -> SuffixRes True Char cs t) -> Tokenizer t
+
+  Match  : TokenMap t -> Tokenizer t
 
   Compose :
-       {0 charType, tokenType, tag : Type}
-    -> (begin    : Recognise True charType)
-    -> (mapBegin : SnocList charType -> tokenType)
-    -> (tagger   : SnocList charType -> tag)
-    -> (middle   : Inf (tag -> Tokenizer charType tokenType))
-    -> (end      : tag -> Recognise True charType)
-    -> (mapEnd   : SnocList charType -> tokenType)
-    -> Tokenizer charType tokenType
+       {0 tokenType, tag : Type}
+    -> (begin    : Recognise True Char)
+    -> (mapBegin : SnocList Char -> tokenType)
+    -> (tagger   : SnocList Char -> tag)
+    -> (middle   : Inf (tag -> Tokenizer tokenType))
+    -> (end      : tag -> Recognise True Char)
+    -> (mapEnd   : SnocList Char -> tokenType)
+    -> Tokenizer tokenType
 
   (<|>) :
-       {0 charType, tokenType : Type}
-    -> Tokenizer charType tokenType
-    -> Lazy (Tokenizer charType tokenType)
-    -> Tokenizer charType tokenType
+       {0 tokenType : Type}
+    -> Tokenizer tokenType
+    -> Lazy (Tokenizer tokenType)
+    -> Tokenizer tokenType
 
 export
 choiceMap :
-     (a -> Tokenizer c b)
+     (a -> Tokenizer b)
   -> (as : List a)
   -> {auto 0 prf : NonEmpty as}
-  -> Tokenizer c b
+  -> Tokenizer b
 choiceMap f (h :: t) = foldl (\v,e => v <|> f e) (f h) t
 
 export %inline
 choice :
-     (rs : List $ Tokenizer c b)
+     (rs : List $ Tokenizer b)
   -> {auto 0 prf : NonEmpty rs}
-  -> Tokenizer c b
+  -> Tokenizer b
 choice rs = choiceMap id rs
 
 ||| Stop reason why tokenizer can't make more progress.
@@ -53,7 +54,7 @@ public export
 data StopReason =
     EndInput
   | NoRuleApply
-  | ComposeNotClosing (Nat, Nat) (Nat, Nat)
+  | ComposeNotClosing Bounds
 
 %runElab derive "StopReason" [Show, Eq]
 
@@ -64,51 +65,46 @@ record TokRes (strict : Bool) (cs : List Char) (r,a : Type) where
   constructor TR
   line   : Nat
   col    : Nat
-  res    : SnocList (WithBounds a)
+  res    : SnocList (Bounded a)
   reason : r
   rem    : List Char
-  0 prf  : Suffix strict rem cs
-
-mapPrf :
-     {0 cs1,cs2 : List Char}
-  -> (0 f :
-          {cs : List Char}
-       -> Suffix b1 cs cs1
-       -> Suffix b2 cs cs2
-     )
-  -> TokRes b1 cs1 r a
-  -> TokRes b2 cs2 r a
-mapPrf f (TR l c res r rem prf) = TR l c res r rem (f prf)
+  prf    : Suffix strict rem cs
 
 %inline
-(~?>) : TokRes b1 cs1 r a -> (0 p : Suffix b2 cs1 cs2) -> TokRes False cs2 r a
-r ~?> p = mapPrf (\q => weaken $ trans q p) r
+(~?>) : TokRes b1 cs1 r a -> (p : Suffix b2 cs1 cs2) -> TokRes False cs2 r a
+TR l c res r rem q ~?> p =TR l c res r rem (weaken $ trans q p)
 
 tokenise :
      (reject    : Lexer)
-  -> (tokenizer : Tokenizer Char a)
+  -> (tokenizer : Tokenizer a)
   -> (line, col : Nat)
-  -> (toks      : SnocList (WithBounds a))
+  -> (toks      : SnocList (Bounded a))
   -> (cs        : List Char)
   -> (0 acc : SuffixAcc cs)
   -> TokRes False cs StopReason a
-tokenise _   _ l c ts [] _                = TR l c ts EndInput [] Same
-tokenise rej t l c ts cs acc@(Access rec) = case run rej [<] cs of
-  Res _ _ _ => TR l c ts EndInput cs Same
-  Stop      => case next t cs acc of
+tokenise _   _ l c ts [] _            = TR l c ts EndInput [] Same
+tokenise rej t l c ts cs acc@(SA rec) = case run rej [<] cs of
+  Res _ => TR l c ts EndInput cs Same
+  Stop  => case next t cs acc of
     Right (TR l2 c2 ts2 _ cs2 p) =>
-      tokenise rej t l2 c2 ts2 cs2 (rec cs2 p) ~?> p
+      tokenise rej t l2 c2 ts2 cs2 rec ~?> p
     Left r => TR l c ts r cs Same
   where
     next :
-         Tokenizer Char a
+         Tokenizer a
       -> (cs    : List Char)
       -> (0 acc : SuffixAcc cs)
       -> Either StopReason (TokRes True cs () a)
-    next (Match x f) cs _ = case step l c x f cs of
+    next (Direct f) cs _ = case f cs of
+      Succ x ds @{sfx} => 
+        let c2  := c + toNat sfx
+            res := bounded x l c l c2
+         in Right (TR l c2 (ts :< res) () ds sfx)
+      Fail      => Left NoRuleApply
+    next (Match m) cs _ = case first l c m cs of
       Just (ST l2 c2 res rem p)  => Right (TR l2 c2 (ts :< res) () rem p)
       Nothing => Left NoRuleApply
-    next (Compose b mapb tagger midFn endFn mapEnd) cs (Access rec) =
+    next (Compose b mapb tagger midFn endFn mapEnd) cs (SA rec) =
       let Just (ST l2 c2 sc cs2 p2) := step l c b id cs
             | Nothing => Left NoRuleApply
           tag      := tagger sc.val
@@ -116,14 +112,14 @@ tokenise rej t l c ts cs acc@(Access rec) = case run rej [<] cs of
           end      := endFn tag
           beginTok := map mapb sc
           TR l3 c3 midToks reason cs3 p3 :=
-            tokenise end middle l2 c2 (ts :< beginTok) cs2 (rec cs2 p2)
+            tokenise end middle l2 c2 (ts :< beginTok) cs2 rec
        in case reason of
          ComposeNotClosing {} => Left reason
          _                    =>
            case step l3 c3 end mapEnd cs3 of
              Just (ST l4 c4 resEnd cs4 p4) =>
                Right (TR l4 c4 (midToks :< resEnd) () cs4 $ p4 ~> p3 ~> p2)
-             Nothing => Left (ComposeNotClosing (l,c) (l2,c2))
+             Nothing => Left (ComposeNotClosing $ BS l c l2 c2)
     next (x <|> y) cs acc = case next x cs acc of
       Right res => Right res
       Left  r@(ComposeNotClosing {}) => Left r
@@ -132,14 +128,14 @@ tokenise rej t l c ts cs acc@(Access rec) = case run rej [<] cs of
 export %inline
 lexTo :
      Lexer
-  -> Tokenizer Char a
+  -> Tokenizer a
   -> (s : String)
   -> TokRes False (unpack s) StopReason a
-lexTo rej x s = tokenise rej x 0 0 [<] (unpack s) (ssAcc _)
+lexTo rej x s = tokenise rej x 0 0 [<] (unpack s) suffixAcc
 
 ||| Given a tokenizer and an input string, return a list of recognised tokens,
 ||| and the line, column, and remainder of the input at the first point in the string
 ||| where there are no recognised tokens.
 export %inline
-lex : Tokenizer Char a -> (s : String) -> TokRes False (unpack s) StopReason a
+lex : Tokenizer a -> (s : String) -> TokRes False (unpack s) StopReason a
 lex = lexTo stop

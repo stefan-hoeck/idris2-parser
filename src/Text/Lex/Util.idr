@@ -124,39 +124,12 @@ fromHexDigit 'E' = 14
 fromHexDigit _   = 15
 
 --------------------------------------------------------------------------------
---          Shifters
---------------------------------------------------------------------------------
-
-namespace Shifter
-  public export %inline
-  digits : Shifter True Char
-  digits = takeWhile1 isDigit
-
-  public export
-  intLit : Shifter True Char
-  intLit sc ('-' :: t) = digits _ t ~> sh1
-  intLit sc xs         = digits sc xs
-
-  public export
-  intLitPlus : Shifter True Char
-  intLitPlus sc ('+' :: t) = digits _ t ~> sh1
-  intLitPlus sc xs         = intLit sc xs
-
-  export
-  exactPrefix : Eq t => List t -> Shifter True t
-  exactPrefix (f :: []) sc (h :: t) =
-    if f == h then Res _ t sh1 else Stop
-  exactPrefix (f :: fs) sc (h :: t) =
-    if f == h then exactPrefix fs _ t ~> sh1 else Stop
-  exactPrefix _ _ _ = Stop
-
---------------------------------------------------------------------------------
 --          Single-Character Lexers
 --------------------------------------------------------------------------------
 
 export
 any : Recognise True t
-any = pred (const True)
+any = autoLift tail
 
 ||| Recognise any character if the sub-lexer `l` fails.
 ||| /(?!`l`)./
@@ -224,7 +197,7 @@ prefixBy []        = stop
 
 export
 exact : String -> Lexer
-exact s = let cs := unpack s in Lift $ exactPrefix cs
+exact s = let cs := unpack s in autoLift $ exact cs
 
 export
 approx : String -> Lexer
@@ -290,9 +263,9 @@ spaceChars = preds isSpaceChar
 export
 newline : Lexer
 newline = Lift $ \sc,cs => case cs of
-  '\r' :: '\n' :: t => Res _ t sh2
-  '\n' ::         t => Res _ t sh1
-  '\r' ::         t => Res _ t sh1
+  '\r' :: '\n' :: t => Res t
+  '\n' ::         t => Res t
+  '\r' ::         t => Res t
   _                 => Stop
 
 ||| Reads characters until the next newline character is
@@ -370,28 +343,19 @@ escape esc l = esc <+> l
 --------------------------------------------------------------------------------
 
 export
-stringShifter : Shifter False Char
-stringShifter sc ('"'       :: xs) = Res _ xs (weaken sh1)
-stringShifter sc ('\\' :: x :: xs) = stringShifter _ xs ~?> sh2
-stringShifter sc (x         :: xs) = stringShifter _ xs ~?> sh1
-stringShifter sc []                = Stop
-
-export
 stringLit : Lexer
-stringLit = Lift $ \sc,cs => case cs of
-  '"' :: t => stringShifter _ t ~> sh1
-  _        => Stop
+stringLit = autoLift string
 
 ||| Recognise an integer literal (possibly with a '-' prefix)
 ||| /-?[0-9]+/
 export %inline
 intLit : Lexer
-intLit = Lift intLit
+intLit = autoLift int
 
 ||| Recognise an integer literal (possibly with a '+' or '-' prefix)
 export %inline
 intLitPlus : Lexer
-intLitPlus = Lift intLitPlus
+intLitPlus = autoLift intPlus
 
 export %inline
 binDigits : Lexer

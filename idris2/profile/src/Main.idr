@@ -20,8 +20,9 @@ export %inline
 plex :
      Text.Lex.Core.Lexer
   -> String
-  -> (SnocList (Text.Lex.Bounded.WithBounds String), (Nat,Nat,List Char))
-plex l = lex [(l, pack . (<>> []))]
+  -> (SnocList (Text.Lex.Bounded.Bounded String), (Nat,Nat,List Char))
+plex l s = case lex (Match [(l, pack . (<>> []))]) s of
+  TR l c st _ cs _ => (st, l, c , cs)
 
 export %inline
 ilex :

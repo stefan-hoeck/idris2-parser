@@ -18,12 +18,6 @@ isLineFeed : Char -> Bool
 isLineFeed '\n' = True
 isLineFeed _    = False
 
-public export
-isBinDigit : Char -> Bool
-isBinDigit '0' = True
-isBinDigit '1' = True
-isBinDigit _   = False
-
 --------------------------------------------------------------------------------
 --          (Snoc)List Utilities
 --------------------------------------------------------------------------------

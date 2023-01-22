@@ -145,10 +145,14 @@ public export %inline
 x <~ y = swapOr $ trans y x
 
 ||| Operator alias for `trans` where the result is always non-strict
-||| suffix dominates.
 public export %inline
 (~?>) : Suffix b1 xs ys -> Suffix b2 ys cs -> Suffix False xs cs
 (~?>) x y = weaken $ trans x y
+
+||| Operator alias for `trans` where the result is always strict
+public export %inline
+(~~>) : Suffix b1 xs ys -> Suffix True ys cs -> Suffix True xs cs
+(~~>) x y = rewrite sym (orTrueTrue b1) in trans x y
 
 --------------------------------------------------------------------------------
 --          SuffixAcc
@@ -194,6 +198,34 @@ data SuffixRes : Bool -> (t : Type) -> List t -> (a : Type) -> Type where
 
   Fail : SuffixRes b t ts a
 
+public export %inline
+autoMap :
+     {0 ys : List t}
+  -> (a -> b)
+  -> SuffixRes b1 t xs a
+  -> {auto q : Suffix True xs ys}
+  -> SuffixRes True t ys b
+autoMap f (Succ val zs @{p}) = Succ (f val) zs @{p ~~> q}
+autoMap f Fail = Fail
+
+public export %inline
+succ :
+     {0 ys : List t}
+  -> SuffixRes b1 t xs a
+  -> {auto q : Suffix True xs ys}
+  -> SuffixRes b t ys a
+succ (Succ val zs @{p}) = Succ val zs @{weakens $ p ~~> q}
+succ Fail = Fail
+
+public export
+(<|>) :
+     SuffixRes b1 t ts a
+  -> Lazy (SuffixRes b2 t ts a)
+  -> SuffixRes (b1 && b2) t ts a
+Succ v xs @{p} <|> _              = Succ v xs @{and1 p}
+Fail           <|> Succ v xs @{p} = Succ v xs @{and2 p}
+Fail           <|> Fail           = Fail
+
 namespace SuffixRes
   public export
   (~>) :
@@ -207,6 +239,10 @@ public export
 Functor (SuffixRes b t ts) where
   map f (Succ v xs) = Succ (f v) xs
   map _ Fail        = Fail
+
+public export
+0 Tok : Bool -> (t,a : Type) -> Type
+Tok b t a = (xs : List t) -> SuffixRes b t xs a
 
 public export
 0 AutoTok : Bool -> (t,a : Type) -> Type
@@ -246,15 +282,37 @@ hexDigit c = case toLower c of
   c   => digit c
 
 public export
+isBinDigit : Char -> Bool
+isBinDigit '0' = True
+isBinDigit '1' = True
+isBinDigit _   = False
+
+public export
+binDigit : Char -> Nat
+binDigit '0' = 0
+binDigit _   = 1
+
+public export
 ontoDec : (n : Nat) -> AutoTok False Char Nat
 ontoDec n (x :: xs) =
   if isDigit x then ontoDec (n*10 + digit x) xs else Succ n (x::xs)
 ontoDec n []        = Succ n []
 
 public export
-nat : AutoTok True Char Nat
+nat : Tok True Char Nat
 nat (x :: xs) = if isDigit x then ontoDec (digit x) xs else Fail
 nat []        = Fail
+
+public export
+ontoBin : (n : Nat) -> AutoTok False Char Nat
+ontoBin n (x :: xs) =
+  if isBinDigit x then ontoBin (n*2 + binDigit x) xs else Succ n (x::xs)
+ontoBin n []        = Succ n []
+
+public export
+binNat : Tok True Char Nat
+binNat (x :: xs) = if isBinDigit x then ontoBin (binDigit x) xs else Fail
+binNat _                       = Fail
 
 public export
 ontoOct : (n : Nat) -> AutoTok False Char Nat
@@ -263,10 +321,9 @@ ontoOct n (x :: xs) =
 ontoOct n []        = Succ n []
 
 public export
-octNat : AutoTok True Char Nat
-octNat ('0' :: 'o' :: x :: xs) =
-  if isOctDigit x then ontoOct (octDigit x) xs else Fail
-octNat _                       = Fail
+octNat : Tok True Char Nat
+octNat (x :: xs) = if isOctDigit x then ontoOct (octDigit x) xs else Fail
+octNat _         = Fail
 
 public export
 ontoHex : (n : Nat) -> AutoTok False Char Nat
@@ -276,16 +333,27 @@ ontoHex n []        = Succ n []
 
 public export
 hexNat : AutoTok True Char Nat
-hexNat ('0' :: 'x' :: x :: xs) =
-  if isHexDigit x then ontoHex (hexDigit x) xs else Fail
-hexNat _                       = Fail
+hexNat (x :: xs) = if isHexDigit x then ontoHex (hexDigit x) xs else Fail
+hexNat _         = Fail
 
 public export
-int : AutoTok True Char Integer
-int ('-' :: xs) = map (negate . cast) (nat {b} xs)
-int xs          = map cast (nat {b} xs)
+int : Tok True Char Integer
+int ('-' :: xs) = autoMap (negate . cast) (nat xs)
+int xs          = map cast (nat xs)
 
 public export
-intPlus : AutoTok True Char Integer
-intPlus ('+' :: xs) = int {b} xs
-intPlus xs          = int {b} xs
+intPlus : Tok True Char Integer
+intPlus ('+' :: xs) = succ $ int xs
+intPlus xs          = int xs
+
+--------------------------------------------------------------------------------
+--         Literals
+--------------------------------------------------------------------------------
+
+public export
+data Literal : Type where
+  StringLit : String  -> Literal 
+  NatLit    : Nat     -> Literal
+  IntLit    : Integer -> Literal
+  DblLit    : Double  -> Literal
+  CharLit   : Char    -> Literal

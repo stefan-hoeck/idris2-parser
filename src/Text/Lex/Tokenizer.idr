@@ -12,7 +12,7 @@ data Tokenizer : (tokenType : Type) -> Type where
   ||| Use this for fast, direct lexing of constant tokens.
   ||| Note: It is assumed that the lexed characters do *NOT* contain
   ||| any line breaks.
-  Direct : ((cs : List Char) -> SuffixRes True Char cs t) -> Tokenizer t
+  Direct : Tok True Char a -> Tokenizer a
 
   Match  : TokenMap t -> Tokenizer t
 

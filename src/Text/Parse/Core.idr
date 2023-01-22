@@ -496,6 +496,20 @@ filterOnto xs f (sx :< x) =
   if f x.val then filterOnto (x :: xs) f sx else filterOnto xs f sx
 filterOnto xs f [<]       = xs
 
+||| Given a tokenizer and an input string, return a list of recognised tokens.
+|||
+||| This fails with an error if not the whole input is consumed.
+export
+lexFull :
+     Origin
+  -> Tokenizer t
+  -> (keep : t -> Bool)
+  -> (s : String)
+  -> Either (ReadError t e) (List $ Bounded t)
+lexFull orig tm keep s = case lex tm s of
+  TR l c st EndInput [] _ => Right (filterOnto [] keep st)
+  TR l c st r _         _ => Left $ LexFailed (FC orig $ BS l c l (c+1)) r
+
 export
 lexAndParse :
      {0 state,t,e,a : Type}
@@ -506,9 +520,9 @@ lexAndParse :
   -> state
   -> String
   -> Either (ReadError t e) (state, a)
-lexAndParse orig tm keep gr s str = case lex tm str of
-  TR l c st EndInput _ _ => case parse gr s (filterOnto [] keep st) of
-    Left x          => Left $ parseFailed orig x
-    Right (s2,a,[]) => Right (s2,a)
-    Right (s2,a,ts) => Right (s2,a)
-  TR l c st r _ _ => Left (LexFailed (FC orig $ BS l c l (c+1)) r)
+lexAndParse orig tm keep gr s str =
+  let Right ts := lexFull orig tm keep str | Left err => Left err
+   in case parse gr s ts of
+        Left x          => Left $ parseFailed orig x
+        Right (s2,a,[]) => Right (s2,a)
+        Right (s2,a,ts) => Right (s2,a)

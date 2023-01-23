@@ -113,13 +113,13 @@ prs = JObject <$> (sepBy (is Comma) pr <* is BraceC)
 obj = is BraceO >>= \_ => prs
 
 export
-fastParse : String -> Either JPErr JSON
-fastParse str = case json str of
-  (ts,l,c,[]) => case value (ts <>> []) suffixAcc of
-    Fail x         => Left x
-    Succ v []      => Right v
-    Succ v (x::xs) => Left (Unexpected x)
-  (_,l,c,_) => Left LexErr
+fastParse : String -> Either (ReadError Tok Void) JSON
+-- fastParse str = case json str of
+--   (ts,l,c,[]) => case value (ts <>> []) suffixAcc of
+--     Fail x         => Left x
+--     Succ v []      => Right v
+--     Succ v (x::xs) => Left (Unexpected x)
+--   (_,l,c,_) => Left LexErr
 
 export
 niceParse : String -> Either (ReadError Tok Void) JSON

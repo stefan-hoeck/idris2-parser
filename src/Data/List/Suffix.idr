@@ -347,13 +347,5 @@ intPlus ('+' :: xs) = succ $ int xs
 intPlus xs          = int xs
 
 --------------------------------------------------------------------------------
---         Literals
+--         Parsing
 --------------------------------------------------------------------------------
-
-public export
-data Literal : Type where
-  StringLit : String  -> Literal 
-  NatLit    : Nat     -> Literal
-  IntLit    : Integer -> Literal
-  DblLit    : Double  -> Literal
-  CharLit   : Char    -> Literal

@@ -46,7 +46,7 @@ str sc ('"'  :: xs) = Succ (Lit $ JString $ pack sc) xs
 str sc (c    :: xs) = str (sc :< c) xs
 str sc []           = Fail
 
-term : Suffix.Tok True Char Tok
+term : SuffixRes.Tok True Char Tok
 term (x :: xs) = case x of
   ',' => Succ Comma xs
   '"' => str [<] xs
@@ -64,7 +64,7 @@ term (x :: xs) = case x of
   'f' => case xs of
     'a' :: 'l' :: 's' :: 'e' :: t => Succ (Lit $ JBool False) t
     _                             => Fail
-  d   => toSuffix (Lit . JNumber . cast . pack) $
+  d   => suffix (Lit . JNumber . cast . pack) $
          number {pre = [<]} (d :: xs) @{Same}
   
 term []        = Fail

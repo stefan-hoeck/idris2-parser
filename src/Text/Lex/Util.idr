@@ -257,9 +257,9 @@ spaceChars = preds isSpaceChar
 export
 newline : Lexer
 newline = Lift $ \sc,cs => case cs of
-  '\r' :: '\n' :: t => Res t
-  '\n' ::         t => Res t
-  '\r' ::         t => Res t
+  '\r' :: '\n' :: t => Succ t
+  '\n' ::         t => Succ t
+  '\r' ::         t => Succ t
   _                 => Stop
 
 ||| Reads characters until the next newline character is

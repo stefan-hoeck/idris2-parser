@@ -10,8 +10,8 @@ module Text.Lex.Core
 import Data.Bool
 import public Data.List
 import public Data.Vect
-import public Data.List.Shift
-import public Data.List.Suffix
+import public Text.Lex.ShiftRes
+import public Text.Lex.SuffixRes
 import public Data.SnocList
 import public Text.Lex.Bounded
 
@@ -40,14 +40,14 @@ public export
 run : Recognise b t -> Shifter b t
 run (Lift f)  st ts = f st ts
 run (x <+> y) st ts = case run x st ts of
-  Res {pre = st2} ts2 @{p2} => swapOr $ run y st2 ts2 ~> p2
-  Stop                      => Stop
+  Succ {pre = st2} ts2 @{p2} => swapOr $ run y st2 ts2 ~> p2
+  Stop                       => Stop
 run (x <|> y) st ts = run x st ts <|> run y st ts
 
 ||| The empty lexer, which never consumes any input.
 export %inline
 empty : Recognise False t
-empty = Lift $ \sc,cs => Res cs
+empty = Lift $ \sc,cs => Succ cs
 
 ||| Renders the given lexer optional.
 export %inline
@@ -63,15 +63,15 @@ eoi = Lift eoi
 export
 expect : Recognise b t -> Recognise False t
 expect r = Lift $ \sx,xs => case run r sx xs of
-  Res {} => Res xs
-  Stop   => Stop
+  Succ {} => Succ xs
+  Stop    => Stop
 
 ||| Negative look-ahead. Does not consume any input.
 export
 reject : Recognise b t -> Recognise False t
 reject r = Lift $ \sx,xs => case run r sx xs of
-  Stop   => Res xs
-  Res {} => Stop
+  Stop    => Succ xs
+  Succ {} => Stop
 
 export %inline
 seqSame : Recognise b t -> Recognise b t -> Recognise b t
@@ -91,11 +91,11 @@ manyOnto :
   -> (st    : SnocList t)
   -> (ts    : List t)
   -> (0 acc : SuffixAcc ts)
-  -> Rec False st ts
+  -> ShiftRes False st ts
 manyOnto f st ts (SA rec) = case run f st ts of
-  Res {pre = st2} ts2 @{p2} =>
+  Succ {pre = st2} ts2 @{p2} =>
     let 0 x := suffix p2 in manyOnto f st2 ts2 rec ~?> p2
-  Stop                      => Res ts
+  Stop                      => Succ ts
 
 ||| Runs the given lexer zero or more times.
 export
@@ -126,9 +126,9 @@ preds f = autoLift $ takeWhile1 f
 
 cmap : (a -> Recognise c t) -> (xs : List a) -> Shifter False t
 cmap f (x :: xs) st ts = case run (f x) st ts of
-   Res {pre = st2} ts2 @{p2} => cmap f xs st2 ts2 ~?> p2
+   Succ {pre = st2} ts2 @{p2} => cmap f xs st2 ts2 ~?> p2
    Stop                      => Stop
-cmap f [] sc cs = Res cs
+cmap f [] sc cs = Succ cs
 
 export
 concatMap :
@@ -184,7 +184,7 @@ step :
   -> (cs : List Char)
   -> Maybe (Step a cs)
 step l c x f cs = case run x [<] cs of
-  Res {pre = sc} cs2 @{p} =>
+  Succ {pre = sc} cs2 @{p} =>
     let (l2,c2) := lineCol l c 0 sc
      in Just $ ST l2 c2 (bounded (f sc) l c l2 c2) cs2 (suffix p)
   Stop         => Nothing

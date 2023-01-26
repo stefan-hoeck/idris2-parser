@@ -47,7 +47,7 @@ helloP = exact "hello world"
 
 helloE : Text.Lex.Core.Lexer
 helloE = Lift $ \sc,cs => case cs of
-  'h'::'e'::'l'::'l'::'o'::' '::'w'::'o'::'r'::'l'::'d'::t => Res t
+  'h'::'e'::'l'::'l'::'o'::' '::'w'::'o'::'r'::'l'::'d'::t => Succ t
   _ => Stop
 
 helloI : Libraries.Text.Lexer.Core.Lexer

@@ -32,7 +32,7 @@ data Res :
     -> {0 state,t,e,a : Type}
     -> {0 ts : List $ Bounded t}
     -> (consumed : Bool)
-    -> (err      : List1 $ Bounded $ ParseErr t e)
+    -> (err      : List1 $ Bounded $ ParseError t e)
     -> Res b t ts state e a
 
   Succ :
@@ -45,26 +45,9 @@ data Res :
     -> (prf  : Suffix b toks ts)
     -> Res b t ts state e a
 
-namespace Res
-  public export %inline
-  fail_ : Bounded (ParseErr t e) -> Res b t ts s e a
-  fail_ = Fail False . singleton
-
-  public export %inline
-  parseFail : ParseErr t e -> Res b t ts s e a
-  parseFail = fail_ . pure
-  
-  public export %inline
-  fail : e -> Res b t ts s e a
-  fail = parseFail . Custom
-  
-  public export %inline
-  parseFailLoc : Bounds -> ParseErr t e -> Res b t ts s e a
-  parseFailLoc b err = fail_ (BD err b)
-  
-  public export %inline
-  failLoc : Bounds -> e -> Res b t ts s e a
-  failLoc b = parseFailLoc b . Custom
+public export %inline
+FailParse (Res b t ts state e) t e where
+  parseFail b e = Fail False (BD e b ::: [])
 
 public export
 merge : Bounded z -> Res b t ts s e a -> Res b t ts s e a
@@ -154,21 +137,8 @@ data Grammar :
 --------------------------------------------------------------------------------
 
 public export %inline
-fail_ :
-     {0 state,t,e,a : Type}
-  -> Bounded (ParseErr t e)
-  -> Grammar b state t e a 
-fail_ err = Lift $ \_,_ => fail_ err
-
-||| Always fail with the given error
-public export %inline
-fail : {0 state,t,e,a : Type} -> e -> Grammar b state t e a
-fail err = fail_ (pure $ Custom err)
-
-||| Always fail with a message and a location
-public export %inline
-failLoc : {0 state,t,e,a : Type} -> Bounds -> e -> Grammar b state t e a
-failLoc bs err = fail_ (BD (Custom err) bs)
+FailParse (Grammar b state t e) t e where
+  parseFail b err = Lift $ \_,_ => parseFail b err
 
 -------------------------------------------------------------------------------
 --         Core Parsers
@@ -244,24 +214,24 @@ public export
 nextIs : Lazy e -> (t -> Bool) -> Grammar False s t e t
 nextIs err f = Lift $ \s,cs => case cs of
   h :: t =>
-    if f h.val then Succ s h (h::t) Same else failLoc h.bounds err
-  []     => parseFail EOI
+    if f h.val then Succ s h (h::t) Same else custom h.bounds err
+  []     => eoi
 
 ||| Look at the next token in the input
 public export
 peek : Grammar False s t e t
 peek = Lift $ \s,cs => case cs of
   h :: t => Succ s h (h::t) Same
-  []     => parseFail EOI
+  []     => eoi
 
 ||| Look at the next token in the input
 public export
-readHead : (t -> Either (ParseErr t e) a) -> Grammar True s t e a
+readHead : (t -> Either (ParseError t e) a) -> Grammar True s t e a
 readHead f = Lift $ \s,cs => case cs of
   h :: t => case f h.val of
     Right v  => Succ s (BD v h.bounds) t %search
-    Left err => parseFailLoc h.bounds err
-  []     => parseFail EOI
+    Left err => parseFail h.bounds err
+  []     => eoi
 
 ||| Look at the next token in the input
 public export %inline
@@ -478,7 +448,7 @@ parse :
   -> Grammar b state t e a
   -> state
   -> (ts : List $ Bounded t)
-  -> Either (List1 $ Bounded $ ParseErr t e) (state, a, List $ Bounded t)
+  -> Either (List1 $ Bounded $ ParseError t e) (state, a, List $ Bounded t)
 parse g s ts = case prs g s False ts suffixAcc of
   Fail _ errs         => Left errs
   Succ x res toks prf => Right (x, res.val, toks)
@@ -507,8 +477,10 @@ lexFull :
   -> (s : String)
   -> Either (ReadError t e) (List $ Bounded t)
 lexFull orig tm keep s = case lex tm s of
-  TR l c st EndInput [] _ => Right (filterOnto [] keep st)
-  TR l c st r _         _ => Left $ LexFailed (FC orig $ BS l c l (c+1)) r
+  TR l c st EndInput []               _ => Right (filterOnto [] keep st)
+  TR l c st r@(ComposeNotClosing b) _ _ => Left $ LexFailed (FC orig b) r
+  TR l c st r _                       _ =>
+    Left $ LexFailed (FC orig $ BS l c l (c+1)) r
 
 export
 lexAndParse :

@@ -85,7 +85,7 @@ data CommentState =
   | InLineComment -- part of line comment
 
 commentSH : (k : Nat) -> CommentState -> AutoShift False Char
-commentSH 0       st cs = Res cs
+commentSH 0       st cs = Succ cs
 commentSH n@(S k) st cs = case st of
   -- We are at an arbitrary position in a block comment
   -- of nesting level `n`.
@@ -100,7 +100,7 @@ commentSH n@(S k) st cs = case st of
     '"'        :: t => commentSH n InStringLit t
     -- Continue in block
     h          :: t => commentSH n Block t
-    []              => Res []
+    []              => Succ []
   Opening       => case cs of
     -- Start a new nesting of block comments.
     '{' :: '-' :: t => commentSH (S n) Opening t
@@ -112,7 +112,7 @@ commentSH n@(S k) st cs = case st of
     '"'        :: t => commentSH n InStringLit t
     -- Continue in block
     h          :: t => commentSH n Block t
-    []              => Res []
+    []              => Succ []
   Hyphens     => case cs of
     -- Add one more hyphen to sequence.
     '-'  :: t => commentSH n Hyphens t
@@ -122,7 +122,7 @@ commentSH n@(S k) st cs = case st of
     '}'  :: t => commentSH k Block t
     -- Interpret hyphens as line comment.
     h    :: t => commentSH n InLineComment t
-    []        => Res []
+    []        => Succ []
   InStringLit   => case cs of
     -- We can escape any character in a string literal.
     '\\' :: c :: t => commentSH n InStringLit t
@@ -137,7 +137,7 @@ commentSH n@(S k) st cs = case st of
     '\n' :: t => commentSH n Block t
     -- Continue in line comment.
     h    :: t => commentSH n InLineComment t
-    []        => Res []
+    []        => Succ []
 
 export
 blockComment : Lexer

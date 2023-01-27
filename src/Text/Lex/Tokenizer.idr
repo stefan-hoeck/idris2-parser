@@ -58,6 +58,12 @@ data StopReason =
 
 %runElab derive "StopReason" [Show, Eq]
 
+export
+Interpolation StopReason where
+  interpolate EndInput = "End of input"
+  interpolate NoRuleApply = "Unrecognised token"
+  interpolate (ComposeNotClosing x) = "Unclosed parenthesis"
+
 ||| Result of running a `Tokenizer` repeatedly over a
 ||| sequence of characters.
 public export

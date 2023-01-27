@@ -22,6 +22,11 @@ data Bounds : Type where
 pos : Nat -> Nat -> String
 pos l c = show (l+1) ++ ":" ++ show (c+1)
 
+namespace Bounds
+  public export
+  oneChar : (l,c : Nat) -> Bounds
+  oneChar l c = BS l c l (S c)
+
 export
 Interpolation Bounds where
   interpolate (BS sl sc el ec) =
@@ -50,6 +55,10 @@ record Bounded ty where
 public export
 bounded : a -> (lstart,cstart,lstop,cstop : Nat) -> Bounded a
 bounded v w x y z = BD v $ BS w x y z
+
+public export %inline
+oneChar : a -> (l,c : Nat) -> Bounded a
+oneChar v l c = bounded v l c l (S c)
 
 public export
 app : Bounded (a -> b) -> Bounded a -> Bounded b

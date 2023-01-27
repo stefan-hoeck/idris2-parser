@@ -1,6 +1,8 @@
 module Text.Parse.Res
 
 import Data.List.Suffix
+import Text.Lex.Bounded
+import Text.Parse.Err
 
 %default total
 
@@ -9,25 +11,29 @@ public export
 data Res :
      (strict : Bool)
   -> (t   : Type)
-  -> (ts  : List t)
+  -> (ts  : List $ Bounded t)
   -> (e,a : Type)
   -> Type where
 
   Fail  :
        {0 b : Bool}
     -> {0 t,e,a : Type}
-    -> {0 ts : List t}
-    -> (err : e)
+    -> {0 ts : List $ Bounded t}
+    -> (err : Bounded $ ParseError t e)
     -> Res b t ts e a
 
   Succ :
        {0 b : Bool}
     -> {0 t,e,a : Type}
-    -> {0 ts : List t}
+    -> {0 ts : List $ Bounded t}
     -> (res  : a)
-    -> (toks : List t)
+    -> (toks : List $ Bounded t)
     -> {auto 0 prf  : Suffix b toks ts}
     -> Res b t ts e a
+
+public export
+FailParse (Res b t ts e) t e where
+  parseFail b err = Fail (BD err b)
 
 --------------------------------------------------------------------------------
 --          Conversions

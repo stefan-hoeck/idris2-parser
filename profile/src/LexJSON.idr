@@ -10,45 +10,35 @@ import Text.Parse.Err
 
 public export
 data JSToken : Type where
-  BracketO : JSToken
-  BracketC : JSToken
-  BraceO   : JSToken
-  BraceC   : JSToken
-  Comma    : JSToken
-  Colon    : JSToken
+  Symbol   : Char -> JSToken
   Lit      : JSON -> JSToken
 
 %runElab derive "JSToken" [Show,Eq]
 
+public export %inline
+fromChar : Char -> JSToken
+fromChar = Symbol
+
 export
 Interpolation JSToken where
-  interpolate BracketO = "'['"
-  interpolate BracketC = "']'"
-  interpolate BraceO   = "'{'"
-  interpolate BraceC   = "'}'"
-  interpolate Comma    = "','"
-  interpolate Colon    = "':'"
+  interpolate (Symbol c) = show c
   interpolate (Lit x)  = "'\{show x}'"
 
 public export
 data JSErr : Type where
   ExpectedString  : JSErr
-  UnclosedQuote   : JSErr
   InvalidEscape   : JSErr
-  UnclosedBracket : JSErr
-  UnclosedBrace   : JSErr
+  Unclosed        : Char -> JSErr
   Unknown         : Char -> JSErr
 
 %runElab derive "JSErr" [Show,Eq]
 
 export
 Interpolation JSErr where
-  interpolate ExpectedString  = "Expected string literal"
-  interpolate UnclosedQuote   = "Unclosed quote"
-  interpolate UnclosedBracket = "Unclosed opening bracket"
-  interpolate UnclosedBrace   = "Unclosed opening brace"
-  interpolate InvalidEscape   = "Invalid escape sequence"
+  interpolate (Unclosed c)    = "Unclosed \{show c}"
   interpolate (Unknown c)     = "Unknown token: \{show c}"
+  interpolate ExpectedString  = "Expected string literal"
+  interpolate InvalidEscape   = "Invalid escape sequence"
 
 public export %tcinline
 0 JSParseErr : Type
@@ -85,13 +75,13 @@ str sc []           = Fail
 
 term : Tok True Char JSToken
 term (x :: xs) = case x of
-  ',' => Succ Comma xs
+  ',' => Succ ',' xs
   '"' => str [<] xs
-  ':' => Succ Colon xs
-  '[' => Succ BracketO xs
-  ']' => Succ BracketC xs
-  '{' => Succ BraceO xs
-  '}' => Succ BraceC xs
+  ':' => Succ ':' xs
+  '[' => Succ '[' xs
+  ']' => Succ ']' xs
+  '{' => Succ '{' xs
+  '}' => Succ '}' xs
   'n' => case xs of
     'u' :: 'l' :: 'l' :: t => Succ (Lit JNull) t
     _                      => Fail
@@ -107,7 +97,7 @@ term (x :: xs) = case x of
 term []        = Fail
 
 toErr : (l,c : Nat) -> Char -> List Char -> Either JSParseErr a
-toErr l c '"'  cs = custom (oneChar l c) UnclosedQuote
+toErr l c '"'  cs = custom (oneChar l c) (Unclosed '"')
 toErr l c '\\' ('u' :: t) =
   custom (BS l c l (c + 2 + min 4 (length t))) InvalidEscape
 toErr l c '\\' (h :: t)   = custom (BS l c l (c + 2)) InvalidEscape

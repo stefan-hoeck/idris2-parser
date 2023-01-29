@@ -47,7 +47,7 @@ data Res :
 
 public export %inline
 FailParse (Res b t ts state e) t e where
-  parseFail b e = Fail False (BD e b ::: [])
+  parseFail b e = Fail False (B e b ::: [])
 
 public export
 merge : Bounded z -> Res b t ts s e a -> Res b t ts s e a
@@ -229,7 +229,7 @@ public export
 readHead : (t -> Either (ParseError t e) a) -> Grammar True s t e a
 readHead f = Lift $ \s,cs => case cs of
   h :: t => case f h.val of
-    Right v  => Succ s (BD v h.bounds) t %search
+    Right v  => Succ s (B v h.bounds) t %search
     Left err => parseFail h.bounds err
   []     => eoi
 
@@ -435,7 +435,7 @@ prs (Alt x y) s1 c1 ts1 sa = case prs x s1 False ts1 sa of
     Fail False err2   => Fail c1 $ err ++ err2
 
 prs (Bounds x) s1 c1 ts1 sa = case prs x s1 c1 ts1 sa of
-  Succ s2 res ts2 p => Succ s2 (BD res res.bounds) ts2 p
+  Succ s2 res ts2 p => Succ s2 (B res res.bounds) ts2 p
   Fail c2 err       => Fail c2 err
 
 prs (Try x) s1 c1 ts1 sa = case prs x s1 c1 ts1 sa of

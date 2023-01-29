@@ -360,7 +360,7 @@ lexTo reject str = case lexTo reject rawTokens str of
   TR l c ts EndInput cs _ =>
     -- Add the EndInput token so that we'll have a line and column
     -- number to read when storing spans in the file
-    let end := [BD EndInput (BS l c l c)]
+    let end := [B EndInput (BS l c l c)]
      in Right $ map (++ end)
               $ partitionEithers
               $ map spotComment

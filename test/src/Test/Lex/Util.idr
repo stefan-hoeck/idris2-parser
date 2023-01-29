@@ -45,8 +45,8 @@ toBounds (MkBounds sl sc el ec) =
 
 export
 toWithBounds : IBounded a -> PBounded a
-toWithBounds (MkBounded val False bs) = BD val $ toBounds bs
-toWithBounds (MkBounded val True bs) = BD val NoBounds
+toWithBounds (MkBounded val False bs) = B val $ toBounds bs
+toWithBounds (MkBounded val True bs) = B val NoBounds
 
 toLexRes :
      (List (IBounded a), (Int,Int,String))

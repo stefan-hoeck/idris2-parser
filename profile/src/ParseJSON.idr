@@ -21,33 +21,33 @@ array : Bounds -> SnocList JSON -> Rule True JSON
 object : Bounds -> SnocList (String,JSON) -> Rule True JSON
 
 value : Rule True JSON
-value (BD (Lit y) _ :: xs)                   _      = Succ y xs
-value (BD BracketO _ :: BD BracketC _ :: xs) _      = Succ (JArray []) xs
-value (BD BracketO b :: xs)                  (SA r) = succ $ array b [<] xs r
-value (BD BraceO _ :: BD BraceC _ :: xs)     _      = Succ (JObject []) xs
-value (BD BraceO b :: xs)                    (SA r) = succ $ object b [<] xs r
-value (x :: xs) _                                   = unexpected x
-value [] _                                          = eoi
+value (B (Lit y) _ :: xs)        _      = Succ y xs
+value (B '[' _ :: B ']' _ :: xs) _      = Succ (JArray []) xs
+value (B '[' b :: xs)            (SA r) = succ $ array b [<] xs r
+value (B '{' _ :: B '}' _ :: xs) _      = Succ (JObject []) xs
+value (B '{' b :: xs)            (SA r) = succ $ object b [<] xs r
+value (x :: xs) _                       = unexpected x
+value [] _                              = eoi
 
 array b sv xs sa@(SA r) = case value xs sa of
-  Succ v (BD Comma _    :: ys) => succ $ array b (sv :< v) ys r
-  Succ v (BD BracketC _ :: ys) => Succ (JArray $ sv <>> [v]) ys
-  Succ v (y             :: ys) => unexpected y
-  Succ _ []                    => custom b UnclosedBracket
-  Fail (BD EOI _)              => custom b UnclosedBracket
-  Fail err                     => Fail err
+  Succ v (B ',' _ :: ys) => succ $ array b (sv :< v) ys r
+  Succ v (B ']' _ :: ys) => Succ (JArray $ sv <>> [v]) ys
+  Succ v (y       :: ys) => unexpected y
+  Succ _ []              => custom b (Unclosed '[')
+  Fail (B EOI _)         => custom b (Unclosed '[')
+  Fail err               => Fail err
 
-object b sv (BD (Lit $ JString l) _ :: BD Colon _ :: xs) (SA r) =
+object b sv (B (Lit $ JString l) _ :: B ':' _ :: xs) (SA r) =
   case succ $ value xs r of
-    Succ v (BD Comma _  :: ys) => succ $ object b (sv :< (l,v)) ys r
-    Succ v (BD BraceC _ :: ys) => Succ (JObject $ sv <>> [(l,v)]) ys
-    Succ v (y           :: ys) => unexpected y
-    Succ _ []                    => custom b UnclosedBrace
-    Fail (BD EOI _)              => custom b UnclosedBrace 
-    Fail err                     => Fail err
-object b sv (BD (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds Colon
-object b sv (x :: xs)                           _ = custom x.bounds ExpectedString
-object b sv []                                  _ = eoi
+    Succ v (B ',' _ :: ys) => succ $ object b (sv :< (l,v)) ys r
+    Succ v (B '}' _ :: ys) => Succ (JObject $ sv <>> [(l,v)]) ys
+    Succ v (y       :: ys) => unexpected y
+    Succ _ []              => custom b (Unclosed '}')
+    Fail (B EOI _)         => custom b (Unclosed '}')
+    Fail err               => Fail err
+object b sv (B (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds ':'
+object b sv (x :: xs)                          _ = custom x.bounds ExpectedString
+object b sv []                                 _ = eoi
 
 0 Ru : Bool -> Type -> Type
 Ru b a = Grammar b () JSToken JSErr a
@@ -64,16 +64,16 @@ val,vals,obj,prs,arr : Ru True JSON
 
 val = lit <|> arr <|> obj
 
-vals = JArray <$> (sepBy (is Comma) val <* is BracketC)
+vals = JArray <$> (sepBy (is ',') val <* is ']')
 
-arr = is BracketO >>= \_ => vals
+arr = is '[' >>= \_ => vals
 
 pr : Ru True (String,JSON)
-pr = [| MkPair (str <* is Colon) val |]
+pr = [| MkPair (str <* is ':') val |]
 
-prs = JObject <$> (sepBy (is Comma) pr <* is BraceC)
+prs = JObject <$> (sepBy (is ',') pr <* is '}')
 
-obj = is BraceO >>= \_ => prs
+obj = is '{' >>= \_ => prs
 
 export
 fastParse : String -> Either JSParseErr JSON

@@ -46,7 +46,7 @@ Monoid Bounds where
 
 public export
 record Bounded ty where
-  constructor BD
+  constructor B
   val    : ty
   bounds : Bounds
 
@@ -54,7 +54,7 @@ record Bounded ty where
 
 public export
 bounded : a -> (lstart,cstart,lstop,cstop : Nat) -> Bounded a
-bounded v w x y z = BD v $ BS w x y z
+bounded v w x y z = B v $ BS w x y z
 
 public export %inline
 oneChar : a -> (l,c : Nat) -> Bounded a
@@ -62,21 +62,21 @@ oneChar v l c = bounded v l c l (S c)
 
 public export
 app : Bounded (a -> b) -> Bounded a -> Bounded b
-app (BD vf b1) (BD va b2) = BD (vf va) (b1 <+> b2)
+app (B vf b1) (B va b2) = B (vf va) (b1 <+> b2)
 
 public export
 bind : Bounded a -> (a -> Bounded b) -> Bounded b
-bind (BD va b1) f =
-  let BD vb b2 = f va
-   in BD vb (b1 <+> b2)
+bind (B va b1) f =
+  let B vb b2 = f va
+   in B vb (b1 <+> b2)
 
 public export
 Functor Bounded where
-  map f (BD val bs) = BD (f val) bs
+  map f (B val bs) = B (f val) bs
 
 public export %inline
 Applicative Bounded where
-  pure v = BD v neutral
+  pure v = B v neutral
   (<*>) = app
 
 public export %inline
@@ -93,4 +93,4 @@ Foldable Bounded where
 
 public export
 Traversable Bounded where
-  traverse f (BD v bs) = (`BD` bs) <$> f v
+  traverse f (B v bs) = (`B` bs) <$> f v

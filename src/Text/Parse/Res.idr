@@ -33,7 +33,7 @@ data Res :
 
 public export
 FailParse (Res b t ts e) t e where
-  parseFail b err = Fail (BD err b)
+  parseFail b err = Fail (B err b)
 
 --------------------------------------------------------------------------------
 --          Conversions

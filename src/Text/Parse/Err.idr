@@ -50,7 +50,7 @@ interface FailParse (0 m : Type -> Type) (0 t,e : Type) | m where
 
 public export
 FailParse (Either $ Bounded $ ParseError t e) t e where
-  parseFail b err = Left (BD err b)
+  parseFail b err = Left (B err b)
 
 public export %inline
 custom : FailParse m t e => Bounds -> e -> m a

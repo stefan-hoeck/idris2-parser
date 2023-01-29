@@ -84,6 +84,6 @@ lex : String -> Either (Nat, Nat, String) (List (Bounded Token))
 lex str =
   case lex (Match rawTokens) str of
    TR l c st _ [] _ =>
-     let eoi := BD EndOfInput (BS l c l c)
+     let eoi := B EndOfInput (BS l c l c)
       in Right . filter (keep . val) $ st <>> [eoi]
    TR l c _ _ cs _ => Left (l, c, pack cs)

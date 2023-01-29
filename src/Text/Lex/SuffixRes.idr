@@ -151,6 +151,22 @@ Functor (SuffixRes b t ts) where
 --         Character Utilities
 --------------------------------------------------------------------------------
 
+||| Returns true if the character is a space (`' '`) character.
+public export %inline
+isSpaceChar : Char -> Bool
+isSpaceChar ' ' = True
+isSpaceChar _   = False
+
+||| Returns true if the character is a line feed (`'\n'`) character.
+public export %inline
+isLineFeed : Char -> Bool
+isLineFeed '\n' = True
+isLineFeed _    = False
+
+public export %inline
+pack : SnocList Char -> String
+pack = pack . (<>> [])
+
 ||| Converts a character to an octal digit. This works under the
 ||| assumption that the character has already been verified to be
 ||| an octal digit.

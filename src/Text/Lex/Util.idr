@@ -1,30 +1,11 @@
 module Text.Lex.Util
 
 import Text.Lex.Core
-
---------------------------------------------------------------------------------
---          Utility Functions
---------------------------------------------------------------------------------
-
-||| Returns true if the character is a space (`' '`) character.
-public export %inline
-isSpaceChar : Char -> Bool
-isSpaceChar ' ' = True
-isSpaceChar _   = False
-
-||| Returns true if the character is a line feed (`'\n'`) character.
-public export %inline
-isLineFeed : Char -> Bool
-isLineFeed '\n' = True
-isLineFeed _    = False
+import Text.Lex.SuffixRes
 
 --------------------------------------------------------------------------------
 --          (Snoc)List Utilities
 --------------------------------------------------------------------------------
-
-public export %inline
-pack : SnocList Char -> String
-pack = pack . (<>> [])
 
 public export
 stripQuotes : SnocList Char -> String
@@ -57,65 +38,6 @@ namespace SnocList
   export
   countHashtag : SnocList Char -> Nat
   countHashtag = countHashtag . (<>> [])
-
---------------------------------------------------------------------------------
---          Conversion Functions
---------------------------------------------------------------------------------
-
-||| Converts a binary digit to an integer. This assumes, that the
-||| digit has already been lexed correctly.
-public export
-fromBinDigit : Char -> Integer
-fromBinDigit '0' = 0
-fromBinDigit _   = 1
-
-||| Converts an octal digit to an integer. This assumes, that the
-||| digit has already been lexed correctly.
-public export
-fromOctDigit : Char -> Integer
-fromOctDigit '0' = 0
-fromOctDigit '1' = 1
-fromOctDigit '2' = 2
-fromOctDigit '3' = 3
-fromOctDigit '4' = 4
-fromOctDigit '5' = 5
-fromOctDigit '6' = 6
-fromOctDigit _   = 7
-
-||| Converts an decimal digit to an integer. This assumes, that the
-||| digit has already been lexed correctly.
-public export
-fromDigit : Char -> Integer
-fromDigit '8' = 8
-fromDigit '9' = 9
-fromDigit c   = fromOctDigit c
-
-||| Converts an hexadecimal digit to an integer. This assumes, that the
-||| digit has already been lexed correctly.
-public export
-fromHexDigit : Char -> Integer
-fromHexDigit '0' = 0
-fromHexDigit '1' = 1
-fromHexDigit '2' = 2
-fromHexDigit '3' = 3
-fromHexDigit '4' = 4
-fromHexDigit '5' = 5
-fromHexDigit '6' = 6
-fromHexDigit '7' = 7
-fromHexDigit '8' = 8
-fromHexDigit '9' = 9
-fromHexDigit 'a' = 10
-fromHexDigit 'b' = 11
-fromHexDigit 'c' = 12
-fromHexDigit 'd' = 13
-fromHexDigit 'e' = 14
-fromHexDigit 'f' = 15
-fromHexDigit 'A' = 10
-fromHexDigit 'B' = 11
-fromHexDigit 'C' = 12
-fromHexDigit 'D' = 13
-fromHexDigit 'E' = 14
-fromHexDigit _   = 15
 
 --------------------------------------------------------------------------------
 --          Single-Character Lexers

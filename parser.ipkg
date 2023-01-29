@@ -20,4 +20,5 @@ modules = Data.Bool.Rewrite
         , Text.Parse.Core
         , Text.Parse.Err
         , Text.Parse.FC
+        , Text.Parse.Manual
         , Text.Parse.Res

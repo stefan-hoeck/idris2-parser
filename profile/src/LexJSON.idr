@@ -61,10 +61,10 @@ str sc ('\\' :: c  :: xs) = case c of
     w :: x :: y :: z :: t' =>
       if isHexDigit w && isHexDigit x && isHexDigit y && isHexDigit z
         then
-          let c := cast $ fromHexDigit w * 0x1000 +
-                          fromHexDigit x * 0x100 +
-                          fromHexDigit y * 0x10 +
-                          fromHexDigit z 
+          let c := cast $ hexDigit w * 0x1000 +
+                          hexDigit x * 0x100 +
+                          hexDigit y * 0x10 +
+                          hexDigit z 
            in str (sc :< c) t'
         else Succ (strLit sc) ('\\'::'u'::w::x::y::z::t')
     _    => Succ (strLit sc) ('\\'::'u'::xs)

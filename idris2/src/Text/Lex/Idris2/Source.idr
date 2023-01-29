@@ -246,34 +246,34 @@ reservedSymbols =
     ++ groupSymbols ++ (groupClose <$> groupSymbols)
     ++ reservedInfixSymbols
 
-fromBinLit : SnocList Char -> Integer
+fromBinLit : SnocList Char -> Nat
 fromBinLit = go 1 0
   where
-    go : (pow : Integer) -> (sum : Integer) -> SnocList Char -> Integer
+    go : (pow : Nat) -> (sum : Nat) -> SnocList Char -> Nat
     go pow sum (sc :< c) = case c of
       '_' => go pow sum  sc
       'b' => sum
-      c   => go (2 * pow) (fromBinDigit c * 2 + sum) sc
+      c   => go (2 * pow) (binDigit c * 2 + sum) sc
     go pow sum [<] = sum
 
-fromHexLit : SnocList Char -> Integer
+fromHexLit : SnocList Char -> Nat
 fromHexLit = go 1 0
   where
-    go : (pow : Integer) -> (sum : Integer) -> SnocList Char -> Integer
+    go : (pow : Nat) -> (sum : Nat) -> SnocList Char -> Nat
     go pow sum (sc :< c) = case c of
       '_' => go pow sum  sc
       'x' => sum
-      c   => go (16 * pow) (fromHexDigit c * 16 + sum) sc
+      c   => go (16 * pow) (hexDigit c * 16 + sum) sc
     go pow sum [<] = sum
 
-fromOctLit : SnocList Char -> Integer
+fromOctLit : SnocList Char -> Nat
 fromOctLit = go 1 0
   where
-    go : (pow : Integer) -> (sum : Integer) -> SnocList Char -> Integer
+    go : (pow : Nat) -> (sum : Nat) -> SnocList Char -> Nat
     go pow sum (sc :< c) = case c of
       '_' => go pow sum  sc
       'o' => sum
-      c   => go (8 * pow) (fromOctDigit c * 8 + sum) sc
+      c   => go (8 * pow) (octDigit c * 8 + sum) sc
     go pow sum [<] = sum
 
 stringTokens : Bool -> Nat -> Tokenizer Token
@@ -303,9 +303,9 @@ rawTokens =
         , (holeIdent, HoleIdent . pack . dropHead 1)
         , (choice $ map (exact . interpolate) debugInfos, parseIdent . pack)
         , (doubleLit, DoubleLit . cast . pack)
-        , (binUnderscoredLit, IntegerLit . fromBinLit)
-        , (hexUnderscoredLit, IntegerLit . fromHexLit)
-        , (octUnderscoredLit, IntegerLit . fromOctLit)
+        , (binUnderscoredLit, IntegerLit . cast . fromBinLit)
+        , (hexUnderscoredLit, IntegerLit . cast . fromHexLit)
+        , (octUnderscoredLit, IntegerLit . cast . fromOctLit)
         , (digitsUnderscoredLit, IntegerLit . cast . pack)
         ]
   <|> Compose (choice $ exact <$> groupSymbols)

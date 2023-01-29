@@ -5,6 +5,7 @@ import public Data.List.Shift
 import public Data.List.Suffix
 
 import public Text.Lex.Bounded
+import public Text.Lex.ShiftRes
 import public Text.Lex.SuffixRes
 
 import public Text.Parse.Err

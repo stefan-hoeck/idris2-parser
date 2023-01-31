@@ -59,7 +59,7 @@ rawTokens : TokenMap Token
 rawTokens =
   [ (comment, Comment . pack . drop 2 . (<>> []))
   , (namespacedIdent, uncurry DotSepIdent . mkNamespacedIdent)
-  , (identAllowDashes, DotSepIdent Nothing . pack)
+  , (identAllowDashes, DotSepIdent Nothing . cast)
   , (separator, const Separator)
   , (dot, const Dot)
   , (lte, const LTE)
@@ -71,7 +71,7 @@ rawTokens =
   , (equals, const Equals)
   , (spaces, const Space)
   , (stringLit, StringLit . stripQuotes)
-  , (intLit, IntegerLit . cast . pack)
+  , (intLit, IntegerLit . cast . cast {to = String})
   ]
 
 keep : Token -> Bool

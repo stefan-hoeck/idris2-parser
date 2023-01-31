@@ -164,8 +164,8 @@ isLineFeed '\n' = True
 isLineFeed _    = False
 
 public export %inline
-pack : SnocList Char -> String
-pack = pack . (<>> [])
+Cast (SnocList Char) String where
+  cast = pack . (<>> [])
 
 ||| Converts a character to an octal digit. This works under the
 ||| assumption that the character has already been verified to be

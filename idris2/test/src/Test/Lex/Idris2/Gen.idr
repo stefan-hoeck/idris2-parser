@@ -175,7 +175,7 @@ stringLit = quote [<'"'] . unpack <$> string (linear 0 20) unicode
           '\t' => quote (sc :< '\\' :< '\t') xs
           '"'  => quote (sc :< '\\' :< '"') xs
           c    => if isControl c then quote sc xs else quote (sc :< c) xs
-        quote sc []        = pack (sc :< '"')
+        quote sc []        = cast (sc :< '"')
 
 export
 pkgField : Gen String

@@ -286,7 +286,7 @@ stringTokens multi hashtag =
       escapeLexer := escape (exact escapeChars) any
       charLexer   := non $ exact (if multi then multilineEnd hashtag else stringEnd hashtag)
    in Match [(someUntil (exact interpStart) (escapeLexer <|> charLexer),
-            \x => StringLit hashtag $ pack x)]
+            \x => StringLit hashtag $ cast x)]
       <|> Compose (exact interpStart)
                   (const InterpBegin)
                   (const ())
@@ -301,20 +301,20 @@ rawTokens =
         , (docComment, DocComment . pack . ltrim . dropHead 3)
         , (cgDirective, mkDirective)
         , (holeIdent, HoleIdent . pack . dropHead 1)
-        , (choice $ map (exact . interpolate) debugInfos, parseIdent . pack)
-        , (doubleLit, DoubleLit . cast . pack)
+        , (choice $ map (exact . interpolate) debugInfos, parseIdent . cast)
+        , (doubleLit, DoubleLit . cast . cast {to = String})
         , (binUnderscoredLit, IntegerLit . cast . fromBinLit)
         , (hexUnderscoredLit, IntegerLit . cast . fromHexLit)
         , (octUnderscoredLit, IntegerLit . cast . fromOctLit)
-        , (digitsUnderscoredLit, IntegerLit . cast . pack)
+        , (digitsUnderscoredLit, IntegerLit . cast . cast {to = String})
         ]
   <|> Compose (choice $ exact <$> groupSymbols)
-              (Symbol . pack)
+              (Symbol . cast)
               id
               (\_ => rawTokens)
-              (exact . groupClose . pack)
-              (Symbol . pack)
-  <|> Match [(choice $ exact <$> symbols, Symbol . pack)]
+              (exact . groupClose . cast)
+              (Symbol . cast)
+  <|> Match [(choice $ exact <$> symbols, Symbol . cast)]
   <|> Compose multilineBegin
               (const $ StringBegin Multi)
               countHashtag
@@ -331,11 +331,11 @@ rawTokens =
         [ (charLit, CharLit . stripQuotes)
         , (dotIdent, DotIdent . pack . dropHead 1)
         , (namespacedIdent, parseNamespace)
-        , (identNormal, parseIdent . pack)
+        , (identNormal, parseIdent . cast)
         , (pragma, Pragma . pack . dropHead 1)
         , (space, const Space)
-        , (validSymbol, Symbol . pack)
-        , (symbol, Unrecognised . pack)
+        , (validSymbol, Symbol . cast)
+        , (symbol, Unrecognised . cast)
         ]
   where
     parseIdent : String -> Token

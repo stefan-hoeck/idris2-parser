@@ -80,4 +80,4 @@ testLex :
   -> (lex   : Text.Lex.Core.Lexer)
   -> (lexer : Libraries.Text.Lexer.Core.Lexer)
   -> TestT m ()
-testLex s lex lexer = testTokenLex s [(lex, pack)] [(lexer, id)]
+testLex s lex lexer = testTokenLex s [(lex, cast)] [(lexer, id)]

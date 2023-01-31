@@ -29,7 +29,7 @@ plex :
      Text.Lex.Core.Lexer
   -> (s : String)
   -> (Nat,Nat,SnocList (Text.Lex.Bounded.Bounded String), StopReason, List Char)
-plex l = ptok $ Match [(l,pack)]
+plex l = ptok $ Match [(l,cast)]
 
 export %inline
 ilex :

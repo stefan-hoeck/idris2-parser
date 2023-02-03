@@ -87,6 +87,13 @@ public export
 parseFailed : Origin -> List1 (Bounded $ ParseError t e) -> ReadError t e
 parseFailed o = ParseFailed . map (\b => (FC o b.bounds, b.val))
 
+public export
+parseError :
+     Origin
+  -> Either (Bounded $ ParseError t e) a
+  -> Either (ReadError t e) a
+parseError o = mapFst (parseFailed o . singleton)
+
 export
 printReadError :
      Interpolation t

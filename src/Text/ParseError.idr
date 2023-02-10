@@ -1,10 +1,15 @@
 module Text.ParseError
 
 import Text.Bounded
+import Text.FC
 import Derive.Prelude
 
 %default total
 %language ElabReflection
+
+--------------------------------------------------------------------------------
+--          Lexing Errors
+--------------------------------------------------------------------------------
 
 public export
 data StopReason : Type where
@@ -21,6 +26,10 @@ Interpolation StopReason where
   interpolate ExpectedEOI   = "Expected end of input"
 
 %runElab derive "StopReason" [Show,Eq]
+
+--------------------------------------------------------------------------------
+--          Parse Errors
+--------------------------------------------------------------------------------
 
 public export
 data ParseError : (token, err : Type) -> Type where
@@ -79,3 +88,37 @@ eoi = parseFail NoBounds (Reason EOI)
 public export %inline
 expectedEOI : FailParse m t e => Bounds -> m a
 expectedEOI b = parseFail b (Reason ExpectedEOI)
+
+--------------------------------------------------------------------------------
+--          Pretty Printing Errors
+--------------------------------------------------------------------------------
+
+printPair :
+     Interpolation a
+  => List String
+  -> (FileContext,a)
+  -> List String
+printPair ls (fc,x) = "Error: \{x}" :: printFC fc ls
+
+export
+printParseError :
+     Interpolation t
+  => Interpolation e
+  => String
+  -> FileContext
+  -> ParseError t e
+  -> String
+printParseError str fc err =
+   unlines $ printPair (lines str) (fc,err)
+
+export
+printParseErrors :
+     Foldable m
+  => Interpolation t
+  => Interpolation e
+  => String
+  -> m (FileContext, ParseError t e)
+  -> String
+printParseErrors str errs =
+  let ls := lines str
+   in unlines $ toList errs >>= printPair ls

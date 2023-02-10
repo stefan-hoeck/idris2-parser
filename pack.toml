@@ -29,3 +29,13 @@ ipkg = "test.ipkg"
 type = "local"
 path = "idris2/profile"
 ipkg = "profile.ipkg"
+
+[custom.all.pretty-show]
+type = "local"
+path = "../pretty-show"
+ipkg = "pretty-show.ipkg"
+
+[custom.all.hedgehog]
+type = "local"
+path = "../hedgehog"
+ipkg = "hedgehog.ipkg"

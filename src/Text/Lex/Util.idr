@@ -1,7 +1,7 @@
 module Text.Lex.Util
 
 import Text.Lex.Core
-import Text.Lex.SuffixRes
+import Text.SuffixRes
 
 --------------------------------------------------------------------------------
 --          (Snoc)List Utilities
@@ -109,11 +109,13 @@ export
 prefixBy : (fs : List (t -> Bool)) -> Recognise True t
 prefixBy (f :: []) = pred f
 prefixBy (f :: fs) = pred f <+> prefixBy fs
-prefixBy []        = stop
+prefixBy []        = fail
 
 export
 exact : String -> Lexer
-exact s = let cs := unpack s in autoLift $ exact cs
+exact s =
+  let cs@(_ :: _) := unpack s | [] => fail
+   in autoLift $ exact cs
 
 export
 approx : String -> Lexer
@@ -125,7 +127,7 @@ approx = prefixBy . map check . unpack
 ||| Recognise a non-empty sequence of digits.
 export
 digits : Lexer
-digits = preds isDigit
+digits = autoLift digits1
 
 ||| Recognise a single non-whitespace, non-alphanumeric character
 ||| /[\^\\sA-Za-z0-9]/
@@ -137,7 +139,7 @@ symbol = pred (\x => not (isSpace x || isAlphaNum x))
 ||| /[\^\\sA-Za-z0-9]+/
 export
 symbols : Lexer
-symbols = some symbol
+symbols = preds (\x => not (isSpace x || isAlphaNum x))
 
 ||| Recognise a single control character
 ||| /[\\x00-\\x1f\\x7f-\\x9f]/
@@ -149,7 +151,7 @@ control = pred isControl
 ||| /[\\x00-\\x1f\\x7f-\\x9f]+/
 export
 controls : Lexer
-controls = some control
+controls = preds isControl
 
 ||| Recognises a non-empty sequence of the given items
 export %inline
@@ -182,7 +184,7 @@ newline = Lift $ \sc,cs => case cs of
   '\r' :: '\n' :: t => Succ t
   '\n' ::         t => Succ t
   '\r' ::         t => Succ t
-  _                 => Stop
+  _                 => fail sc cs
 
 ||| Reads characters until the next newline character is
 ||| encountered.
@@ -260,7 +262,7 @@ escape esc l = esc <+> l
 
 export
 stringLit : Lexer
-stringLit = autoLift string
+stringLit = Lift string
 
 ||| Recognise an integer literal (possibly with a '-' prefix)
 ||| /-?[0-9]+/
@@ -336,7 +338,7 @@ charLit = let q = '\'' in
               is q <+> (escape (is '\\') (control <|> any) <|> isNot q) <+> is q
   where
     lexStr : List String -> Lexer
-    lexStr [] = stop
+    lexStr [] = fail
     lexStr (t :: ts) = exact t <|> lexStr ts
 
     control : Lexer

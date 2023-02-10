@@ -8,17 +8,18 @@ modules = Data.Bool.Rewrite
         , Data.List.Shift
         , Data.List.Suffix
 
+        , Text.Bounded
+        , Text.FC
+        , Text.ParseError
+        , Text.ShiftRes
+        , Text.SuffixRes
+
         , Text.Lex
-        , Text.Lex.Bounded
         , Text.Lex.Core
-        , Text.Lex.ShiftRes
-        , Text.Lex.SuffixRes
         , Text.Lex.Tokenizer
         , Text.Lex.Util
 
         , Text.Parse
         , Text.Parse.Core
-        , Text.Parse.Err
-        , Text.Parse.FC
         , Text.Parse.Manual
         , Text.Parse.Res

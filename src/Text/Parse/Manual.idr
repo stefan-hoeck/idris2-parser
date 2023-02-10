@@ -4,10 +4,10 @@ import public Data.Bool.Rewrite
 import public Data.List.Shift
 import public Data.List.Suffix
 
-import public Text.Lex.Bounded
-import public Text.Lex.ShiftRes
-import public Text.Lex.SuffixRes
+import public Text.Bounded
+import public Text.ShiftRes
+import public Text.SuffixRes
 
-import public Text.Parse.Err
-import public Text.Parse.FC
+import public Text.ParseError
+import public Text.FC
 import public Text.Parse.Res

@@ -1,8 +1,8 @@
-module Text.Parse.FC
+module Text.FC
 
 import Data.String
 import Derive.Prelude
-import Text.Lex.Bounded
+import Text.Bounded
 
 %default total
 %language ElabReflection
@@ -25,13 +25,13 @@ record FileContext where
   origin : Origin
   bounds : Bounds
 
-public export
-fromBounded : String -> Bounded a -> (FileContext, a)
-fromBounded s (B val bounds) = (FC (FileSrc s) bounds, val)
+public export %inline
+fromBounded : Origin -> Bounded a -> (FileContext, a)
+fromBounded o (B val bounds) = (FC o bounds, val)
 
-public export
+public export %inline
 virtualFromBounded : Bounded a -> (FileContext, a)
-virtualFromBounded (B val bounds) = (FC Virtual bounds, val)
+virtualFromBounded = fromBounded Virtual
 
 %runElab derive "FileContext" [Show,Eq]
 
@@ -54,7 +54,7 @@ export
 printFC : FileContext -> (sourceLines : List String) -> List String
 printFC fc ls = case fc.bounds of
   NoBounds       => []
-  BS sr sc er ec =>
+  BS (P sr sc) (P er ec) =>
     let  nsize  := length $ show (er + 1) 
          head   := "\{fc}"
      in case sr == er of

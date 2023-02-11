@@ -145,3 +145,22 @@ public export
 Functor (Res b t ts e) where
   map f (Succ v xs) = Succ (f v) xs
   map _ (Fail err)  = Fail err
+
+--------------------------------------------------------------------------------
+--          Error Messages
+--------------------------------------------------------------------------------
+
+||| General catch-all error generator when parsing within some kind
+||| of opening token: Will fail with an `Unclosed` error if at the
+||| end of input, or with an `Unknown` error wrapping the next token.
+||| Otherwise, will rethrow the current error.
+|||
+||| @ b   : Bounds of the opening paren or token
+||| @ tok : Opening paren or token
+||| @ res : Current parsing result
+public export
+failInParen : (b : Bounds) -> (tok : t) -> Res b1 t ts e a -> Res b2 t ts e a
+failInParen b tok (Fail (B (Reason EOI) _)) = unclosed b tok
+failInParen b tok (Fail err)                = Fail err
+failInParen b tok (Succ _ [])               = unclosed b tok
+failInParen b tok (Succ _ (x :: xs))        = unexpected x

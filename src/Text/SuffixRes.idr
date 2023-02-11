@@ -181,20 +181,29 @@ unknownRange :
 unknownRange sc rest = Stop (weaken sc) rest UnknownToken
 
 public export %inline
+whole :
+     {orig      : List t}
+  -> StopReason
+  -> (0 current : List t)
+  -> {auto suffixCur : Suffix False current orig}
+  -> SuffixRes t orig a
+whole r current = Stop Same current r
+
+public export %inline
 unknown :
      {orig      : List t}
   -> (0 current : List t)
   -> {auto suffixCur : Suffix False current orig}
   -> SuffixRes t orig a
-unknown current = Stop Same current UnknownToken
+unknown = whole UnknownToken
 
 public export
-eoi :
+failEOI :
      {0 current : List t}
   -> {orig      : List t}
-  -> (suffixCur : Suffix True current orig)
+  -> (suffixCur : Suffix b current orig)
   -> SuffixRes t orig a
-eoi sc = Stop {end = weaken sc} Same current EOI
+failEOI sc = Stop {end = weaken sc} Same current EOI
 
 public export
 failEmpty : SuffixRes t [] a
@@ -215,7 +224,7 @@ dec1 n []      = succ n p
 public export
 dec : AutoTok Char Nat
 dec (x::xs) = if isDigit x then dec1 (digit x) xs else unknown xs
-dec []      = eoi p
+dec []      = failEOI p
 
 ||| Tries to read more decimal digits onto a growing natural number.
 ||| Supports underscores as separators for better readability.
@@ -231,7 +240,7 @@ dec_1 n []           = Succ n []
 public export
 decSep : AutoTok Char Nat
 decSep (x::xs) = if isDigit x then dec_1 (digit x) xs else unknown xs
-decSep []      = eoi p
+decSep []      = failEOI p
 
 ||| Tries to read more binary digits onto a growing natural number.
 public export

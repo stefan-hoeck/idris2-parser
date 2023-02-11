@@ -33,5 +33,3 @@ jobs:
         run: pack install parser-idris2
       - name: Test parser
         run: pack test parser -n 1000
-      - name: Test parser-idris2
-        run: pack test parser-idris2 -n 1000

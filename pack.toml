@@ -4,6 +4,11 @@ path = "."
 ipkg = "parser.ipkg"
 test = "test/test.ipkg"
 
+[custom.all.parser-docs]
+type = "local"
+path = "docs"
+ipkg = "docs.ipkg"
+
 [custom.all.parser-test]
 type = "local"
 path = "test"

@@ -93,6 +93,7 @@ expectedEOI b = parseFail b (Reason ExpectedEOI)
 --          Pretty Printing Errors
 --------------------------------------------------------------------------------
 
+export
 printPair :
      Interpolation a
   => List String

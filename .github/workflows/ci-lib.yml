@@ -29,7 +29,5 @@ jobs:
         uses: actions/checkout@v2
       - name: Build parser
         run: pack install parser
-      - name: Build parser-idris2
-        run: pack install parser-idris2
       - name: Test parser
         run: pack test parser -n 1000

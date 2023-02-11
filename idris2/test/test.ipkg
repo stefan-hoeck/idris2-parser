@@ -1,9 +1,0 @@
-package parser-idris2-test
-version = 0.1.0
-authors = "stefan-hoeck"
-depends = parser-idris2
-        , parser-test
-
-main = Main
-executable = "parser-idris2-test"
-sourcedir = "src"

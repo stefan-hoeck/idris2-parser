@@ -7,13 +7,13 @@
 ||| applications.
 module Text.Lex.Core
 
-import Data.Bool
+import Data.Bool.Rewrite
 import public Data.List
-import public Data.Vect
-import public Text.Lex.ShiftRes
-import public Text.Lex.SuffixRes
 import public Data.SnocList
-import public Text.Lex.Bounded
+import public Data.Vect
+import public Text.Bounded
+import public Text.ParseError
+import public Text.ShiftRes
 
 %default total
 
@@ -21,15 +21,58 @@ import public Text.Lex.Bounded
 --          Recognise
 --------------------------------------------------------------------------------
 
+infixl 8 <++>
+
 public export
 data Recognise : (strict : Bool) -> Type -> Type where
-  Lift  : Shifter b t -> Recognise b t
-  (<+>) : Recognise b1 t -> Recognise b2 t -> Recognise (b1 || b2) t
-  (<|>) : Recognise b1 t -> Lazy (Recognise b2 t) -> Recognise (b1 && b2) t
+  Lift      : Shifter b t -> Recognise b t
+  (<+>)     : Recognise b1 t -> Recognise b2 t -> Recognise (b1 || b2) t
+  (<++>)    : Recognise True t -> Inf (Recognise b t) -> Recognise True t
+  (<|>)     : Recognise b1 t -> Lazy (Recognise b2 t) -> Recognise (b1 && b2) t
+
+--------------------------------------------------------------------------------
+--          Conversions
+--------------------------------------------------------------------------------
+
+public export %inline
+swapOr : {0 x,y : _} -> Recognise (x || y) t -> Recognise (y || x) t
+swapOr = swapOr (\k => Recognise k t)
+
+public export %inline
+orSame : {0 x : _} -> Recognise (x || x) t -> Recognise x t
+orSame = orSame (\k => Recognise k t)
+
+public export %inline
+orTrue : {0 x : _} -> Recognise (x || True) t -> Recognise True t
+orTrue = orTrue (\k => Recognise k t)
+
+public export %inline
+orFalse : {0 x : _} -> Recognise (x || False) t -> Recognise x t
+orFalse = orFalse (\k => Recognise k t)
+
+public export %inline
+swapAnd : {0 x,y : _} -> Recognise (x && y) t -> Recognise (y && x) t
+swapAnd = swapAnd (\k => Recognise k t)
+
+public export %inline
+andSame : {0 x : _} -> Recognise (x && x) t -> Recognise x t
+andSame = andSame (\k => Recognise k t)
+
+public export %inline
+andTrue : {0 x : _} -> Recognise (x && True) t -> Recognise x t
+andTrue = andTrue (\k => Recognise k t)
+
+public export %inline
+andFalse : {0 x : _} -> Recognise (x && False) t -> Recognise False t
+andFalse = andFalse (\k => Recognise k t)
+
+--------------------------------------------------------------------------------
+--          Core Lexers
+--------------------------------------------------------------------------------
 
 public export %inline
 autoLift : AutoShift b t -> Recognise b t
-autoLift f = Lift $ \st,ts => rewrite sym (orFalseNeutral b) in f ts @{Same}
+autoLift f = Lift $ \st,ts => orFalse $ f ts @{Same}
 
 ||| Alias for `Recognise True Char`.
 public export
@@ -37,100 +80,95 @@ public export
 Lexer = Recognise True Char
 
 public export
-run : Recognise b t -> Shifter b t
-run (Lift f)  st ts = f st ts
-run (x <+> y) st ts = case run x st ts of
-  Succ {pre = st2} ts2 @{p2} => swapOr $ run y st2 ts2 ~> p2
-  Stop                       => Stop
-run (x <|> y) st ts = run x st ts <|> run y st ts
+run :
+     Recognise b t
+  -> (st : SnocList t)
+  -> (ts : List t)
+  -> (0 acc : SuffixAcc ts)
+  -> ShiftRes b t st ts
+run (Lift f)  st ts _ = f st ts
+run (x <+> y) st ts a@(SA r) = case run x st ts a of
+  Succ {pre} ts2 @{p} => case p of
+    Same => run y pre ts a
+    SH q =>
+      let su := suffix {b = True} (SH q)
+       in swapOr $ run y pre ts2 r ~> SH q
+  Stop start errEnd r        => Stop start errEnd r
+run (x <++> y) st ts a@(SA r) = case run x st ts a of
+  Succ {pre} ts2 @{p} =>
+    let su := suffix {b = True} p
+     in swapOr $ run y pre ts2 r ~> p
+  Stop start errEnd r        => Stop start errEnd r
+run (x <|> y) st ts a = run x st ts a <|> run y st ts a
 
-||| The empty lexer, which never consumes any input.
-export %inline
+
+||| Lexer succeeding always without consuming input
+public export %inline
 empty : Recognise False t
 empty = Lift $ \sc,cs => Succ cs
 
 ||| Renders the given lexer optional.
-export %inline
+public export %inline
 opt : Recognise True t -> Recognise False t
 opt l = l <|> empty
 
-||| Recognises the end of input.
-export %inline
-eoi : Recognise False t
-eoi = Lift eoi
-
 ||| Positive look-ahead. Does not consume any input.
-export
+public export
 expect : Recognise b t -> Recognise False t
-expect r = Lift $ \sx,xs => case run r sx xs of
-  Succ {} => Succ xs
-  Stop    => Stop
+expect r = Lift $ \sc,cs => case run r sc cs suffixAcc of
+  Succ _     => Succ cs
+  Stop x y z => Stop x y z
 
 ||| Negative look-ahead. Does not consume any input.
-export
+public export
 reject : Recognise b t -> Recognise False t
-reject r = Lift $ \sx,xs => case run r sx xs of
-  Stop    => Succ xs
-  Succ {} => Stop
+reject r = Lift $ \sc,cs => case run r sc cs suffixAcc of
+  Stop {} => Succ cs
+  Succ {} => weaken $ fail sc cs
 
-export %inline
+public export %inline
 seqSame : Recognise b t -> Recognise b t -> Recognise b t
-seqSame x y = rewrite sym (orSameNeutral b) in x <+> y
+seqSame x y = orSame $ x <+> y
 
-export %inline
+public export %inline
 altSame : Recognise b t -> Recognise b t -> Recognise b t
-altSame x y = rewrite sym (andSameNeutral b) in x <|> y
+altSame x y =  andSame $ x <|> y
 
 ||| The lexer which always fails.
-export
-stop : Recognise True t
-stop = Lift stop
-
-manyOnto :
-     Recognise True t
-  -> (st    : SnocList t)
-  -> (ts    : List t)
-  -> (0 acc : SuffixAcc ts)
-  -> ShiftRes False st ts
-manyOnto f st ts (SA rec) = case run f st ts of
-  Succ {pre = st2} ts2 @{p2} =>
-    let 0 x := suffix p2 in manyOnto f st2 ts2 rec ~?> p2
-  Stop                      => Succ ts
+public export
+fail : Recognise True t
+fail = Lift fail
 
 ||| Runs the given lexer zero or more times.
-export
+public export
 many : Recognise True t -> Recognise False t
-many r = Lift $ \sx,xs => manyOnto r sx xs suffixAcc
 
 ||| Runs the given lexer several times, but at least once.
-export
+public export
 some : Recognise True t -> Recognise True t
-some r = r <+> many r
+
+many r = opt (some r)
+
+some r = r <++> many r
 
 ||| Lexer consuming one item if it fulfills the given predicate.
-export %inline
+public export %inline
 pred : (t -> Bool) -> Recognise True t
 pred f = autoLift $ one f
 
-||| Recogniser consuming items while they fulfill the given predicate.
-||| This is an optimized version of `many . pred`.
-export %inline
-preds0 : (t -> Bool) -> Recognise False t
-preds0 f = autoLift $ takeWhile f
-
 ||| Lexer consuming items while they fulfill the given predicate.
 ||| This is an optimized version of `some . pred`.
-export %inline
+public export %inline
 preds : (t -> Bool) -> Recognise True t
 preds f = autoLift $ takeWhile1 f
 
-cmap : (a -> Recognise c t) -> (xs : List a) -> Shifter False t
-cmap f (x :: xs) st ts = case run (f x) st ts of
-   Succ {pre = st2} ts2 @{p2} => cmap f xs st2 ts2 ~?> p2
-   Stop                      => Stop
-cmap f [] sc cs = Succ cs
+||| Recogniser consuming items while they fulfill the given predicate.
+||| This is an optimized version of `many . pred`.
+public export %inline
+preds0 : (t -> Bool) -> Recognise False t
+preds0 = opt . preds
 
-export
+public export
 concatMap :
      (a -> Recognise c t)
   -> (xs : List a)
@@ -139,57 +177,27 @@ concatMap :
 concatMap f (x :: [])          = f x
 concatMap f (x :: xs@(_ :: _)) = seqSame (f x) (concatMap f xs)
 
-export
-choiceMap : Foldable t => (a -> Recognise c b) -> t a -> Recognise c b
-choiceMap f = foldl (\v,e => altSame v $ f e) (Lift $ \_,_ => Stop)
+public export %inline
+choiceMap : Foldable t => (a -> Recognise True b) -> t a -> Recognise True b
+choiceMap f = foldl (\v,e => altSame v $ f e) fail
 
-export %inline
-choice : Foldable t => t (Recognise c b) -> Recognise c b
+public export %inline
+choice : Foldable t => t (Recognise True b) -> Recognise True b
 choice = choiceMap id
 
 --------------------------------------------------------------------------------
 --          Lex
 --------------------------------------------------------------------------------
 
-export
-countNls : Nat -> SnocList Char -> Nat
-countNls k (sx :< '\n') = countNls (S k) sx
-countNls k (sx :< _)    = countNls k sx
-countNls k [<]          = k
+public export
+0 TokenMap : (charType, tokenType : Type) -> Type
+TokenMap ct tt = List (Recognise True ct, SnocList ct -> tt)
 
-export
-lineCol : (line,col,cur : Nat) -> SnocList Char -> (Nat,Nat)
-lineCol l c cur [<]          = (l, c + cur)
-lineCol l c cur (sx :< '\n') = (countNls (S l) sx, cur)
-lineCol l c cur (sx :< x)    = lineCol l c (S cur) sx
+public export %inline
+step : Recognise True t -> (SnocList t -> a) -> Tok t a
+step x f cs = suffix f $ run x [<] cs suffixAcc
 
 public export
-0 TokenMap : (tokenType : Type) -> Type
-TokenMap tokenType = List (Lexer, SnocList Char -> tokenType)
-
-public export
-record Step (a : Type) (cs : List Char) where
-  constructor ST
-  line  : Nat
-  col   : Nat
-  res   : Bounded a
-  rem   : List Char
-  prf   : Suffix True rem cs
-
-export
-step :
-     (l, c : Nat)
-  -> Lexer
-  -> (SnocList Char -> a)
-  -> (cs : List Char)
-  -> Maybe (Step a cs)
-step l c x f cs = case run x [<] cs of
-  Succ {pre = sc} cs2 @{p} =>
-    let (l2,c2) := lineCol l c 0 sc
-     in Just $ ST l2 c2 (bounded (f sc) l c l2 c2) cs2 (suffix p)
-  Stop         => Nothing
-
-export
-first : (l, c : Nat) -> TokenMap a -> (cs : List Char) -> Maybe (Step a cs)
-first l c ((f,g) :: ps) cs = step l c f g cs <|> first l c ps cs
-first _ _ []            _  = Nothing
+first : (ps : TokenMap t a) -> {auto 0 prf : NonEmpty ps} -> Tok t a
+first ((f,g) :: [])         cs = step f g cs
+first ((f,g) :: t@(_ :: _)) cs = step f g cs <|> first t cs

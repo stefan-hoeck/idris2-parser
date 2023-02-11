@@ -5,9 +5,9 @@ import Data.List
 import Data.List1
 import Data.List.Suffix
 import Derive.Prelude
-import Text.Parse.Err
-import Text.Parse.FC
-import Text.Lex.Bounded
+import Text.ParseError
+import Text.FC
+import Text.Bounded
 import Text.Lex.Core
 import Text.Lex.Tokenizer
 
@@ -57,8 +57,7 @@ merge x v                     = v
 export
 succ : Res b t ts s e a -> (p : Suffix True ts ts') -> Res b1 t ts' s e a
 succ (Fail c err)          p = Fail c err
-succ (Succ x res toks prf) p =
-  Succ x res toks (weakens $ rewrite sym (orTrueTrue b) in prf ~> p)
+succ (Succ x res toks prf) p = Succ x res toks (weakens $ orTrue $ prf ~> p)
 
 --------------------------------------------------------------------------------
 --          Grammar
@@ -472,29 +471,27 @@ filterOnto xs f [<]       = xs
 export
 lexFull :
      Origin
-  -> Tokenizer t
+  -> Tokenizer Char t
   -> (keep : t -> Bool)
   -> (s : String)
-  -> Either (ReadError t e) (List $ Bounded t)
+  -> Either (Bounded $ ParseError t e) (List $ Bounded t)
 lexFull orig tm keep s = case lex tm s of
-  TR l c st EndInput []               _ => Right (filterOnto [] keep st)
-  TR l c st r@(ComposeNotClosing b) _ _ => Left $ LexFailed (FC orig b) r
-  TR l c st r _                       _ =>
-    Left $ LexFailed (FC orig $ BS l c l (c+1)) r
+  TR pos toks Nothing    _ _ => Right $ filterOnto [] keep toks
+  TR _ _      (Just err) _ _ => Left $ map fromVoid err
 
 export
 lexAndParse :
      {0 state,t,e,a : Type}
   -> Origin
-  -> Tokenizer t
+  -> Tokenizer Char t
   -> (keep : t -> Bool)
   -> Grammar b state t e a
   -> state
   -> String
-  -> Either (ReadError t e) (state, a)
+  -> Either (List1 (FileContext, ParseError t e)) (state, a)
 lexAndParse orig tm keep gr s str =
-  let Right ts := lexFull orig tm keep str | Left err => Left err
+  let Right ts := lexFull orig tm keep str
+        | Left err => Left $ singleton (fromBounded orig $ map fromVoid err)
    in case parse gr s ts of
-        Left x          => Left $ parseFailed orig x
-        Right (s2,a,[]) => Right (s2,a)
-        Right (s2,a,ts) => Right (s2,a)
+        Left x         => Left $ fromBounded orig <$> x
+        Right (s2,a,_) => Right (s2,a)

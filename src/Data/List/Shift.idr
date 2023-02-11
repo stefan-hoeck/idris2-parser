@@ -26,18 +26,30 @@ import Data.Nat
 public export
 data Shift :
      (strict : Bool)
-  -> (sx     : SnocList a)
-  -> (xs     : List a)
-  -> (giro   : SnocList a)
-  -> (orig   : List a)
+  -> (t      : Type)
+  -> (sx     : SnocList t)
+  -> (xs     : List t)
+  -> (giro   : SnocList t)
+  -> (orig   : List t)
   -> Type where
   [search strict xs giro orig]
 
   ||| Doing nothing results in a non-strict `Shift`
-  Same : Shift False sx xs sx xs
+  Same : 
+       {0 t : Type}
+    -> {0 sx : SnocList t}
+    -> {0 xs : List t}
+    -> Shift False t sx xs sx xs
 
   ||| We arrive at a new result by shifting one more value.
-  SH   : Shift b1 sx (h :: t) sy ys -> Shift b2 (sx :< h) t sy ys
+  SH   :
+       {0 t : Type}
+    -> {0 b1,b2 : Bool}
+    -> {0 x : t}
+    -> {0 sx,sy : SnocList t}
+    -> {0 xs,ys : List t}
+    -> Shift b1 t sx (x :: xs) sy ys
+    -> Shift b2 t (sx :< x) xs sy ys
 
 --------------------------------------------------------------------------------
 --          Conversions
@@ -48,50 +60,50 @@ data Shift :
 |||
 ||| Performance: This is the identity function at runtime.
 public export
-toNat : Shift b sx xs sy ys -> Nat
+toNat : Shift b t sx xs sy ys -> Nat
 toNat Same   = Z
 toNat (SH x) = S $toNat x
 
 public export %inline
-Cast (Shift b sx xs sy ys) Nat where cast = toNat
+Cast (Shift b t sx xs sy ys) Nat where cast = toNat
 
 public export
-swapOr : {0 x,y : _} -> Shift (x || y) sx xs sy ys -> Shift (y || x) sx xs sy ys
-swapOr = swapOr (\k => Shift k sx xs sy ys)
+swapOr : {0 x,y : _} -> Shift (x || y) t sx xs sy ys -> Shift (y || x) t sx xs sy ys
+swapOr = swapOr (\k => Shift k t sx xs sy ys)
 
 public export %inline
-orSame : {0 x : _} -> Shift (x || x) sx xs sy ys -> Shift x sx xs sy ys
-orSame = orSame (\k => Shift k sx xs sy ys)
+orSame : {0 x : _} -> Shift (x || x) t sx xs sy ys -> Shift x t sx xs sy ys
+orSame = orSame (\k => Shift k t sx xs sy ys)
 
 public export %inline
-orTrue : {0 x : _} -> Shift (x || True) sx xs sy ys -> Shift True sx xs sy ys
-orTrue = orTrue (\k => Shift k sx xs sy ys)
+orTrue : {0 x : _} -> Shift (x || True) t sx xs sy ys -> Shift True t sx xs sy ys
+orTrue = orTrue (\k => Shift k t sx xs sy ys)
 
 public export %inline
-orFalse : {0 x : _} -> Shift (x || False) sx xs sy ys -> Shift x sx xs sy ys
-orFalse = orFalse (\k => Shift k sx xs sy ys)
+orFalse : {0 x : _} -> Shift (x || False) t sx xs sy ys -> Shift x t sx xs sy ys
+orFalse = orFalse (\k => Shift k t sx xs sy ys)
 
 public export %inline
-swapAnd : {0 x,y : _} -> Shift (x && y) sx xs sy ys -> Shift (y && x) sx xs sy ys
-swapAnd = swapAnd (\k => Shift k sx xs sy ys)
+swapAnd : {0 x,y : _} -> Shift (x && y) t sx xs sy ys -> Shift (y && x) t sx xs sy ys
+swapAnd = swapAnd (\k => Shift k t sx xs sy ys)
 
 public export %inline
-andSame : {0 x : _} -> Shift (x && x) sx xs sy ys -> Shift x sx xs sy ys
-andSame = andSame (\k => Shift k sx xs sy ys)
+andSame : {0 x : _} -> Shift (x && x) t sx xs sy ys -> Shift x t sx xs sy ys
+andSame = andSame (\k => Shift k t sx xs sy ys)
 
 public export %inline
-andTrue : {0 x : _} -> Shift (x && True) sx xs sy ys -> Shift x sx xs sy ys
-andTrue = andTrue (\k => Shift k sx xs sy ys)
+andTrue : {0 x : _} -> Shift (x && True) t sx xs sy ys -> Shift x t sx xs sy ys
+andTrue = andTrue (\k => Shift k t sx xs sy ys)
 
 public export %inline
-andFalse : {0 x : _} -> Shift (x && False) sx xs sy ys -> Shift False sx xs sy ys
-andFalse = andFalse (\k => Shift k sx xs sy ys)
+andFalse : {0 x : _} -> Shift (x && False) t sx xs sy ys -> Shift False t sx xs sy ys
+andFalse = andFalse (\k => Shift k t sx xs sy ys)
 
 ||| Every `Shift` can be converted to a non-strict one.
 |||
 ||| Performance: This is the identity function at runtime.
 public export
-weaken : Shift b sx xs sy ys -> Shift False sx xs sy ys
+weaken : Shift b t sx xs sy ys -> Shift False t sx xs sy ys
 weaken Same   = Same
 weaken (SH x) = SH x
 
@@ -99,7 +111,7 @@ weaken (SH x) = SH x
 |||
 ||| Performance: This is the identity function at runtime.
 public export
-weakens : Shift True sx xs sy ys -> Shift b sx xs sy ys
+weakens : Shift True t sx xs sy ys -> Shift b t sx xs sy ys
 weakens (SH x) = SH x
 weakens Same impossible
 
@@ -107,17 +119,17 @@ weakens Same impossible
 |||
 ||| Performance: This is the identity function at runtime.
 public export
-suffix : Shift b sx xs sy ys -> Suffix b xs ys
+suffix : Shift b t sx xs sy ys -> Suffix b xs ys
 suffix Same   = Same
 suffix (SH x) = Uncons $ suffix x
 
 public export
-and1 : Shift b1 sx xs sy ys -> Shift (b1 && b2) sx xs sy ys
+and1 : Shift b1 t sx xs sy ys -> Shift (b1 && b2) t sx xs sy ys
 and1 Same   = Same
 and1 (SH x) = SH x
 
 public export
-and2 : Shift b2 sx xs sy ys -> Shift (b1 && b2) sx xs sy ys
+and2 : Shift b2 t sx xs sy ys -> Shift (b1 && b2) t sx xs sy ys
 and2 s = swapAnd (and1 s)
 
 ||| `Shift` is a reflexive and transitive relation.
@@ -125,9 +137,9 @@ and2 s = swapAnd (and1 s)
 ||| Performance: This is integer addition at runtime.
 public export
 trans :
-     Shift b1 sx xs sy ys
-  -> Shift b2 sy ys sz zs
-  -> Shift (b1 || b2) sx xs sz zs
+     Shift b1 t sx xs sy ys
+  -> Shift b2 t sy ys sz zs
+  -> Shift (b1 || b2) t sx xs sz zs
 trans Same y   = y
 trans (SH x) y = SH $ trans x y
 
@@ -136,41 +148,41 @@ trans (SH x) y = SH $ trans x y
 ||| Operator alias for `trans`.
 public export %inline
 (~>) :
-     Shift b1 sx xs sy ys
-  -> Shift b2 sy ys sz zs
-  -> Shift (b1 || b2) sx xs sz zs
+     Shift b1 t sx xs sy ys
+  -> Shift b2 t sy ys sz zs
+  -> Shift (b1 || b2) t sx xs sz zs
 (~>) = trans
 
 ||| Flipped version of `(~>)`.
 public export %inline
 (<~) :
-     Shift b1 sy ys sz zs
-  -> Shift b2 sx xs sy ys
-  -> Shift (b1 || b2) sx xs sz zs
+     Shift b1 t sy ys sz zs
+  -> Shift b2 t sx xs sy ys
+  -> Shift (b1 || b2) t sx xs sz zs
 x <~ y = swapOr $ trans y x
 
 ||| Operator alias for `trans` where the result is always non-strict
 public export %inline
 (~?>) :
-     Shift b1 sx xs sy ys
-  -> Shift b2 sy ys sz zs
-  -> Shift False sx xs sz zs
+     Shift b1 t sx xs sy ys
+  -> Shift b2 t sy ys sz zs
+  -> Shift False t sx xs sz zs
 (~?>) x y = weaken $ x ~> y
 
 ||| Operator alias for `trans` where the strictness of the first
 ||| `Shift` dominates.
 public export %inline
 (~~>) :
-     Shift b1 sx xs sy ys
-  -> Shift True sy ys sz zs
-  -> Shift b1 sx xs sz zs
+     Shift b1 t sx xs sy ys
+  -> Shift True t sy ys sz zs
+  -> Shift b1 t sx xs sz zs
 (~~>) x y = weakens $ y <~ x
 
 ||| Operator alias for `trans` where the strictness of the second
 ||| `Shift` dominates.
 public export %inline
 (<~~) :
-     Shift b1 sy ys sz zs
-  -> Shift True sx xs sy ys
-  -> Shift b1 sx xs sz zs
+     Shift b1 t sy ys sz zs
+  -> Shift True t sx xs sy ys
+  -> Shift b1 t sx xs sz zs
 (<~~) x y = weakens $ y ~> x

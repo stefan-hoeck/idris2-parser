@@ -1,8 +1,8 @@
 module Text.Parse.Res
 
 import Data.List.Suffix
-import Text.Lex.Bounded
-import Text.Parse.Err
+import Text.Bounded
+import Text.ParseError
 
 %default total
 

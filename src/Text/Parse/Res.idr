@@ -2,6 +2,7 @@ module Text.Parse.Res
 
 import Data.List.Suffix
 import Text.Bounded
+import Text.FC
 import Text.ParseError
 
 %default total
@@ -129,6 +130,13 @@ succ :
   -> Res True t ys e a
 succ r = p <~ r
 
+public export %inline
+wsucc :
+      Res b1 t xs e a
+  -> {auto 0 p : Suffix True xs ys}
+  -> Res False t ys e a
+wsucc r = r ~?> p
+
 --------------------------------------------------------------------------------
 --          Combinators
 --------------------------------------------------------------------------------
@@ -164,3 +172,16 @@ failInParen b tok (Fail (B (Reason EOI) _)) = unclosed b tok
 failInParen b tok (Fail err)                = Fail err
 failInParen b tok (Succ _ [])               = unclosed b tok
 failInParen b tok (Succ _ (x :: xs))        = unexpected x
+
+||| Catch-all error generator when no other rule applies.
+public export
+fail : List (Bounded t) -> Res b t ts e a
+fail (x :: xs) = unexpected x
+fail []        = eoi
+
+public export
+result : Origin -> Res b t ts e a -> Either (FileContext, ParseError t e) a
+result o (Fail err) = Left $ fromBounded o err
+result _ (Succ res []) = Right res
+result o (Succ res (x :: xs)) = Left $ fromBounded o (Unexpected <$> x)
+

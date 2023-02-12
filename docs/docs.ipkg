@@ -6,3 +6,4 @@ depends   = elab-util
           , parser
 
 modules = Intro
+        , Parser

@@ -77,14 +77,23 @@ up our language:
 
 ```idris
 public export
+data Op = P | M
+
+%runElab derive "Op" [Show,Eq]
+
+public export
 data Token : Type where
   TLit : Nat -> Token
   TSym : Char -> Token
+  TOp  : Op -> Token
 
 %runElab derive "Token" [Show,Eq]
 
-public export %inline
-FromChar Token where fromChar = TSym
+public export
+FromChar Token where
+  fromChar '+' = TOp P
+  fromChar '*' = TOp M
+  fromChar c   = TSym c
 ```
 
 Now, let us implement a tokenizer for our language. We want to generate
@@ -155,9 +164,15 @@ a simple pretty printer:
 
 ```idris
 public export
+Interpolation Op where
+  interpolate P = "+"
+  interpolate M = "*"
+
+public export
 Interpolation Token where
   interpolate (TLit n) = show n
   interpolate (TSym s) = show s
+  interpolate (TOp  s) = interpolate s
 
 printRes : String -> Either (Bounded Err) (List $ Bounded Token) -> String
 printRes _ (Right ts) = unlines $ (\(B t bs) => "\{t}: \{bs}") <$> ts
@@ -188,7 +203,7 @@ virtual: 1:14--1:15
                   ^
 ```
 
-As you can see, our tokens are pair with proper bounds, and we get
+So, our tokens are pair with proper bounds, and we get
 a decent error message in case of invalid input.
 
 ## Code reuse?
@@ -309,32 +324,46 @@ With the exception of some niceties around dealing with bounds
 and pretty printing parsing errors, this whole library is
 built upon the interaction between `Suffix` and `SuffixAcc`.
 
-## `SuffixRes` : Reintroducing Bounds and Errors
+## `SuffixRes`: Reintroducing Bounds and Errors
 
 The `Suffix` predicate comes with additional benefits: It is
-represented as a mere natural number at runtim, and its `toNat`
+represented as a mere natural number at runtime, and its `toNat`
 conversion is the identity function, so we can use this proof
 and pass it around almost for free. It also allows us to compute
 the next position in an input string.
 
 Module `Text.SuffixRes` provides a small library of utility functions
 built around the concept of consuming and converting a strict prefix 
-of a string.
+of a string. We can use this to drastically simplify our lexer
+without suffering a penalty in performance.
 
 ```idris
-tok4 : Tok Char Token
-tok4 ('(' :: xs) = Succ '(' xs
-tok4 (')' :: xs) = Succ ')' xs
-tok4 ('*' :: xs) = Succ '*' xs
-tok4 ('+' :: xs) = Succ '+' xs
+tok4 : (cs : List Char) -> SuffixRes Char cs Token
+tok4 ('(' :: xs) = Succ (TSym '(') xs
+tok4 (')' :: xs) = Succ (TSym ')') xs
+tok4 ('*' :: xs) = Succ (TOp M) xs
+tok4 ('+' :: xs) = Succ (TOp P) xs
 tok4 xs          = TLit <$> dec xs
 
+export
 toks4 : String -> Either (Bounded Err) (List $ Bounded Token)
 toks4 = mapFst (map Reason) . singleLineDropSpaces tok4
-
-lexAndPrint4 : String -> IO ()
-lexAndPrint4 s = putStrLn $ printRes s (toks4 s)
 ```
 
-<!-- vi: filetype=idris2
+There are several functions for running tokenizers in module
+`Text.SuffixRes`. One of them is `singleLineDropSpaces`: Use
+this, when there are no multiline tokens and tokens can be separated
+by arbitrary amounts of whitespace. This function will take care
+of generating the bounds of tokens for us. As can be seen above, this
+is a very convenient way of writing a tokenizer.
+
+## Conclusion and Next Steps
+
+I this section, I showed the core principle when writing provably
+total tokenizer, and how to do so pretty conveniently. I'm planning
+to add some more complex examples at a later time, but first, we are
+going to parse the whole thing into a syntax tree of type `Expr`.
+We will have a go at this in the [next section](Parser.md).
+
+<!-- vi: filetype=idris2:syntax=markdown
 -->

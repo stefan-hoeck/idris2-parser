@@ -346,6 +346,10 @@ number sc (x          :: xs) = if isDigit x then digs xs else unknown xs
 number sc []                 = failEmpty
 
 public export
+double : Tok Char Double
+double cs = suffix (cast . cast {to = String}) $ number [<] cs
+
+public export
 take : (n : Nat) -> {auto 0 p : IsSucc n} -> AutoShift True t
 take (S Z)       (x::xs)   = Succ xs
 take (S k@(S _)) (x :: xs) = take {b} k xs

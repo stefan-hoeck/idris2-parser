@@ -21,9 +21,9 @@ of infix operators without parentheses. For instance, the expression
 `1 * 2 + 3 * 4` should be parsed as `(1 * 2) + (3 * 4)` an not as
 `1 * (2 + (3 * 4))`, which might be more straightforward when parsing
 the expression from left to right. Our parse should convert such
-operator chains in to `SnocList` of pairs, with the final expression
-given separately. This can then be converted conveniently using the following
-recursive function:
+operator chains to a `SnocList` of pairs, with the final expression
+given separately. This can then be converted conveniently using the
+following recursive function:
 
 ```idris
 opChain : SnocList (Expr,Op) -> Expr -> Expr
@@ -97,7 +97,7 @@ Let's have a closer look at the implementation of `applied`: As usual,
 we use pattern matching to look at the prefix of the list of tokens.
 In case of an opening parenthesis, we invoke `expr` recursively.
 This is guaranteed to terminated since `xs` is a strict suffix of the
-input list, which is obvious for Idri in this case, but is also witnessed
+input list, which is obvious for Idris in this case, but is also witnessed
 by `r`, the inner function of the current `SuffixAcc`.
 
 Note the call to `succ`: If we just invoke `expr xs r`, the result will
@@ -111,9 +111,8 @@ After parsing the expression, we check that the parenthesis has been
 properly close, otherwise `applied` fails with an error.
 
 The other two rules are implemented in a similar fashion. Rule `ops`
-accumulates some state, so it a slightly more complex function signature.
-
-With the following `IO` action, we can check the parser at the REPL:
+accumulates some state, so it has a slightly more complex function signature.
+With the following `IO` action, we can try out the parser at the REPL:
 
 ```idris
 parseExpr : Origin -> String -> Either (FileContext,Err) Expr
@@ -151,7 +150,7 @@ virtual: 1:16--1:17
                     ^
 ```
 
-As you can see, we get clear and pretty error message pointing
+As you can see, we get clear and pretty error messages pointing
 exactly at the culprit in case of a parse error. The only not so nice part:
 No text position is printed in the `End of input` case. This can be
 fixed by specifying an `EndOfInput` token and manually appending it
@@ -164,7 +163,7 @@ This concludes this introduction about manually writing a parser
 for arithmetic expressions. Depending on your background, you might find
 the idea of manually writing a lexer and parser quite horrible. What
 about the nice combinator libraries we are used to when working
-with functional programming languages. Well, we are going to look
+with functional programming languages? Well, we are going to look
 at those in the next section.
 
 <!-- vi: filetype=idris2:syntax=markdown

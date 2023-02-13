@@ -4,6 +4,10 @@ authors   = "stefan-hoeck"
 sourcedir = "src"
 depends   = elab-util
           , parser
+          , profiler
+          , contrib
+          , prim
 
 modules = Intro
         , Parser
+        , Combinators

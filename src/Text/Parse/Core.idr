@@ -7,7 +7,7 @@ import Data.List.Suffix
 import Derive.Prelude
 import Text.ParseError
 import Text.FC
-import Text.Bounded
+import Text.Bounds
 import Text.Lex.Core
 import Text.Lex.Tokenizer
 

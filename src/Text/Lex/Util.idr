@@ -350,3 +350,7 @@ charLit = let q = '\'' in
                 <|> (is 'x' <+> hexDigits)
                 <|> (is 'o' <+> octDigits)
                 <|> digits
+
+export
+doubleLit : Lexer
+doubleLit = Lift number

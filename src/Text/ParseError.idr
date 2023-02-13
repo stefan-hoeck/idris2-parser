@@ -1,6 +1,6 @@
 module Text.ParseError
 
-import Text.Bounded
+import Text.Bounds
 import Text.FC
 import Derive.Prelude
 

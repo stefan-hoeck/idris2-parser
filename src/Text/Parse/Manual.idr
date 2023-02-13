@@ -4,7 +4,7 @@ import public Data.Bool.Rewrite
 import public Data.List.Shift
 import public Data.List.Suffix
 
-import public Text.Bounded
+import public Text.Bounds
 import public Text.ShiftRes
 import public Text.SuffixRes
 

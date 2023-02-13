@@ -1,7 +1,7 @@
 module Text.Parse.Res
 
 import Data.List.Suffix
-import Text.Bounded
+import Text.Bounds
 import Text.FC
 import Text.ParseError
 

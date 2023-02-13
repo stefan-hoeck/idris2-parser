@@ -1,6 +1,6 @@
 module Text.SuffixRes
 
-import Text.Bounded
+import Text.Bounds
 import public Text.ParseError
 import public Data.List.Suffix
 

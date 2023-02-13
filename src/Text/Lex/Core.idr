@@ -11,7 +11,7 @@ import Data.Bool.Rewrite
 import public Data.List
 import public Data.SnocList
 import public Data.Vect
-import public Text.Bounded
+import public Text.Bounds
 import public Text.ParseError
 import public Text.ShiftRes
 

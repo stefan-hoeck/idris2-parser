@@ -1,7 +1,7 @@
 # `Suffix`: A new Predicate on `List`
 
 Today, we are going to write a parser for a very small
-language of arithmetic operations. Let's go!
+language of arithmetic expressions. Let's go!
 
 ```idris
 module Intro
@@ -19,9 +19,9 @@ import Text.Parse.Manual
 Our program should be able to parse expressions of the form
 `(12 + 7) * 5 * (8 + 2)` accepting only natural numbers as literals,
 operators for addition and multiplication, and parentheses for grouping
-operators. The usual precedence should apply: Multiplication should have
-higher precedence than addition. We allow arbitrary whitespace between
-tokens to enhance readability.
+compound expressions. The usual operator precedence should apply:
+Multiplication should have higher precedence than addition.
+We allow arbitrary whitespace between tokens to enhance readability.
 
 First, we define a syntax tree for representing our expressions:
 
@@ -69,15 +69,16 @@ I prefer separating the processes of lexing and parsing for several
 reasons: Parsing is complex enough without having to deal with "word-level"
 stuff like converting numbers, dealing with different types of whitespace,
 and unescaping string literals. In addition, for most non-trivial projects,
-it makes sense to annotate the lexemes of a language with bounds, so we
-will later on be able to print nice error messages with source locations.
+it makes sense to annotate the lexemes of a language with source positions,
+so we will later on be able to print nice error messages with source locations.
 
 We will therefore first define a data type for the lexical tokens making
 up our language:
 
 ```idris
+||| `A`ddition and `M`ultiplication
 public export
-data Op = P | M
+data Op = A | M
 
 %runElab derive "Op" [Show,Eq]
 
@@ -91,7 +92,7 @@ data Token : Type where
 
 public export
 FromChar Token where
-  fromChar '+' = TOp P
+  fromChar '+' = TOp A
   fromChar '*' = TOp M
   fromChar c   = TSym c
 ```
@@ -133,7 +134,7 @@ isSymbol '*' = True
 isSymbol '+' = True
 isSymbol _   = False
 
-tok st c (x :: xs) = 
+tok st c (x :: xs) =
   if      isSymbol x then tok (st :< oneChar (TSym x) c) (incCol c) xs
   else if isSpace x then tok st (next x c) xs
   else if isDigit x then lit st c (incCol c) (digit x) xs
@@ -159,13 +160,13 @@ correspoding to the text from which it was created. Utilities
 `incLine` and `incCol` adjust the current position, and
 `oneChar` and `bounded` are smart constructors for `Bounded`.
 
-Let's quickly test our lexer at the command line, by implementing
+Let's quickly test our lexer at the command-line, by implementing
 a simple pretty printer:
 
 ```idris
 public export
 Interpolation Op where
-  interpolate P = "+"
+  interpolate A = "+"
   interpolate M = "*"
 
 public export
@@ -209,7 +210,7 @@ a decent error message in case of invalid input.
 ## Code reuse?
 
 What was shown above, is of course not a very nice way for writing
-a lexer, and it can be quite error prone, since we do everything
+a lexer, and it can be quite error-prone, since we do everything
 manually. For instance, the fact that we have to intertwine
 the lexing of literals and symbols makes it impossible to reuse
 these functions in other lexers. Let's try and do better. At first,
@@ -333,7 +334,7 @@ and pass it around almost for free. It also allows us to compute
 the next position in an input string.
 
 Module `Text.SuffixRes` provides a small library of utility functions
-built around the concept of consuming and converting a strict prefix 
+built around the concept of consuming and converting a strict prefix
 of a string. We can use this to drastically simplify our lexer
 without suffering a penalty in performance.
 
@@ -342,7 +343,7 @@ tok4 : (cs : List Char) -> SuffixRes Char cs Token
 tok4 ('(' :: xs) = Succ (TSym '(') xs
 tok4 (')' :: xs) = Succ (TSym ')') xs
 tok4 ('*' :: xs) = Succ (TOp M) xs
-tok4 ('+' :: xs) = Succ (TOp P) xs
+tok4 ('+' :: xs) = Succ (TOp A) xs
 tok4 xs          = TLit <$> dec xs
 
 export

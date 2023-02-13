@@ -28,7 +28,7 @@ recursive function:
 ```idris
 opChain : SnocList (Expr,Op) -> Expr -> Expr
 opChain [<]           x = x
-opChain (sx :< (y,P)) x = opChain sx y + x
+opChain (sx :< (y,A)) x = opChain sx y + x
 opChain (sx :< (y,M)) x = opChain sx (y * x)
 ```
 

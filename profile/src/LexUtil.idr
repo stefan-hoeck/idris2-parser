@@ -1,7 +1,6 @@
 module LexUtil
 
 import Data.String
-import JSON.Lexer
 import JSON.Parser
 import LexJSON
 import Libraries.Text.Lexer
@@ -18,18 +17,18 @@ import Text.Parse
 
 export %inline
 ptok :
-     Tokenizer a
+     Tokenizer Char a
   -> (s : String)
-  -> (Nat,Nat,SnocList (Text.Lex.Bounded.Bounded a), StopReason, List Char)
+  -> (Position,SnocList (Text.Bounded.Bounded a), Maybe (Bounded $ ParseError a Void), List Char)
 ptok t s = case lex t s of
-  TR l c res r rem _ => (l,c,res,r,rem)
+  TR pos res r rem _ => (pos,res,r,rem)
 
 export %inline
 plex :
      Text.Lex.Core.Lexer
   -> (s : String)
-  -> (Nat,Nat,SnocList (Text.Lex.Bounded.Bounded String), StopReason, List Char)
-plex l = ptok $ Match [(l,cast)]
+  -> (Position,SnocList (Text.Bounded.Bounded String), Maybe (Bounded $ ParseError String Void), List Char)
+plex l = ptok $ Direct (step l cast)
 
 export %inline
 ilex :
@@ -48,7 +47,7 @@ helloP = exact "hello world"
 helloE : Text.Lex.Core.Lexer
 helloE = Lift $ \sc,cs => case cs of
   'h'::'e'::'l'::'l'::'o'::' '::'w'::'o'::'r'::'l'::'d'::t => Succ t
-  _ => Stop
+  _ => fail sc cs
 
 helloI : Libraries.Text.Lexer.Core.Lexer
 helloI = exact "hello world"
@@ -147,17 +146,21 @@ bench = Group "lexer" [
     , Single "idris2_hex"   (basic (ilex hexUnderscoredLit) hexLit)
     ]
   , Group "lexJSON" [
-      Single "parser" (basic LexJSON.json jsonStr)
-    , Single "json"   (basic lexJSON jsonStr)
-    , Single "parser2" (basic LexJSON.json jsonStr2)
-    , Single "json2"   (basic lexJSON jsonStr2)
+      Single "parser" (basic LexJSON.lexJSON jsonStr)
+    , Single "noBoundsDropSpace" (basic (noBoundsDropSpaces tok) jsonStr)
+    , Single "singleLineDropSpaces" (basic (singleLineDropSpaces tok) jsonStr)
+    , Single "multiLineDropSpaces" (basic (multiLineDropSpaces tok) jsonStr)
+    , Single "json"   (basic Parser.lexJSON jsonStr)
+    , Single "parser2" (basic LexJSON.lexJSON jsonStr2)
+    , Single "noBoundsDropSpace2" (basic (noBoundsDropSpaces tok) jsonStr2)
+    , Single "singleLineDropSpaces2" (basic (singleLineDropSpaces tok) jsonStr2)
+    , Single "multiLineDropSpaces2" (basic (multiLineDropSpaces tok) jsonStr2)
+    , Single "json2"   (basic Parser.lexJSON jsonStr2)
     ]
   , Group "parseJSON" [
-      Single "fastParse" (basic fastParse jsonStr)
-    , Single "niceParse" (basic niceParse jsonStr)
-    , Single "json"      (basic parseErr jsonStr)
-    , Single "fastParse2" (basic fastParse jsonStr2)
-    , Single "niceParse2" (basic niceParse jsonStr2)
-    , Single "json2"      (basic parseErr jsonStr2)
+      Single "fastParse" (basic (ParseJSON.parseJSON Virtual) jsonStr)
+    , Single "json"      (basic (Parser.parseJSON Virtual) jsonStr)
+    , Single "fastParse2" (basic (ParseJSON.parseJSON Virtual) jsonStr2)
+    , Single "json2"      (basic (Parser.parseJSON Virtual) jsonStr2)
     ]
   ]

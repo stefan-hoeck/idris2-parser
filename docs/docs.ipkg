@@ -1,0 +1,9 @@
+package parser-docs
+version   = 0.1.0
+authors   = "stefan-hoeck"
+sourcedir = "src"
+depends   = elab-util
+          , parser
+
+modules = Intro
+        , Parser

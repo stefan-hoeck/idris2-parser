@@ -4,6 +4,11 @@ path = "."
 ipkg = "parser.ipkg"
 test = "test/test.ipkg"
 
+[custom.all.parser-docs]
+type = "local"
+path = "docs"
+ipkg = "docs.ipkg"
+
 [custom.all.parser-test]
 type = "local"
 path = "test"
@@ -19,6 +24,12 @@ type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-pretty-show"
 commit = "latest:main"
 ipkg   = "pretty-show.ipkg"
+
+[custom.all.json]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-json"
+commit = "latest:main"
+ipkg   = "json.ipkg"
 
 [custom.all.hedgehog]
 type   = "git"

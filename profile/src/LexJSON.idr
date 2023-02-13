@@ -1,12 +1,25 @@
 module LexJSON
 
-import JSON
 import Derive.Prelude
-import Text.Lex
-import Text.Parse.Err
+import Data.List.Suffix
+import Text.Bounded
+import Text.ParseError
+import Text.SuffixRes
+import Text.ShiftRes
 
 %language ElabReflection
 %default total
+
+public export
+data JSON : Type where
+  JNull   : JSON
+  JNumber : Double -> JSON
+  JBool   : Bool   -> JSON
+  JString : String -> JSON
+  JArray  : List JSON -> JSON
+  JObject : List (String, JSON) -> JSON
+
+%runElab derive "JSON" [Show,Eq]
 
 public export
 data JSToken : Type where
@@ -27,27 +40,21 @@ Interpolation JSToken where
 public export
 data JSErr : Type where
   ExpectedString  : JSErr
-  InvalidEscape   : JSErr
-  Unclosed        : Char -> JSErr
-  Unknown         : Char -> JSErr
 
 %runElab derive "JSErr" [Show,Eq]
 
 export
 Interpolation JSErr where
-  interpolate (Unclosed c)    = "Unclosed \{show c}"
-  interpolate (Unknown c)     = "Unknown token: \{show c}"
   interpolate ExpectedString  = "Expected string literal"
-  interpolate InvalidEscape   = "Invalid escape sequence"
 
 public export %tcinline
 0 JSParseErr : Type
-JSParseErr = Bounded (ParseError JSToken JSErr)
+JSParseErr = ParseError JSToken JSErr
 
 strLit : SnocList Char -> JSToken
 strLit = Lit . JString . cast
 
-str : SnocList Char -> AutoTok False Char JSToken
+str : SnocList Char -> AutoTok Char JSToken
 str sc ('\\' :: c  :: xs) = case c of
   '"'  => str (sc :< '"') xs
   'n'  => str (sc :< '\n') xs
@@ -66,61 +73,27 @@ str sc ('\\' :: c  :: xs) = case c of
                           hexDigit y * 0x10 +
                           hexDigit z 
            in str (sc :< c) t'
-        else Succ (strLit sc) ('\\'::'u'::w::x::y::z::t')
-    _    => Succ (strLit sc) ('\\'::'u'::xs)
-  _    => Succ (strLit sc) ('\\'::c::xs)
+        else invalidEscape p t'
+    _    => invalidEscape p xs
+  _    => invalidEscape p (c::xs)
 str sc ('"'  :: xs) = Succ (strLit sc) xs
 str sc (c    :: xs) = str (sc :< c) xs
-str sc []           = Fail
-
-term : Tok True Char JSToken
-term (x :: xs) = case x of
-  ',' => Succ ',' xs
-  '"' => str [<] xs
-  ':' => Succ ':' xs
-  '[' => Succ '[' xs
-  ']' => Succ ']' xs
-  '{' => Succ '{' xs
-  '}' => Succ '}' xs
-  'n' => case xs of
-    'u' :: 'l' :: 'l' :: t => Succ (Lit JNull) t
-    _                      => Fail
-  't' => case xs of
-    'r' :: 'u' :: 'e' :: t => Succ (Lit $ JBool True) t
-    _                      => Fail
-  'f' => case xs of
-    'a' :: 'l' :: 's' :: 'e' :: t => Succ (Lit $ JBool False) t
-    _                             => Fail
-  d   => suffix (Lit . JNumber . cast . cast {to = String}) $
-         number {pre = [<]} (d :: xs) @{Same}
-  
-term []        = Fail
-
-toErr : (l,c : Nat) -> Char -> List Char -> Either JSParseErr a
-toErr l c '"'  cs = custom (oneChar l c) (Unclosed '"')
-toErr l c '\\' ('u' :: t) =
-  custom (BS l c l (c + 2 + min 4 (length t))) InvalidEscape
-toErr l c '\\' (h :: t)   = custom (BS l c l (c + 2)) InvalidEscape
-toErr l c x   cs = custom (oneChar l c) (Unknown x)
-
-go :
-     SnocList (Bounded JSToken)
- -> (l,c   : Nat)
- -> (cs    : List Char)
- -> (0 acc : SuffixAcc cs)
- -> Either JSParseErr (List (Bounded JSToken))
-go sx l c ('\n' :: xs) (SA rec) = go sx (l+1) 0 xs rec
-go sx l c (x :: xs)    (SA rec) =
-  if isSpace x
-     then go sx l (c+1) xs rec
-     else case term (x::xs) of
-       Succ t xs' @{prf} =>
-         let c2 := c + toNat prf
-             bt := bounded t l c l c2
-          in go (sx :< bt) l c2 xs' rec
-       Fail => toErr l c x xs
-go sx l c [] _ = Right (sx <>> [])
+str sc []           = failEOI p
 
 export
-json : String -> Either JSParseErr (List (Bounded JSToken))
-json s = go [<] 0 0 (unpack s) suffixAcc
+tok : Tok Char JSToken
+tok (','::xs)                    = Succ ',' xs
+tok ('"'::xs)                    = str [<] xs
+tok (':'::xs)                    = Succ ':' xs
+tok ('['::xs)                    = Succ '[' xs
+tok (']'::xs)                    = Succ ']' xs
+tok ('{'::xs)                    = Succ '{' xs
+tok ('}'::xs)                    = Succ '}' xs
+tok ('n':: 'u'::'l'::'l'::t)     = Succ (Lit JNull) t
+tok ('t'::'r'::'u'::'e'::t)      = Succ (Lit $ JBool True) t
+tok ('f'::'a'::'l'::'s'::'e'::t) = Succ (Lit $ JBool False) t
+tok xs                           = Lit . JNumber <$> double xs
+
+export
+lexJSON : String -> Either (Bounded StopReason) (List (Bounded JSToken))
+lexJSON s = singleLineDropSpaces tok s

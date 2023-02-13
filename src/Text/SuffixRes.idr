@@ -1,5 +1,6 @@
 module Text.SuffixRes
 
+import Text.Bounded
 import public Text.ParseError
 import public Data.List.Suffix
 
@@ -148,10 +149,15 @@ binDigit _   = 1
 --          Tokenizers
 --------------------------------------------------------------------------------
 
+||| A tokenizing function, which will consume a strict
+||| prefix of the input list or fail with a stop reason.
 public export
 0 Tok : (t,a : Type) -> Type
 Tok t a = (ts : List t) -> SuffixRes t ts a
 
+||| A tokenizing function, which will consume additional characters
+||| from the input string. This can only be used if already some
+||| have been consumed.
 public export
 0 AutoTok : (t,a : Type) -> Type
 AutoTok t a =
@@ -160,11 +166,29 @@ AutoTok t a =
   -> {auto   p : Suffix True xs orig}
   -> SuffixRes t orig a
 
+||| A tokenizing function, which will consume additional characters
+||| from the input string.
+public export
+0 OntoTok : (t,a : Type) -> Type
+OntoTok t a =
+     {orig     : List t}
+  -> (xs       : List t)
+  -> {auto   p : Suffix False xs orig}
+  -> SuffixRes t orig a
+
+public export %inline
+tok : OntoTok t a -> Tok t a
+tok f ts = f ts
+
+public export %inline
+autoTok : OntoTok t a -> AutoTok t a
+autoTok f ts @{p} = f ts @{weaken p}
+
 public export %inline
 invalidEscape :
      {orig      : List t}
   -> {current   : List t}
-  -> (suffixCur : Suffix True current orig)
+  -> (suffixCur : Suffix b current orig)
   -> (0 rest    : List t)
   -> {auto sr   : Suffix False rest current}
   -> SuffixRes t orig a
@@ -174,7 +198,7 @@ public export %inline
 unknownRange :
      {orig      : List t}
   -> {current   : List t}
-  -> (suffixCur : Suffix True current orig)
+  -> (suffixCur : Suffix b current orig)
   -> (0 rest    : List t)
   -> {auto sr   : Suffix False rest current}
   -> SuffixRes t orig a
@@ -222,7 +246,7 @@ dec1 n []      = succ n p
 ||| Tries to read a natural number. Fails, if this does not contain at least
 ||| one digit.
 public export
-dec : AutoTok Char Nat
+dec : OntoTok Char Nat
 dec (x::xs) = if isDigit x then dec1 (digit x) xs else unknown xs
 dec []      = failEOI p
 
@@ -238,115 +262,273 @@ dec_1 n []           = Succ n []
 ||| Tries to read a natural number.
 ||| Supports underscores as separators for better readability.
 public export
-decSep : AutoTok Char Nat
+decSep : OntoTok Char Nat
 decSep (x::xs) = if isDigit x then dec_1 (digit x) xs else unknown xs
 decSep []      = failEOI p
 
 ||| Tries to read more binary digits onto a growing natural number.
 public export
-ontoBin : (n : Nat) -> AutoTok Char Nat
-ontoBin n (x :: xs) =
-  if isBinDigit x then ontoBin (n*2 + binDigit x) xs else succ n p
-ontoBin n []        = succ n p
+bin1 : (n : Nat) -> AutoTok Char Nat
+bin1 n (x :: xs) = if isBinDigit x then bin1 (n*2 + binDigit x) xs else succ n p
+bin1 n []        = succ n p
+
+||| Tries to read a binary natural number.
+||| Fails, if this does not contain at least one digit.
+public export
+bin : OntoTok Char Nat
+bin (x::xs) = if isBinDigit x then bin1 (binDigit x) xs else unknown xs
+bin []      = failEOI p
 
 ||| Tries to read more binary digits onto a growing natural number.
 ||| Supports underscores as separators for better readability.
 public export
-ontoBinSep : (n : Nat) -> AutoTok Char Nat
-ontoBinSep n ('_' :: x :: xs) =
-  if isBinDigit x then ontoBinSep (n*2 + binDigit x) xs else unknownRange p xs
-ontoBinSep n (x :: xs) =
-  if isBinDigit x then ontoBinSep (n*2 + binDigit x) xs else succ n p
-ontoBinSep n []        = succ n p
+bin_1 : (n : Nat) -> AutoTok Char Nat
+bin_1 n ('_' :: x :: xs) =
+  if isBinDigit x then bin_1 (n*2 + binDigit x) xs else unknownRange p xs
+bin_1 n (x :: xs) =
+  if isBinDigit x then bin_1 (n*2 + binDigit x) xs else succ n p
+bin_1 n []        = succ n p
 
--- public export
--- binNat : Tok Char Nat
--- binNat ('0'::'b'::xs) = case xs of
---   h :: t => if isBinDigit h then ontoBin (binDigit h) t else unknownRange Same xs
---   []     => unknownRange Same []
--- binNat (h :: t) = Stop
--- 
--- public export
--- binNatSep : Tok Char Nat
--- binNatSep ('0' :: 'b' :: xs) = case xs of
---   h :: t => if isBinDigit h then ontoBinSep (binDigit h) t else Fail Same t
---   []     => Fail Same []
--- binNatSep _ = Stop
--- 
--- ||| Tries to read more octal digits onto a growing natural number.
--- public export
--- ontoOct : (n : Nat) -> AutoTok Char Nat
--- ontoOct n (x :: xs) =
---   if isOctDigit x then ontoOct (n*8 + octDigit x) xs else succ n p
--- ontoOct n []        = succ n p
--- 
--- ||| Tries to read more octal digits onto a growing natural number.
--- ||| Supports underscores as separators for better readability.
--- public export
--- ontoOctSep : (n : Nat) -> AutoTok Char Nat
--- ontoOctSep n ('_' :: x :: xs) =
---   if isOctDigit x then ontoOctSep (n*8 + octDigit x) xs else succ n p
--- ontoOctSep n (x :: xs) =
---   if isOctDigit x then ontoOctSep (n*8 + octDigit x) xs else succ n p
--- ontoOctSep n []        = succ n p
--- 
--- public export
--- octNat : Tok Char Nat
--- octNat ('0' :: 'o' :: xs) = case xs of
---   h :: t => if isOctDigit h then ontoOct (octDigit h) t else Fail ['0','o',h] t
---   []     => Fail ['0','o'] []
--- octNat _ = Stop
--- 
--- public export
--- octNatSep : Tok Char Nat
--- octNatSep ('0' :: 'o' :: xs) = case xs of
---   h :: t => if isOctDigit h then ontoOctSep (octDigit h) t else Fail ['0','o',h] t
---   []     => Fail ['0','o'] []
--- octNatSep _ = Stop
--- 
--- ||| Tries to read more hexadecimal digits onto a growing natural number.
--- public export
--- ontoHex : (n : Nat) -> AutoTok Char Nat
--- ontoHex n (x :: xs) =
---   if isHexDigit x then ontoHex (n*16 + hexDigit x) xs else succ n p
--- ontoHex n []        = succ n p
--- 
--- ||| Tries to read more octal digits onto a growing natural number.
--- ||| Supports underscores as separators for better readability.
--- public export
--- ontoHexSep : (n : Nat) -> AutoTok Char Nat
--- ontoHexSep n ('_' :: x :: xs) =
---   if isHexDigit x then ontoHexSep (n*16 + octDigit x) xs else succ n p
--- ontoHexSep n (x :: xs) =
---   if isHexDigit x then ontoHexSep (n*16 + octDigit x) xs else succ n p
--- ontoHexSep n []        = succ n p
--- 
--- public export
--- hexNat : Tok Char Nat
--- hexNat ('0' :: 'o' :: xs) = case xs of
---   h :: t => if isHexDigit h then ontoHex (hexDigit h) t else Fail ['0','o',h] t
---   []     => Fail ['0','o'] []
--- hexNat _ = Stop
--- 
--- public export
--- hexNatSep : Tok Char Nat
--- hexNatSep ('0' :: 'o' :: xs) = case xs of
---   h :: t => if isHexDigit h then ontoHexSep (hexDigit h) t else Fail ['0','o',h] t
---   []     => Fail ['0','o'] []
--- hexNatSep _ = Stop
--- 
+||| Tries to read a binary natural number.
+||| Fails, if this does not contain at least one digit.
+||| Supports underscores as separators for better readability.
+public export
+binSep : OntoTok Char Nat
+binSep (x::xs) = if isBinDigit x then bin_1 (binDigit x) xs else unknown xs
+binSep []      = failEOI p
+
+||| Tries to read more octal digits onto a growing natural number.
+public export
+oct1 : (n : Nat) -> AutoTok Char Nat
+oct1 n (x :: xs) = if isOctDigit x then oct1 (n*2 + octDigit x) xs else succ n p
+oct1 n []        = succ n p
+
+||| Tries to read a octal natural number.
+||| Fails, if this does not contain at least one digit.
+public export
+oct : OntoTok Char Nat
+oct (x::xs) = if isOctDigit x then oct1 (octDigit x) xs else unknown xs
+oct []      = failEOI p
+
+||| Tries to read more octal digits onto a growing natural number.
+||| Supports underscores as separators for better readability.
+public export
+oct_1 : (n : Nat) -> AutoTok Char Nat
+oct_1 n ('_' :: x :: xs) =
+  if isOctDigit x then oct_1 (n*2 + octDigit x) xs else unknownRange p xs
+oct_1 n (x :: xs) =
+  if isOctDigit x then oct_1 (n*2 + octDigit x) xs else succ n p
+oct_1 n []        = succ n p
+
+||| Tries to read a octal natural number.
+||| Fails, if this does not contain at least one digit.
+||| Supports underscores as separators for better readability.
+public export
+octSep : OntoTok Char Nat
+octSep (x::xs) = if isOctDigit x then oct_1 (octDigit x) xs else unknown xs
+octSep []      = failEOI p
+
+||| Tries to read more hexadecimal digits onto a growing natural number.
+public export
+hex1 : (n : Nat) -> AutoTok Char Nat
+hex1 n (x :: xs) = if isHexDigit x then hex1 (n*2 + hexDigit x) xs else succ n p
+hex1 n []        = succ n p
+
+||| Tries to read a hexadecimal natural number.
+||| Fails, if this does not contain at least one digit.
+public export
+hex : OntoTok Char Nat
+hex (x::xs) = if isHexDigit x then hex1 (hexDigit x) xs else unknown xs
+hex []      = failEOI p
+
+||| Tries to read more hexadecimal digits onto a growing natural number.
+||| Supports underscores as separators for better readability.
+public export
+hex_1 : (n : Nat) -> AutoTok Char Nat
+hex_1 n ('_' :: x :: xs) =
+  if isHexDigit x then hex_1 (n*2 + hexDigit x) xs else unknownRange p xs
+hex_1 n (x :: xs) =
+  if isHexDigit x then hex_1 (n*2 + hexDigit x) xs else succ n p
+hex_1 n []        = succ n p
+
+||| Tries to read a hexadecimal natural number.
+||| Fails, if this does not contain at least one digit.
+||| Supports underscores as separators for better readability.
+public export
+hexSep : OntoTok Char Nat
+hexSep (x::xs) = if isHexDigit x then hex_1 (hexDigit x) xs else unknown xs
+hexSep []      = failEOI p
+
 --------------------------------------------------------------------------------
---          Floating Point Numbers
+--          Integer Literals
 -----------------------------------------------------------------------------
 
 ||| A shifter that takes moves an integer prefix
 public export
-int : AutoTok Char Integer
+int : OntoTok Char Integer
 int ('-' :: xs) = negate . cast <$> dec xs
 int xs          = cast <$> dec xs
 
 ||| Like `int` but also allows an optional leading `'+'` character.
 public export
-intPlus : AutoTok Char Integer
+intPlus : OntoTok Char Integer
 intPlus ('+'::xs) = cast <$> dec xs
 intPlus xs        = int xs
+
+--------------------------------------------------------------------------------
+--          Running Tokenizers
+-----------------------------------------------------------------------------
+
+||| Flag indicating whether whitespace characters should
+||| be removed during lexing.
+|||
+||| This will only affect whitespace that is not consumed by
+||| the tokenization function. Whitespace appearing within a
+||| string literal, for instance, and being consumed by the
+||| function converting the literal, will not be affected.
+public export
+data Spaces = Keep | Drop
+
+||| Settings for repeatedly running a `Tok Char a` function.
+|||
+||| This describes mainly, how `Bound`s are generated (if at all).
+|||
+||| Use the `SingleLine` constructor, if all recognized tokens
+||| are free of whitespace. This automatically means, that the
+||| iterating function will not pass line breaks to the tokenizer.
+|||
+||| Use the `MultiLine` constructor, if tokens might have consumed
+||| some line breaks (if you're grammar supports multi-line string,
+||| for instance). This will require a second traversal of the
+||| consumed characters to figure out the bounds of a lexeme, so
+||| it might have an effect on performance. This will be mainly an
+||| issue if you write high-performance lexers, however.
+|||
+||| Use the `NoBounds`, if you don't want to pair the generated
+||| tokens with proper bounds. This will improve performance, but
+||| it will make it harder (or even impossible), to get nicely positioned
+||| error messages.
+public export
+data TokSettings : Type where
+  SingleLine : TokSettings
+  MultiLine  : TokSettings
+  NoBounds   : TokSettings
+
+public export
+0 Eff : TokSettings -> Type -> Type
+Eff SingleLine y = Bounded y
+Eff MultiLine  y = Bounded y
+Eff NoBounds   y = y
+
+public export
+runTok : Tok t a -> List t -> Either StopReason (List a)
+runTok f cs = go [<] cs suffixAcc
+  where
+    go : SnocList a
+      -> (ts : List t)
+      -> (0 acc : SuffixAcc ts)
+      -> Either StopReason (List a)
+    go sx [] _      = Right $ sx <>> []
+    go sx xs (SA r) = case f xs of
+      Succ v xs2 => go (sx :< v) xs2 r
+      Stop _ _ r => Left r
+
+public export
+noBoundsDropSpaces : Tok Char a -> String -> Either StopReason (List a)
+noBoundsDropSpaces f s = go [<] (unpack s) suffixAcc
+  where
+    go : SnocList a
+      -> (ts : List Char)
+      -> (0 acc : SuffixAcc ts)
+      -> Either StopReason (List a)
+    go sx []       _     = Right $ sx <>> []
+    go sx (c::cs) (SA r) =
+      if isSpace c then go sx cs r
+      else case f (c::cs) of
+        Succ v xs2 => go (sx :< v) xs2 r
+        Stop _ _ r => Left r
+
+public export
+singleLineDropSpaces :
+     Tok Char a
+  -> String
+  -> Either (Bounded StopReason) (List $ Bounded a)
+singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
+  where
+    go : Position
+      -> SnocList (Bounded a)
+      -> (ts : List Char)
+      -> (0 acc : SuffixAcc ts)
+      -> Either (Bounded StopReason) (List $ Bounded a)
+    go p1 sx []       _        = Right $ sx <>> []
+    go p1 sx ('\n'::cs) (SA r) = go (incLine p1) sx cs r
+    go p1 sx (c::cs)    (SA r) =
+      if isSpace c then go (incCol p1) sx cs r
+      else case f (c::cs) of
+        Succ v xs2 @{p}     =>
+          let p2 := move p1 p
+           in go p2 (sx :< bounded v p1 p2) xs2 r
+        Stop s e r => Left $ boundedErr p1 s e r
+
+public export
+multiLineDropSpaces :
+     Tok Char a
+  -> String
+  -> Either (Bounded StopReason) (List $ Bounded a)
+multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
+  where
+    go : Position
+      -> SnocList (Bounded a)
+      -> (ts : List Char)
+      -> (0 acc : SuffixAcc ts)
+      -> Either (Bounded StopReason) (List $ Bounded a)
+    go p1 sx []       _        = Right $ sx <>> []
+    go p1 sx ('\n'::cs) (SA r) = go (incLine p1) sx cs r
+    go p1 sx (c::cs)    (SA r) =
+      if isSpace c then go (incCol p1) sx cs r
+      else case f (c::cs) of
+        Succ v xs2 @{p}     =>
+          let p2 := endPos p1 p
+           in go p2 (sx :< bounded v p1 p2) xs2 r
+        Stop s e r => Left $ boundedErr p1 s e r
+
+public export
+multiline :
+     Tok Char a
+  -> String
+  -> Either (Bounded StopReason) (List $ Bounded a)
+multiline f s = go begin [<] (unpack s) suffixAcc
+  where
+    go : Position
+      -> SnocList (Bounded a)
+      -> (ts : List Char)
+      -> (0 acc : SuffixAcc ts)
+      -> Either (Bounded StopReason) (List $ Bounded a)
+    go p1 sx [] _      = Right $ sx <>> []
+    go p1 sx cs (SA r) = case f cs of
+      Succ v xs2 @{p}     =>
+        let p2 := endPos p1 p
+         in go p2 (sx :< bounded v p1 p2) xs2 r
+      Stop s e r => Left $ boundedErr p1 s e r
+
+public export
+singleline :
+     Tok t a
+  -> List t
+  -> Either (Bounded StopReason) (List $ Bounded a)
+singleline f s = go begin [<] s suffixAcc
+  where
+    go : Position
+      -> SnocList (Bounded a)
+      -> (ts : List t)
+      -> (0 acc : SuffixAcc ts)
+      -> Either (Bounded StopReason) (List $ Bounded a)
+    go p1 sx [] _      = Right $ sx <>> []
+    go p1 sx cs (SA r) = case f cs of
+      Succ v xs2 @{p}     =>
+        let p2 := move p1 p
+         in go p2 (sx :< bounded v p1 p2) xs2 r
+      Stop x _ y @{e} =>
+        let p2 := move p1 x
+            p3 := move p2 e
+         in Left $ bounded y p2 p3

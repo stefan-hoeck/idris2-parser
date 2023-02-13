@@ -135,7 +135,7 @@ isSymbol '+' = True
 isSymbol _   = False
 
 tok st c (x :: xs) =
-  if      isSymbol x then tok (st :< oneChar (TSym x) c) (incCol c) xs
+  if      isSymbol x then tok (st :< oneChar (fromChar x) c) (incCol c) xs
   else if isSpace x then tok st (next x c) xs
   else if isDigit x then lit st c (incCol c) (digit x) xs
   else Left (oneChar (Reason UnknownToken) c)
@@ -155,9 +155,9 @@ Let's have a look at the types and utilities involved:
 `Text.Bounded.Position` describes a position (line and column) in a string
 as a zero-based pair of natural numbers. `Text.Bounded.Bounds`, a monoid,
 wraps a pair of positions to define a range of text in a string,
-and `Text.Bounded.Bounded`, pairs a value with the `Bounds`,
+and `Text.Bounded.Bounded`, pairs a value with the `Bounds`
 correspoding to the text from which it was created. Utilities
-`incLine` and `incCol` adjust the current position, and
+`next`, `incLine` and `incCol` adjust the current position, and
 `oneChar` and `bounded` are smart constructors for `Bounded`.
 
 Let's quickly test our lexer at the command-line, by implementing
@@ -204,7 +204,7 @@ virtual: 1:14--1:15
                   ^
 ```
 
-So, our tokens are pair with proper bounds, and we get
+So, our tokens are paired with proper bounds, and we get
 a decent error message in case of invalid input.
 
 ## Code reuse?
@@ -225,14 +225,15 @@ lit2 k (x::xs) = if isDigit x then lit2 (k*10 + digit x) xs else (x::xs, TLit k)
 
 tok2 : (cs : List Char) -> {auto 0 p : NonEmpty cs} -> Maybe (List Char, Token)
 tok2 (x :: xs) =
-  if      isSymbol x then Just (xs, TSym x)
+  if      isSymbol x then Just (xs, fromChar x)
   else if isDigit x then Just $ lit2 (digit x) xs
   else Nothing
 ```
 
-This is of course just an explicit state monad with some rudimentary error
+This is of course just an explicit state monad with some very basic error
 handling. However, we face an issue when we try to lex a string of several
-tokens:
+tokens. The following would be perfectly fine in a language like Haskell,
+but Idris is not satisfied:
 
 ```idris
 failing "toks2 is not total"
@@ -246,11 +247,11 @@ failing "toks2 is not total"
     Nothing      => Nothing
 ```
 
-Idris2 can't verify that function `toks2` is total, because it has no chance
-of verifying that our list of characters is getting shorter, and so the
-totality checker is not satisfied. This is the very problem we have to
-solve when we try to write libraries for provably total lexers and
-parser combinators: How can we keep track that our input is getting
+Idris can't verify that function `toks2` is total, because it has no chance
+of verifying that our list of characters is getting shorter when invoking
+`tok2`. This is the very problem we have to solve when we try to
+write libraries for provably total lexers and
+parser combinators: How can we keep track of our input getting
 strictly shorter and, therefore, our lexers and parser must terminate
 after a finite number of computational steps?
 
@@ -269,8 +270,8 @@ As you can see, `Suffix` is indexed by a boolean flag, indicating whether
 the first list is a *strict* suffix of the second or not.
 
 Our first task will be to modify function `tok2` in such a way that
-it returns a proof the returned list of characters is a strict suffix
-of the input:
+it returns a proof that the remaining list of characters is a
+strict suffix of the input:
 
 ```idris
 data Result : (cs : List Char) -> Type -> Type where
@@ -289,7 +290,7 @@ lit3 k (x::xs) =
 
 tok3 : (cs : List Char) -> {auto 0 p : NonEmpty cs} -> Result cs Token
 tok3 (x :: xs) =
-  if      isSymbol x then Yes (TSym x) xs
+  if      isSymbol x then Yes (fromChar x) xs
   else if isDigit x then lit3 (digit x) xs
   else No
 ```
@@ -360,7 +361,7 @@ is a very convenient way of writing a tokenizer.
 
 ## Conclusion and Next Steps
 
-I this section, I showed the core principle when writing provably
+I this section, I showed the core principle for writing a provably
 total tokenizer, and how to do so pretty conveniently. I'm planning
 to add some more complex examples at a later time, but first, we are
 going to parse the whole thing into a syntax tree of type `Expr`.

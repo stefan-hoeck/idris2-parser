@@ -21,7 +21,6 @@ import Text.Lex
 import Text.Parse
 import Text.Parse.Manual
 import Profile
-import System
 
 %default total
 %language ElabReflection
@@ -496,17 +495,9 @@ bench = Group "all" [
     ]
   ]
 
-fromArgs : List String -> String -> Bool
-fromArgs [_,p] = case split ('=' ==) p of
-  "--only" ::: [s] => isInfixOf s
-  _                => const False
-fromArgs _ = const True
-
 covering
 main : IO ()
-main = do
-  select <- fromArgs <$> getArgs
-  runDefault select Table show bench
+main = runDefault (const True) Table show bench
 ```
 
 ## Conclusion

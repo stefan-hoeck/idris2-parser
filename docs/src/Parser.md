@@ -164,7 +164,7 @@ for arithmetic expressions. Depending on your background, you might find
 the idea of manually writing a lexer and parser quite horrible. What
 about the nice combinator libraries we are used to when working
 with functional programming languages? Well, we are going to look
-at those in the next section.
+at those in the [next section](Combinators.md).
 
 <!-- vi: filetype=idris2:syntax=markdown
 -->

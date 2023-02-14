@@ -2,7 +2,7 @@ module LexJSON
 
 import Derive.Prelude
 import Data.List.Suffix
-import Text.Bounded
+import Text.Bounds
 import Text.ParseError
 import Text.SuffixRes
 import Text.ShiftRes

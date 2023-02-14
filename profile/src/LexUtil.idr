@@ -19,7 +19,7 @@ export %inline
 ptok :
      Tokenizer Char a
   -> (s : String)
-  -> (Position,SnocList (Text.Bounded.Bounded a), Maybe (Bounded $ ParseError a Void), List Char)
+  -> (Position,SnocList (Text.Bounds.Bounded a), Maybe (Bounded $ ParseError a Void), List Char)
 ptok t s = case lex t s of
   TR pos res r rem _ => (pos,res,r,rem)
 
@@ -27,7 +27,7 @@ export %inline
 plex :
      Text.Lex.Core.Lexer
   -> (s : String)
-  -> (Position,SnocList (Text.Bounded.Bounded String), Maybe (Bounded $ ParseError String Void), List Char)
+  -> (Position,SnocList (Text.Bounds.Bounded String), Maybe (Bounded $ ParseError String Void), List Char)
 plex l = ptok $ Direct (step l cast)
 
 export %inline

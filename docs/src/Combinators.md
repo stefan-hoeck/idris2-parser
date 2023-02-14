@@ -1,11 +1,16 @@
 # Parser Combinators
 
 "Who in their right mind would writer a lexer or parser
-from scratch? And by the way, your toy language was far
-too trivial!" That's probably correct, so we are going to
-write a JSON parser in this section. That's still not a
-very complex grammar, but it will still be a bit
-more interesting.
+from scratch? And by the way, your toy language of arithmetic
+expressions was unrealistically trivial!"
+That's probably correct, so we are going to
+write a [JSON](https://www.json.org/json-en.html) parser in this section.
+That's still not a very complex grammar, but it will allow us
+to dive into combinators for lexing and parsing.
+
+We are first going to define the necessary data types: A tree structure
+representing the JSON data, a token type plus a type for custom
+error messages:
 
 ```idris
 module Combinators
@@ -18,14 +23,7 @@ import System
 
 %default total
 %language ElabReflection
-```
 
-## Part 1: Manual Lexer
-
-First, I'm going to write a lexer as in the last section:
-with an explicit pattern match. First, some data types:
-
-```idris
 public export
 data JsonTree : Type where
   JNull   : JsonTree
@@ -52,8 +50,8 @@ fromChar = Symbol
 export
 Interpolation JSToken where
   interpolate (Symbol c) = show c
-  interpolate (Lit x)  = "'\{show x}'"
-  interpolate Space = "<spaces>"
+  interpolate (Lit x)    = "'\{show x}'"
+  interpolate Space      = "<spaces>"
 
 public export
 data JSErr : Type where
@@ -70,9 +68,11 @@ public export %tcinline
 JSParseErr = ParseError JSToken JSErr
 ```
 
+## Part 1: Manual Lexer
+
 We begin with the most notorious aspect of lexing JSON
-data: String literals. And we are not going to skip the
-gory details. A JSON string can contain any unicode character
+data: String literals. And we are not going to skip over the
+gory details this time. A JSON string can contain any unicode character
 with the exception of certain control and space characters
 and quotes, which must be escaped. This is handled in the
 following function for lexing a string literal:
@@ -106,6 +106,30 @@ str sc ('\\' :: c  :: xs) = case c of
 str sc ('"'  :: xs) = Succ (strLit sc) xs
 str sc (c    :: xs) = str (sc :< c) xs
 str sc []           = failEOI p
+```
+
+The most important new thing here is the `AutoTok Char JSToken`
+type. This is an alias for the following function type:
+
+```repl
+Combinators> :printdef AutoTok
+0 Text.SuffixRes.AutoTok : Type -> Type -> Type
+AutoTok t a = (xs : List t) -> Suffix True xs orig => SuffixRes t orig a
+```
+
+We use this to automatically keep track of the number of
+characters consumed (the `Suffix True xs orig` auto implicit
+argument), and we expect, that already at least one character
+has been consumed when invoking `str`, which makes sense since
+we already dropped the opening quotation character (`'"'`).
+
+There is a second non-trivial aspect: Lexing floating point literals.
+This functionality is already available in module `Text.SuffixRes`, but
+I'm going to reimplement it here to compare it to corresponding
+lexer built from combinators in the next section. For this, we are going
+
+
+```idris
 ```
 
 Compared to this, the rest is very simple:

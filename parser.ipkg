@@ -8,7 +8,7 @@ modules = Data.Bool.Rewrite
         , Data.List.Shift
         , Data.List.Suffix
 
-        , Text.Bounded
+        , Text.Bounds
         , Text.FC
         , Text.ParseError
         , Text.ShiftRes

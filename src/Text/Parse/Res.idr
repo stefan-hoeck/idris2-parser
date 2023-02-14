@@ -1,7 +1,7 @@
 module Text.Parse.Res
 
 import Data.List.Suffix
-import Text.Bounded
+import Text.Bounds
 import Text.FC
 import Text.ParseError
 
@@ -184,4 +184,3 @@ result : Origin -> Res b t ts e a -> Either (FileContext, ParseError t e) a
 result o (Fail err) = Left $ fromBounded o err
 result _ (Succ res []) = Right res
 result o (Succ res (x :: xs)) = Left $ fromBounded o (Unexpected <$> x)
-

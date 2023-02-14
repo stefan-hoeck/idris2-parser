@@ -2,7 +2,7 @@ module Text.Lex.Tokenizer
 
 import Derive.Prelude
 import Text.ParseError
-import Text.Bounded
+import Text.Bounds
 import Text.SuffixRes
 
 %default total

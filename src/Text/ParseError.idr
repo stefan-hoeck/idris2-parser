@@ -1,6 +1,6 @@
 module Text.ParseError
 
-import Text.Bounded
+import Text.Bounds
 import Text.FC
 import Derive.Prelude
 
@@ -13,17 +13,19 @@ import Derive.Prelude
 
 public export
 data StopReason : Type where
-  InvalidEscape : StopReason
-  UnknownToken  : StopReason
-  EOI           : StopReason
-  ExpectedEOI   : StopReason
+  InvalidEscape  : StopReason
+  InvalidControl : Char -> StopReason
+  UnknownToken   : StopReason
+  EOI            : StopReason
+  ExpectedEOI    : StopReason
 
 export
 Interpolation StopReason where
-  interpolate InvalidEscape = "Invalid escape sequence"
-  interpolate UnknownToken  = "Unknown token"
-  interpolate EOI           = "End of input"
-  interpolate ExpectedEOI   = "Expected end of input"
+  interpolate InvalidEscape      = "Invalid escape sequence"
+  interpolate (InvalidControl c) = "Invalid control character: \{show c}"
+  interpolate UnknownToken       = "Unknown token"
+  interpolate EOI                = "End of input"
+  interpolate ExpectedEOI        = "Expected end of input"
 
 %runElab derive "StopReason" [Show,Eq]
 
@@ -99,6 +101,14 @@ printPair :
   -> (FileContext,a)
   -> List String
 printPair ls (fc,x) = "Error: \{x}" :: printFC fc ls
+
+export
+printVirtual :
+     Interpolation a
+  => String
+  -> Bounded a
+  -> String
+printVirtual s x = unlines $ printPair (lines s) (fromBounded Virtual x)
 
 export
 printParseError :

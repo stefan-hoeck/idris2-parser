@@ -224,6 +224,15 @@ atLeast 0     f = many f
 atLeast (S k) f = f <+> atLeast k f
 
 export
+exactly :
+     (n : Nat)
+  -> Recognise True t
+  -> {auto 0 _ : IsSucc n}
+  -> Recognise True t
+exactly 1           f = f
+exactly (S k@(S _)) f = f <+> exactly k f
+
+export
 manyUntil : (stopBefore : Recognise c t) -> Recognise True t -> Recognise False t
 manyUntil sb l = many (reject sb <+> l)
 
@@ -350,3 +359,7 @@ charLit = let q = '\'' in
                 <|> (is 'x' <+> hexDigits)
                 <|> (is 'o' <+> octDigits)
                 <|> digits
+
+export
+doubleLit : Lexer
+doubleLit = Lift number

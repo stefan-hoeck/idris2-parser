@@ -1,4 +1,4 @@
-module Text.Bounded
+module Text.Bounds
 
 import Data.List.Shift
 import Data.List.Suffix

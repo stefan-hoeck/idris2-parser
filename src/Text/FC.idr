@@ -2,7 +2,7 @@ module Text.FC
 
 import Data.String
 import Derive.Prelude
-import Text.Bounded
+import Text.Bounds
 
 %default total
 %language ElabReflection

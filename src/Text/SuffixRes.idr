@@ -1,6 +1,6 @@
 module Text.SuffixRes
 
-import Text.Bounded
+import Text.Bounds
 import public Text.ParseError
 import public Data.List.Suffix
 
@@ -185,6 +185,17 @@ autoTok : OntoTok t a -> AutoTok t a
 autoTok f ts @{p} = f ts @{weaken p}
 
 public export %inline
+range :
+     {orig      : List t}
+  -> {current   : List t}
+  -> StopReason
+  -> (suffixCur : Suffix b current orig)
+  -> (0 rest    : List t)
+  -> {auto sr   : Suffix False rest current}
+  -> SuffixRes t orig a
+range r sc rest = Stop (weaken sc) rest r
+
+public export %inline
 invalidEscape :
      {orig      : List t}
   -> {current   : List t}
@@ -192,7 +203,7 @@ invalidEscape :
   -> (0 rest    : List t)
   -> {auto sr   : Suffix False rest current}
   -> SuffixRes t orig a
-invalidEscape sc rest = Stop (weaken sc) rest InvalidEscape
+invalidEscape = range InvalidEscape
 
 public export %inline
 unknownRange :
@@ -202,7 +213,7 @@ unknownRange :
   -> (0 rest    : List t)
   -> {auto sr   : Suffix False rest current}
   -> SuffixRes t orig a
-unknownRange sc rest = Stop (weaken sc) rest UnknownToken
+unknownRange = range UnknownToken
 
 public export %inline
 whole :

@@ -1,7 +1,7 @@
 module Test.Lex.Util
 
 import public Text.Lex
-import public Text.Bounded as B
+import public Text.Bounds as B
 import public Libraries.Text.Lexer
 import public Hedgehog
 

@@ -7,7 +7,7 @@ import Data.List.Suffix
 import Derive.Prelude
 import Text.ParseError
 import Text.FC
-import Text.Bounded
+import Text.Bounds
 import Text.Lex.Core
 import Text.Lex.Tokenizer
 
@@ -97,7 +97,7 @@ data Grammar :
    -> Inf (a -> Grammar b2 state t e b)
    -> Grammar True state t e b
 
-  Bind :
+  (>>=) :
       {0 state,t,e,a : Type}
    -> Grammar b1 state t e a
    -> (a -> Grammar b2 state t e b)
@@ -109,7 +109,7 @@ data Grammar :
    -> Inf (Grammar b2 state t e b)
    -> Grammar True state t e b
 
-  Then :
+  (>>) :
       {0 state,t,e,a : Type}
    -> Grammar b1 state t e a
    -> Grammar b2 state t e b
@@ -144,26 +144,6 @@ FailParse (Grammar b state t e) t e where
 -------------------------------------------------------------------------------
 
 public export %inline
-(>>=) :
-     {0 state,t,e,a : Type}
-  -> {b1 : _}
-  -> Grammar b1 state t e a
-  -> inf b1 (a -> Grammar b2 state t e b)
-  -> Grammar (b1 || b2) state t e b
-(>>=) {b1 = True} = BindEat
-(>>=) {b1 = False} = Bind
-
-public export %inline
-(>>) :
-     {0 state,t,e,a : Type}
-  -> {b1 : _}
-  -> Grammar b1 state t e ()
-  -> inf b1 (Grammar b2 state t e a)
-  -> Grammar (b1 || b2) state t e a
-(>>) {b1 = True}  = ThenEat
-(>>) {b1 = False} = Then
-
-public export %inline
 (<|>) :
      {0 b1,b2 : Bool}
   -> {0 state,t,e,a : Type}
@@ -178,7 +158,7 @@ pure res = Lift $ \s,ts => Succ s (pure res) ts Same
 
 public export
 Functor (Grammar b s t e) where
-  map f g = rewrite sym (orFalseNeutral b) in Bind g (pure . f)
+  map f g = rewrite sym (orFalseNeutral b) in g >>= pure . f
 
 public export %tcinline
 (<*>) :
@@ -197,7 +177,7 @@ public export %inline
   -> Grammar b1 state t e a
   -> Grammar b2 state t e b
   -> Grammar (b1 || b2) state t e b
-(*>) x y = Bind x (\_ => y)
+(*>) x y = x >>= \_ => y
 
 public export %inline
 (<*) :
@@ -206,7 +186,7 @@ public export %inline
   -> Grammar b1 state t e a
   -> Grammar b2 state t e b
   -> Grammar (b1 || b2) state t e a
-(<*) x y = Bind x (y $>)
+(<*) x y = x >>= (y $>)
 
 ||| Check whether the next token satisfies a predicate
 public export
@@ -409,7 +389,7 @@ prs (BindEat x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
   Succ s2 res ts2 p => merge res $ succ (prs (y res.val) s2 True ts2 rec) p
   Fail c2 err       => Fail c2 err
 
-prs (Bind x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
+prs (x >>= y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
   Succ s2 res ts2 (Uncons p) =>
     merge res $ succ (prs (y res.val) s2 True ts2 rec) (Uncons p)
   Succ s2 res ts2 Same       => merge res $ prs (y res.val) s2 c1 ts2 sa
@@ -419,7 +399,7 @@ prs (ThenEat x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
   Succ s2 res ts2 p => merge res $ succ (prs y s2 True ts2 rec) p
   Fail c2 err       => Fail c2 err
 
-prs (Then x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
+prs (x >> y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
   Succ s2 res ts2 (Uncons p) =>
     merge res $ succ (prs y s2 True ts2 rec) (Uncons p)
   Succ s2 res ts2 Same       => merge res $ prs y s2 c1 ts2 sa

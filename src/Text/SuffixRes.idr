@@ -311,7 +311,7 @@ binSep []      = failEOI p
 ||| Tries to read more octal digits onto a growing natural number.
 public export
 oct1 : (n : Nat) -> AutoTok Char Nat
-oct1 n (x :: xs) = if isOctDigit x then oct1 (n*2 + octDigit x) xs else succ n p
+oct1 n (x :: xs) = if isOctDigit x then oct1 (n*8 + octDigit x) xs else succ n p
 oct1 n []        = succ n p
 
 ||| Tries to read a octal natural number.
@@ -326,9 +326,9 @@ oct []      = failEOI p
 public export
 oct_1 : (n : Nat) -> AutoTok Char Nat
 oct_1 n ('_' :: x :: xs) =
-  if isOctDigit x then oct_1 (n*2 + octDigit x) xs else unknownRange p xs
+  if isOctDigit x then oct_1 (n*8 + octDigit x) xs else unknownRange p xs
 oct_1 n (x :: xs) =
-  if isOctDigit x then oct_1 (n*2 + octDigit x) xs else succ n p
+  if isOctDigit x then oct_1 (n*8 + octDigit x) xs else succ n p
 oct_1 n []        = succ n p
 
 ||| Tries to read a octal natural number.
@@ -342,7 +342,7 @@ octSep []      = failEOI p
 ||| Tries to read more hexadecimal digits onto a growing natural number.
 public export
 hex1 : (n : Nat) -> AutoTok Char Nat
-hex1 n (x :: xs) = if isHexDigit x then hex1 (n*2 + hexDigit x) xs else succ n p
+hex1 n (x :: xs) = if isHexDigit x then hex1 (n*16 + hexDigit x) xs else succ n p
 hex1 n []        = succ n p
 
 ||| Tries to read a hexadecimal natural number.
@@ -357,9 +357,9 @@ hex []      = failEOI p
 public export
 hex_1 : (n : Nat) -> AutoTok Char Nat
 hex_1 n ('_' :: x :: xs) =
-  if isHexDigit x then hex_1 (n*2 + hexDigit x) xs else unknownRange p xs
+  if isHexDigit x then hex_1 (n*16 + hexDigit x) xs else unknownRange p xs
 hex_1 n (x :: xs) =
-  if isHexDigit x then hex_1 (n*2 + hexDigit x) xs else succ n p
+  if isHexDigit x then hex_1 (n*16 + hexDigit x) xs else succ n p
 hex_1 n []        = succ n p
 
 ||| Tries to read a hexadecimal natural number.

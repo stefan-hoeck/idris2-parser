@@ -19,6 +19,17 @@ type = "local"
 path = "profile"
 ipkg = "profile.ipkg"
 
+[custom.all.parser-toml]
+type = "local"
+path = "toml"
+ipkg = "parser-toml.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.parser-toml-test]
+type = "local"
+path = "toml/test"
+ipkg = "test.ipkg"
+
 [custom.all.pretty-show]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-pretty-show"

@@ -152,7 +152,7 @@ bench = Group "lexer" [
     , Single "multiLineDropSpaces" (basic (multiLineDropSpaces tok) jsonStr)
     , Single "json"   (basic Parser.lexJSON jsonStr)
     , Single "parser2" (basic LexJSON.lexJSON jsonStr2)
-    , Single "noBoundsDropSpace2" (basic (noBoundsDropSpaces tok) jsonStr2)
+    , Single "noBoundsDropSpace2" (basic (runDropWhitespace LexJSON.tok) jsonStr2)
     , Single "singleLineDropSpaces2" (basic (singleLineDropSpaces tok) jsonStr2)
     , Single "multiLineDropSpaces2" (basic (multiLineDropSpaces tok) jsonStr2)
     , Single "json2"   (basic Parser.lexJSON jsonStr2)

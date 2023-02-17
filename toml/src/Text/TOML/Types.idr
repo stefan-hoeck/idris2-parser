@@ -1,7 +1,8 @@
 module Text.TOML.Types
 
-import Text.ParseError
+import Data.SortedMap
 import Derive.Prelude
+import Text.ParseError
 
 %default total
 %language ElabReflection
@@ -9,6 +10,10 @@ import Derive.Prelude
 --------------------------------------------------------------------------------
 --          TomlValue and Table
 --------------------------------------------------------------------------------
+
+public export
+0 Key : Type
+Key = List1 String
 
 ||| Data type for trees of TOML data.
 public export
@@ -19,11 +24,8 @@ data TomlValue : Type where
   ||| A boolean literal
   TBool : Bool  -> TomlValue
 
-  ||| A negative interger
-  TNeg  : Nat -> TomlValue
-
-  ||| A natural number
-  TNat  : Nat -> TomlValue
+  ||| An integer
+  TInt  : Integer -> TomlValue
 
   ||| A floating point number
   TDbl  : Double  -> TomlValue
@@ -31,8 +33,8 @@ data TomlValue : Type where
   ||| An array of values
   TArr  : List TomlValue -> TomlValue
 
-  ||| An table of key-value pairs
-  TTbl  : List (String,TomlValue) -> TomlValue
+  ||| A table of key-value pairs
+  TTbl  : SortedMap String TomlValue -> TomlValue
 
 %runElab derive "TomlValue" [Eq,Show]
 
@@ -40,7 +42,7 @@ data TomlValue : Type where
 ||| changed to some kind of dictionary.
 public export
 0 TomlTable : Type
-TomlTable = List (String,TomlValue)
+TomlTable = SortedMap String TomlValue
 
 --------------------------------------------------------------------------------
 --          Tokens
@@ -50,7 +52,7 @@ TomlTable = List (String,TomlValue)
 public export
 data TomlToken : Type where
   ||| A path of dot-separated keys
-  TKey    : List String -> TomlToken
+  TKey    : List1 String -> TomlToken
 
   ||| A (literal) value
   TVal    : TomlValue -> TomlToken
@@ -70,11 +72,15 @@ data TomlToken : Type where
 %runElab derive "TomlToken" [Eq,Show]
 
 export
+interpolateKey : Key -> String
+interpolateKey = concat . intersperse "." . forget . map show
+
+export
 Interpolation TomlToken where
   interpolate NL       = "<lf>"
   interpolate Space    = "<space>"
   interpolate Comment  = "<comment>"
-  interpolate (TKey s) = concat . intersperse "." $ map show s
+  interpolate (TKey s) = interpolateKey s
   interpolate (TVal v) = show v
   interpolate (TSym c) = show c
 
@@ -82,7 +88,16 @@ Interpolation TomlToken where
 --          Errors
 --------------------------------------------------------------------------------
 
+public export
+data TomlParseError : Type where
+  KeyExists : Key -> TomlParseError
+
+export
+Interpolation TomlParseError where
+  interpolate (KeyExists k) =
+    "Trying to overwrite existing key: \{interpolateKey k}"
+
 ||| Error type when lexing and parsing TOML files
 public export
-0 TOMLErr : Type
-TOMLErr = ParseError TomlToken Void
+0 TomlErr : Type
+TomlErr = ParseError TomlToken TomlParseError

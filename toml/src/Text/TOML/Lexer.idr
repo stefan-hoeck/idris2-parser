@@ -1,11 +1,15 @@
 module Text.TOML.Lexer
 
+import Data.List1
 import Data.SnocList
 import Text.Parse.Manual
 import Text.TOML.Types
 
 %default total
 
+-- facilitates pattern matching on and creating of symbol
+-- tokens such as '['. We don't want to export this, as it tends
+-- to interfer with regular `Char` literals.
 %inline
 fromChar : Char -> TomlToken
 fromChar = TSym
@@ -15,7 +19,7 @@ fromChar = TSym
 --------------------------------------------------------------------------------
 
 toKey : SnocList Char -> TomlToken
-toKey = TKey . pure . cast
+toKey = TKey . singleton . cast
 
 isKeyChar : Char -> Bool
 isKeyChar '-' = True
@@ -79,8 +83,8 @@ literal sc [] = failEOI p
 
 -- converts an integer literal
 intLit : SnocList Char -> (res,pow : Nat) -> TomlToken
-intLit [<]       res _   = TVal (TNat res)
-intLit [<'-']    res _   = TVal (TNeg res)
+intLit [<]       res _   = TVal (TInt $ cast res)
+intLit [<'-']    res _   = TVal (TInt . negate $ cast res)
 intLit (sx :< x) res pow = intLit sx (res + pow * digit x) (pow * 10)
 
 -- converts a floating point literal
@@ -178,9 +182,9 @@ val ('}' :: xs)                   = Succ '}' xs
 val (',' :: xs)                   = Succ ',' xs
 val ('"' :: xs)                   = TVal . TStr <$> str [<] xs
 val ('\'' :: xs)                  = TVal . TStr <$> literal [<] xs
-val ('0'::'x':: xs)               = TVal . TNat <$> hexSep xs
-val ('0'::'b':: xs)               = TVal . TNat <$> binSep xs
-val ('0'::'o':: xs)               = TVal . TNat <$> octSep xs
+val ('0'::'x':: xs)               = TVal . TInt . cast <$> hexSep xs
+val ('0'::'b':: xs)               = TVal . TInt . cast <$> binSep xs
+val ('0'::'o':: xs)               = TVal . TInt . cast <$> octSep xs
 val ('t'::'r'::'u'::'e'::xs)      = Succ (TVal $ TBool True) xs
 val ('f'::'a'::'l'::'s'::'e'::xs) = Succ (TVal $ TBool False) xs
 val ('+'::'0'::t) = rest [<'0'] t
@@ -249,7 +253,7 @@ adjSpace _           _    t     = t
 -- a list of tokens.
 groupKeys :
      List (Bounded TomlToken)
-  -> Bounded (List String)
+  -> Bounded Key
   -> SnocList (Bounded TomlToken)
   -> List (Bounded TomlToken)
 
@@ -261,8 +265,8 @@ postProcess :
   -> SnocList (Bounded TomlToken)
   -> List (Bounded TomlToken)
 
-groupKeys ts ks (sx :< B (TKey [s]) bk :< B '.' bd) =
-  groupKeys ts (B (s::ks.val) (ks.bounds <+> bd <+> bk)) sx
+groupKeys ts ks (sx :< B (TKey p) bk :< B '.' bd) =
+  groupKeys ts (B (p <+> ks.val) (ks.bounds <+> bd <+> bk)) sx
 groupKeys ts ks (sx :< x) = postProcess (x :: map TKey ks :: ts) sx
 groupKeys ts ks [<] = map TKey ks :: ts
 

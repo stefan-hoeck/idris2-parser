@@ -13,7 +13,7 @@ import public Data.SnocList
 import public Data.Vect
 import public Text.Bounds
 import public Text.ParseError
-import public Text.ShiftRes
+import public Text.Lex.Shift
 
 %default total
 

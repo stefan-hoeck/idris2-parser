@@ -70,20 +70,20 @@ ops : Expr -> SnocList (Expr,Op) -> Rule False Expr
 
 applied,expr : Rule True Expr
 
-applied (B (TLit n) _ :: xs) _ = Succ (Lit n) xs
-applied (B '(' b :: xs) (SA r) = case succ $ expr xs r of
-  Res.Succ v (B ')' _ :: xs) => Succ v xs
-  res                        => failInParen b '(' res
-applied xs                   _ = fail xs
+applied (B (TLit n) _ :: xs) _ = Succ0 (Lit n) xs
+applied (B '(' b :: xs) (SA r) = case succT $ expr xs r of
+  Succ0 v (B ')' _ :: xs) => Succ0 v xs
+  res                     => failInParen b '(' res
+applied xs              _ = fail xs
 
 expr xs acc@(SA r) = case applied xs acc of
-  Succ v ys => succ $ ops v [<] ys r
-  Fail err  => Fail err
+  Succ0 v ys => succT $ ops v [<] ys r
+  Fail0 err  => Fail0 err
 
-ops x sp (B (TOp o) _ :: xs) (SA r) = case succ $ applied xs r of
-  Res.Succ v ys => wsucc $ ops v (sp :< (x,o)) ys r
-  Fail err                   => Fail err
-ops x sp xs _ = Succ (opChain sp x) xs
+ops x sp (B (TOp o) _ :: xs) (SA r) = case succT $ applied xs r of
+  Succ0 v ys => succF $ ops v (sp :< (x,o)) ys r
+  Fail0 err  => Fail0 err
+ops x sp xs _ = Succ0 (opChain sp x) xs
 ```
 
 And that's it. The utilities used above come from module `Text.Parser.Res`,

@@ -1,8 +1,8 @@
-module Text.ShiftRes
+module Text.Lex.Shift
 
 import Data.List
 import Data.Nat
-import public Text.SuffixRes
+import public Text.Lex.Manual
 import public Data.List.Shift
 
 %default total
@@ -49,7 +49,7 @@ data ShiftRes :
 public export %inline
 suffix : (SnocList t -> a) -> ShiftRes True t [<] ts -> SuffixRes t ts a
 suffix f (Succ {pre} post @{sh}) = Succ (f pre) post @{suffix sh} 
-suffix f (Stop s e x @{sh})      = Stop (suffix s) e x @{suffix sh}
+suffix f (Stop s e x @{sh})      = Fail (suffix s) e x @{suffix sh}
 
 --------------------------------------------------------------------------------
 --         Conversions

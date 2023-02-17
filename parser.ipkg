@@ -7,19 +7,20 @@ depends   = elab-util
 modules = Data.Bool.Rewrite
         , Data.List.Shift
         , Data.List.Suffix
+        , Data.List.Suffix.Result
+        , Data.List.Suffix.Result0
 
         , Text.Bounds
         , Text.FC
         , Text.ParseError
-        , Text.ShiftRes
-        , Text.SuffixRes
 
         , Text.Lex
         , Text.Lex.Core
+        , Text.Lex.Manual
+        , Text.Lex.Shift
         , Text.Lex.Tokenizer
         , Text.Lex.Util
 
         , Text.Parse
         , Text.Parse.Core
         , Text.Parse.Manual
-        , Text.Parse.Res

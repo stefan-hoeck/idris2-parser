@@ -1,60 +1,16 @@
-module Text.SuffixRes
+module Text.Lex.Manual
 
 import Text.Bounds
 import public Text.ParseError
 import public Data.List.Suffix
+import public Data.List.Suffix.Result
 
 %default total
 
---------------------------------------------------------------------------------
---         Lexing
---------------------------------------------------------------------------------
-
-||| Result of consuming and converting a (possibly strict) prefix
-||| of a list of tokens.
-|||
-||| This comes with a non-erased proof about the number of tokens
-||| consumed, which can be used to calculate the bounds of a lexeme.
-|||
-||| Use this for writing simple, high-performance tokenizers, which
-||| (in the case of strict results) are guaranteed to terminate. This module
-||| provides some utilities for consuming and converting prefixes
-||| of tokens, but for a nicer interface, consider using `Text.Lex.Tokenizer`
-||| (at the cost of a drop in performance).
-|||
-||| @ strict : True if a strict prefix of the list of tokens has
-|||            been consumed.
-||| @ t      : the type of token consumed.
-||| @ ts     : the original list of tokens
-||| @ a      : the result type
+||| Result of running a (strict) tokenizer.
 public export
-data SuffixRes : (t : Type) -> List t -> (a : Type) -> Type where
-  Succ :
-       {0 t,a : Type}
-    -> {0 ts : List t}
-    -> (val : a)
-    -> (xs : List t)
-    -> {auto p : Suffix True xs ts}
-    -> SuffixRes t ts a
-
-  Stop :
-       {0 t,a : Type}
-    -> {ts,errStart : List t}
-    -> (start : Suffix False errStart ts)
-    -> (0 errEnd : List t)
-    -> {auto end : Suffix False errEnd errStart}
-    -> StopReason
-    -> SuffixRes t ts a
-
-public export %inline
-succ : 
-       {0 t,a : Type}
-    -> {0 ts : List t}
-    -> (val : a)
-    -> {xs : List t}
-    -> Suffix True xs ts
-    -> SuffixRes t ts a
-succ val _ = Succ val xs
+0 SuffixRes : (t : Type) -> List t -> (a : Type) -> Type
+SuffixRes t ts a = Result True t ts StopReason a
 
 --------------------------------------------------------------------------------
 --          Combinators
@@ -67,11 +23,6 @@ public export
   -> SuffixRes t ts a
 s@(Succ {}) <|> _ = s
 _           <|> r = r
-
-public export
-Functor (SuffixRes t ts) where
-  map f (Succ v xs)    = Succ (f v) xs
-  map _ (Stop st ee r) = Stop st ee r
 
 --------------------------------------------------------------------------------
 --         Character Utilities
@@ -193,7 +144,7 @@ range :
   -> (0 rest    : List t)
   -> {auto sr   : Suffix False rest current}
   -> SuffixRes t orig a
-range r sc rest = Stop (weaken sc) rest r
+range r sc rest = Fail (weaken sc) rest r
 
 public export %inline
 invalidEscape :
@@ -222,7 +173,7 @@ whole :
   -> (0 current : List t)
   -> {auto suffixCur : Suffix False current orig}
   -> SuffixRes t orig a
-whole r current = Stop Same current r
+whole r current = Fail Same current r
 
 public export %inline
 unknown :
@@ -232,17 +183,17 @@ unknown :
   -> SuffixRes t orig a
 unknown = whole UnknownToken
 
-public export
+public export %inline
 failEOI :
      {0 current : List t}
   -> {orig      : List t}
   -> (suffixCur : Suffix b current orig)
   -> SuffixRes t orig a
-failEOI sc = Stop {end = weaken sc} Same current EOI
+failEOI sc = Fail {end = weaken sc} Same current EOI
 
-public export
+public export %inline
 failEmpty : SuffixRes t [] a
-failEmpty = Stop Same [] EOI
+failEmpty = Fail Same [] EOI
 
 --------------------------------------------------------------------------------
 --          Natural Numbers
@@ -390,75 +341,17 @@ intPlus xs        = int xs
 --          Running Tokenizers
 -----------------------------------------------------------------------------
 
-||| Flag indicating whether whitespace characters should
-||| be removed during lexing.
+||| Repeatedly consumes a strict prefix of a list of characters
+||| until the whole list is consumed. Drops all white space
+||| it encounters (unsing `Prelude.isSpace` to determine, what is
+||| a whitespace character).
 |||
-||| This will only affect whitespace that is not consumed by
-||| the tokenization function. Whitespace appearing within a
-||| string literal, for instance, and being consumed by the
-||| function converting the literal, will not be affected.
-public export
-data Spaces = Keep | Drop
-
-||| Settings for repeatedly running a `Tok Char a` function.
+||| This assumes that every token is on a single line. Therefore, it is
+||| more efficient than `multilineDropSpaces`, because it does not have
+||| to traverse the consumed characters to find line breaks.
 |||
-||| This describes mainly, how `Bound`s are generated (if at all).
-|||
-||| Use the `SingleLine` constructor, if all recognized tokens
-||| are free of whitespace. This automatically means, that the
-||| iterating function will not pass line breaks to the tokenizer.
-|||
-||| Use the `MultiLine` constructor, if tokens might have consumed
-||| some line breaks (if you're grammar supports multi-line string,
-||| for instance). This will require a second traversal of the
-||| consumed characters to figure out the bounds of a lexeme, so
-||| it might have an effect on performance. This will be mainly an
-||| issue if you write high-performance lexers, however.
-|||
-||| Use the `NoBounds`, if you don't want to pair the generated
-||| tokens with proper bounds. This will improve performance, but
-||| it will make it harder (or even impossible), to get nicely positioned
-||| error messages.
-public export
-data TokSettings : Type where
-  SingleLine : TokSettings
-  MultiLine  : TokSettings
-  NoBounds   : TokSettings
-
-public export
-0 Eff : TokSettings -> Type -> Type
-Eff SingleLine y = Bounded y
-Eff MultiLine  y = Bounded y
-Eff NoBounds   y = y
-
-public export
-runTok : Tok t a -> List t -> Either StopReason (List a)
-runTok f cs = go [<] cs suffixAcc
-  where
-    go : SnocList a
-      -> (ts : List t)
-      -> (0 acc : SuffixAcc ts)
-      -> Either StopReason (List a)
-    go sx [] _      = Right $ sx <>> []
-    go sx xs (SA r) = case f xs of
-      Succ v xs2 => go (sx :< v) xs2 r
-      Stop _ _ r => Left r
-
-public export
-noBoundsDropSpaces : Tok Char a -> String -> Either StopReason (List a)
-noBoundsDropSpaces f s = go [<] (unpack s) suffixAcc
-  where
-    go : SnocList a
-      -> (ts : List Char)
-      -> (0 acc : SuffixAcc ts)
-      -> Either StopReason (List a)
-    go sx []       _     = Right $ sx <>> []
-    go sx (c::cs) (SA r) =
-      if isSpace c then go sx cs r
-      else case f (c::cs) of
-        Succ v xs2 => go (sx :< v) xs2 r
-        Stop _ _ r => Left r
-
+||| This is provably total, due to the strictness of the consuming
+||| function.
 public export
 singleLineDropSpaces :
      Tok Char a
@@ -479,8 +372,13 @@ singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
         Succ v xs2 @{p}     =>
           let p2 := move p1 p
            in go p2 (sx :< bounded v p1 p2) xs2 r
-        Stop s e r => Left $ boundedErr p1 s e r
+        Fail s e r => Left $ boundedErr p1 s e r
 
+||| Like `singleLineDropSpaces`, but consumed tokens might be
+||| spread across several lines.
+|||
+||| This is provably total, due to the strictness of the consuming
+||| function.
 public export
 multiLineDropSpaces :
      Tok Char a
@@ -501,14 +399,20 @@ multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
         Succ v xs2 @{p}     =>
           let p2 := endPos p1 p
            in go p2 (sx :< bounded v p1 p2) xs2 r
-        Stop s e r => Left $ boundedErr p1 s e r
+        Fail s e r => Left $ boundedErr p1 s e r
 
+||| Repeatedly consumes a strict prefix of a list of characters
+||| until the whole list is consumed. It uses the amount of characters
+||| consumed to determine the bounds of the consumed lexemes.
+|||
+||| This is provably total, due to the strictness of the consuming
+||| function.
 public export
-multiline :
+lexManual :
      Tok Char a
   -> String
   -> Either (Bounded StopReason) (List $ Bounded a)
-multiline f s = go begin [<] (unpack s) suffixAcc
+lexManual f s = go begin [<] (unpack s) suffixAcc
   where
     go : Position
       -> SnocList (Bounded a)
@@ -520,26 +424,4 @@ multiline f s = go begin [<] (unpack s) suffixAcc
       Succ v xs2 @{p}     =>
         let p2 := endPos p1 p
          in go p2 (sx :< bounded v p1 p2) xs2 r
-      Stop s e r => Left $ boundedErr p1 s e r
-
-public export
-singleline :
-     Tok t a
-  -> List t
-  -> Either (Bounded StopReason) (List $ Bounded a)
-singleline f s = go begin [<] s suffixAcc
-  where
-    go : Position
-      -> SnocList (Bounded a)
-      -> (ts : List t)
-      -> (0 acc : SuffixAcc ts)
-      -> Either (Bounded StopReason) (List $ Bounded a)
-    go p1 sx [] _      = Right $ sx <>> []
-    go p1 sx cs (SA r) = case f cs of
-      Succ v xs2 @{p}     =>
-        let p2 := move p1 p
-         in go p2 (sx :< bounded v p1 p2) xs2 r
-      Stop x _ y @{e} =>
-        let p2 := move p1 x
-            p3 := move p2 e
-         in Left $ bounded y p2 p3
+      Fail s e r => Left $ boundedErr p1 s e r

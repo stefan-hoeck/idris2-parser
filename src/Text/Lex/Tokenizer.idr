@@ -3,7 +3,7 @@ module Text.Lex.Tokenizer
 import Derive.Prelude
 import Text.ParseError
 import Text.Bounds
-import Text.SuffixRes
+import Text.Lex.Manual
 
 %default total
 
@@ -79,10 +79,10 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
       Succ val xs     @{p} =>
         let pos2 := endPos pos p
          in Right (TR pos2 (toks :< bounded val pos pos2) Nothing xs p)
-      Stop start errEnd r =>
+      Fail start errEnd r =>
         Left $ boundedErr pos start errEnd (Reason r)
     next (Compose beg midFn endFn) cs acc@(SA r) = case beg cs of
-      Stop start errEnd r =>
+      Fail start errEnd r =>
         Left $ boundedErr pos start errEnd (Reason r)
       Succ (st,tg) cs2 @{p2} =>
         let pos2   := endPos pos p2
@@ -97,7 +97,7 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
                   let pos4   := endPos pos3 p4
                       toks4  := toks3 :< bounded val pos3 pos4
                    in Right (TR pos4 toks4 Nothing cs4 $ p4 ~> p3 ~> p2)
-                Stop start errEnd y => case y of
+                Fail start errEnd y => case y of
                   EOI => Left $ boundedErr pos start errEnd (Unclosed st)
                   r    => Left $ boundedErr pos start errEnd (Reason r)
     next (x <|> y) cs acc = case next x cs acc of

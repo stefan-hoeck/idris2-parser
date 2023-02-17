@@ -1,8 +1,9 @@
 module Text.ParseError
 
+import Data.List.Suffix.Result0
+import Derive.Prelude
 import Text.Bounds
 import Text.FC
-import Derive.Prelude
 
 %default total
 %language ElabReflection
@@ -59,13 +60,21 @@ Interpolation t => Interpolation e => Interpolation (ParseError t e) where
   interpolate (Unclosed x)   = "Unclosed \{x}"
   interpolate (Custom err)   = interpolate err
 
+--------------------------------------------------------------------------------
+--          Interface
+--------------------------------------------------------------------------------
+
 public export
 interface FailParse (0 m : Type -> Type) (0 t,e : Type) | m where
   parseFail : Bounds -> ParseError t e -> m a
 
-public export
+public export %inline
 FailParse (Either $ Bounded $ ParseError t e) t e where
   parseFail b err = Left (B err b)
+
+public export %inline
+FailParse (Result0 b t ts (Bounded $ ParseError x y)) x y where
+  parseFail b err = Fail0 (B err b)
 
 public export %inline
 custom : FailParse m t e => Bounds -> e -> m a
@@ -132,3 +141,41 @@ printParseErrors :
 printParseErrors str errs =
   let ls := lines str
    in unlines $ toList errs >>= printPair ls
+
+--------------------------------------------------------------------------------
+--          Parser Errors
+--------------------------------------------------------------------------------
+
+||| General catch-all error generator when parsing within some kind
+||| of opening token: Will fail with an `Unclosed` error if at the
+||| end of input, or with an `Unknown` error wrapping the next token.
+||| Otherwise, will rethrow the current error.
+|||
+||| @ b   : Bounds of the opening paren or token
+||| @ tok : Opening paren or token
+||| @ res : Current parsing result
+public export
+failInParen :
+     (b : Bounds)
+  -> (tok : t)
+  -> Result0 b1 (Bounded t) ts (Bounded $ ParseError t y) a
+  -> Result0 b2 (Bounded t) ts (Bounded $ ParseError t y) a
+failInParen b tok (Fail0 (B (Reason EOI) _)) = unclosed b tok
+failInParen b tok (Fail0 err)                = Fail0 err
+failInParen b tok (Succ0 _ [])               = unclosed b tok
+failInParen b tok (Succ0 _ (x :: xs))        = unexpected x
+
+||| Catch-all error generator when no other rule applies.
+public export
+fail : List (Bounded t) -> Result0 b (Bounded t) ts (Bounded $ ParseError t y) a
+fail (x :: xs) = unexpected x
+fail []        = eoi
+
+public export
+result :
+     Origin
+  -> Result0 b (Bounded t) ts (Bounded $ ParseError t e) a
+  -> Either (FileContext, ParseError t e) a
+result o (Fail0 err)           = Left $ fromBounded o err
+result _ (Succ0 res [])        = Right res
+result o (Succ0 res (x :: xs)) = Left $ fromBounded o (Unexpected <$> x)

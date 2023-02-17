@@ -1,7 +1,7 @@
 module Text.Lex.Util
 
 import Text.Lex.Core
-import Text.SuffixRes
+import Text.Lex.Manual
 
 --------------------------------------------------------------------------------
 --          (Snoc)List Utilities

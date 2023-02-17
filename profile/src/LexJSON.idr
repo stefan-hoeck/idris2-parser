@@ -1,11 +1,7 @@
 module LexJSON
 
 import Derive.Prelude
-import Data.List.Suffix
-import Text.Bounds
-import Text.ParseError
-import Text.SuffixRes
-import Text.ShiftRes
+import Text.Parse.Manual
 
 %language ElabReflection
 %default total

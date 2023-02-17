@@ -22,13 +22,13 @@ ipkg = "profile.ipkg"
 [custom.all.pretty-show]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-pretty-show"
-commit = "latest:main"
+commit = "latest:result"
 ipkg   = "pretty-show.ipkg"
 
 [custom.all.json]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-json"
-commit = "latest:main"
+commit = "latest:result"
 ipkg   = "json.ipkg"
 
 [custom.all.hedgehog]

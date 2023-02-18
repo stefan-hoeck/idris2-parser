@@ -1,5 +1,6 @@
 module Text.TOML.Parser
 
+import Text.PrettyPrint.Bernardy
 import Data.List1
 import Data.SortedMap
 import Text.Parse.Manual
@@ -10,38 +11,80 @@ import Text.TOML.Types
 
 public export
 data TomlItem : Type where
-  TableName      : Key -> TomlItem
-  TableArrayName : Key -> TomlItem
-  KeyValPair     : Key -> TomlValue -> TomlItem
+  TableName      : List1 KeyToken -> TomlItem
+  TableArrayName : List1 KeyToken -> TomlItem
+  KeyValPair     : List1 KeyToken -> TomlValue -> TomlItem
 
-insertEmpty : List String -> TomlValue -> TomlValue
-insertEmpty []      v = v
-insertEmpty (x::xs) v = TTbl $ singleton x (insertEmpty xs v)
+insertEmpty : KeyToken -> List KeyToken -> TomlValue -> TomlTable
+insertEmpty s []      v = singleton s.key v
+insertEmpty s (x::xs) v = singleton s.key (TTbl False $ insertEmpty x xs v)
 
-insertTbl : Key -> TomlValue -> TomlTable -> Either TomlErr TomlTable
-insertTbl k@(h:::t) v = go h t
+keyErr : SnocList KeyToken -> KeyToken -> Either (Bounded TomlErr) a
+keyErr sx x =
+  let ks := sx <>> [x]
+   in Left (B (Custom $ KeyExists ks) $ concatMap bounds ks)
+
+insertTbl :
+     List1 KeyToken
+  -> TomlValue
+  -> TomlTable
+  -> Either (Bounded TomlErr) TomlTable
+insertTbl (h:::t) v = go [<] h t
   where
-    go : String -> List String -> TomlTable -> Either TomlErr TomlTable
-    go h [] tbl = case lookup h tbl of
-      Just _  => Left (Custom $ KeyExists k)
-      Nothing => Right $ insert h v tbl
-    go h (x::xs) tbl = case lookup h tbl of
-      Just (TTbl tbl') => map (\tt => insert h (TTbl tt) tbl) (go x xs tbl')
-      Just _           => Left (Custom $ KeyExists k)
-      Nothing          => Right $ insert h (insertEmpty (x::xs) v) tbl
+    go :
+         SnocList KeyToken
+      -> KeyToken
+      -> List KeyToken
+      -> TomlTable
+      -> Either (Bounded TomlErr) TomlTable
+    go sk h [] tbl = case lookup h.key tbl of
+      Just _  => keyErr sk h
+      Nothing => Right $ insert h.key v tbl
+    go sk h (x::xs) tbl = case lookup h.key tbl of
+      Just (TTbl False tbl') =>
+        map (\tt => insert h.key (TTbl False tt) tbl) (go (sk :< h) x xs tbl')
+      Just _                 => keyErr sk h
+      Nothing                =>
+        Right $ insert h.key (TTbl False $ insertEmpty x xs v) tbl
+
+toTable : TomlTable -> TomlItem -> AccumRes TomlTable (Bounded TomlErr)
+toTable tbl (KeyValPair xs x) = either Error Cont $ insertTbl xs x tbl
+toTable _   _                 = Done
+
+toArray :
+     Key
+  -> (SnocList TomlValue, TomlTable)
+  -> TomlItem
+  -> AccumRes (SnocList TomlValue, TomlTable) (Bounded TomlErr)
+toArray k (sv,tt) ti = case ti of
+  KeyValPair k2 x   => either Error (\y => Cont (sv,y)) $ insertTbl k2 x tt
+  TableArrayName k2 =>
+    if k == map key k2 then Cont (sv :< TTbl True tt, empty) else Done
+  TableName _       => Done
+
+toVal : (SnocList TomlValue, TomlTable) -> TomlValue
+toVal (sv,tbl) = TArr $ sv <>> [TTbl True tbl]
 
 assembleTable :
-     (tbl   : TomlTable)
-  -> (items : List $ Bounded TomlItem)
+     (top  : TomlTable)
+  -> (items : List TomlItem)
   -> (0 acc : SuffixAcc items)
-  -> Text.Parse.Res.Res False TomlItem items TomlParseError TomlTable
--- assembleTable tbl []            _      = Succ tbl []
--- assembleTable tbl (B v b :: xs) (SA r) = case v of
---   TableName ys => ?foo_0
---   TableArrayName ys => ?foo_1
---   KeyValPair ys x => case insertTbl ys x tbl of
---     Left err   => Fail (B err b)
---     Right tbl' => wsucc $ assembleTable tbl' xs r
+  -> Either (Bounded TomlErr) TomlTable
+assembleTable top (x :: xs) (SA r) = case x of
+  KeyValPair k v =>
+    let Right t1 := insertTbl k v top | Left err => Left err
+        Succ0 t2 ys := accumErr t1 id toTable xs | Fail0 err => Left err
+     in assembleTable t2 ys r
+  TableName k      => 
+    let Succ0 v ys := accumErr empty (TTbl True) toTable xs | Fail0 e => Left e
+        Right top2 := insertTbl k v top | Left e => Left e
+     in assembleTable top2 ys r
+  TableArrayName k =>
+    let Succ0 v ys := accumErr ([<],empty) toVal (toArray $ map key k) xs
+          | Fail0 e => Left e
+        Right top2 := insertTbl k v top | Left e => Left e
+     in assembleTable top2 ys r
+assembleTable top []        _      = Right top
 
 --------------------------------------------------------------------------------
 --          TomlValue and Table
@@ -58,57 +101,60 @@ fromChar = TSym
 Rule b a =
      (ts : List (Bounded TomlToken))
   -> (0 acc : SuffixAcc ts)
-  -> Text.Parse.Res.Res b TomlToken ts TomlParseError a
+  -> Res b TomlToken ts TomlParseError a
 
 array : Bounds -> SnocList TomlValue -> Rule True TomlValue
 
 table : Bounds -> TomlTable -> Rule True TomlValue
 
 value : Rule True TomlValue
-value (B (TVal v) _ :: xs)       _      = Succ v xs
-value (B '[' _ :: B ']' _ :: xs) _      = Succ (TArr []) xs
-value (B '{' _ :: B '}' _ :: xs) _      = Succ (TTbl empty) xs
-value (B '[' b :: xs)            (SA r) = succ $ array b [<] xs r
-value (B '{' b :: xs)            (SA r) = succ $ table b empty xs r
+value (B (TVal v) _ :: xs)       _      = Succ0 v xs
+value (B '[' _ :: B ']' _ :: xs) _      = Succ0 (TArr []) xs
+value (B '{' _ :: B '}' _ :: xs) _      = Succ0 (TTbl True empty) xs
+value (B '[' b :: xs)            (SA r) = succT $ array b [<] xs r
+value (B '{' b :: xs)            (SA r) = succT $ table b empty xs r
 value xs                         _      = fail xs
 
 array b sx xs acc@(SA r) = case value xs acc of 
-  Succ v (B ',' _ :: B ']' _ :: ys) => Succ (TArr $ sx <>> [v]) ys
-  Succ v (B ',' _ :: ys)            => succ $ array b (sx :< v) ys r
-  Succ v (B ']' _ :: ys)            => Succ (TArr $ sx <>> [v]) ys
-  res                               => failInParen b '[' res
+  Succ0 v (B ',' _ :: B ']' _ :: ys) => Succ0 (TArr $ sx <>> [v]) ys
+  Succ0 v (B ',' _ :: ys)            => succT $ array b (sx :< v) ys r
+  Succ0 v (B ']' _ :: ys)            => Succ0 (TArr $ sx <>> [v]) ys
+  res                                => failInParen b '[' res
 
-keyVal : Rule True (Bounded Key,TomlValue)
-keyVal (B (TKey x) b :: B '=' _ :: xs) (SA r) = (B x b,) <$> succ (value xs r)
+keyVal : Rule True (List1 KeyToken,TomlValue)
+keyVal (B (TKey x) _ :: B '=' _ :: xs) (SA r) = (x,) <$> succT (value xs r)
 keyVal (B (TKey _) _ :: x :: xs)       _      = expected x.bounds '='
 keyVal xs                              _      = fail xs
 
 table b tbl xs acc@(SA r) = case keyVal xs acc of 
-  Succ (bk,v) ys =>
-    let Right tbl' := insertTbl bk.val v tbl | Left err => Fail (bk $> err)
-     in case ys of
-       B ',' _ :: ys => succ $ table b tbl' ys r
-       B '}' _ :: ys => Succ (TTbl tbl') ys
-       y :: ys       => unexpected y
-       []            => unclosed b '{'
+  Succ0 (bk,v) ys => case fromEither {b = True} ys $ insertTbl bk v tbl of
+    Succ0 tbl1 (B ',' _ :: ys) => succT $ table b tbl1 ys r
+    Succ0 tbl1 (B '}' _ :: ys) => Succ0 (TTbl True tbl1) ys
+    res                        => failInParen b '{' res
   res => failInParen b '{' res
 
-item : Rule True (Bounded TomlItem)
-item (B '[' x :: B (TKey k) y :: B ']' z :: xs) _ =
-  Succ (B (TableName k) (x <+> y <+> z)) xs
-item (B '[' v :: B '[' w :: B (TKey k) x :: B ']' y :: B ']' z :: xs) _ =
-  Succ (B (TableArrayName k) (v <+> w <+> x <+> y <+> z)) xs
-item ts acc = (\(B k b,v) => B (KeyValPair k v) b) <$> keyVal ts acc
+item : Rule True TomlItem
+item (B '[' _ :: B (TKey k) _ :: B ']' _ :: xs) _ = Succ0 (TableName k) xs
+item (B '[' _ :: B '[' _ :: B (TKey k) _ :: B ']' _ :: B ']' _ :: xs) _ =
+  Succ0 (TableArrayName k) xs
+item ts acc = uncurry KeyValPair <$> keyVal ts acc
 
 items :
-     SnocList (Bounded TomlItem)
-  -> (ts : List (Bounded TomlToken))
+     SnocList TomlItem
+  -> (ts : List $ Bounded TomlToken)
   -> (0 acc : SuffixAcc ts)
-  -> Either (Bounded TomlErr) (List $ Bounded TomlItem)
-items sx []       acc = Right $ sx <>> []
-items sx [B NL _] acc = Right $ sx <>> []
-items sx xs       acc@(SA r) = case item xs acc of
-  Succ i (B NL _ :: xs) => items (sx :< i) xs r
-  Res.Succ i (x::xs)    => Left (Unexpected <$> x)
-  Succ i []             => Right (sx <>> [i])
-  Fail err              => Left err
+  -> Either (Bounded TomlErr) (List TomlItem)
+items sx []             _      = Right $ sx <>> []
+items sx (B NL _ :: xs) (SA r) = items sx xs r
+items sx xs       acc@(SA r)   = case item xs acc of
+  Succ0 i (B NL _ :: xs) => items (sx :< i) xs r
+  Succ0 i (x::xs)        => Left (Unexpected <$> x)
+  Succ0 i []             => Right (sx <>> [i])
+  Fail0 err              => Left err
+
+export
+parse : Origin -> String -> Either (FileContext,TomlErr) TomlTable
+parse o s = mapFst (fromBounded o) $ do
+  ts <- lexToml s
+  ti <- items [<] ts suffixAcc
+  assembleTable empty ti suffixAcc

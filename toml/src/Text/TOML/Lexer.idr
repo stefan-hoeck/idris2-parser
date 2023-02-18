@@ -18,18 +18,15 @@ fromChar = TSym
 --          Keys
 --------------------------------------------------------------------------------
 
-toKey : SnocList Char -> TomlToken
-toKey = TKey . singleton . cast
-
 isKeyChar : Char -> Bool
 isKeyChar '-' = True
 isKeyChar '_' = True
 isKeyChar c   = isAlphaNum c
 
-key : SnocList Char -> AutoTok Char TomlToken
+key : SnocList Char -> AutoTok Char String
 key sc (x::xs) =
-  if isKeyChar x then key (sc :< x) xs else Succ (toKey sc) (x::xs)
-key sc []        = Succ (toKey sc) []
+  if isKeyChar x then key (sc :< x) xs else Succ (cast sc) (x::xs)
+key sc []        = Succ (cast sc) []
 
 --------------------------------------------------------------------------------
 --          String literals
@@ -147,12 +144,12 @@ validSpace : Char -> Bool
 validSpace ' '  = True
 validSpace '\n' = True
 validSpace '\t' = True
-validSpace '\r' = True
 validSpace _    = False
 
 space : AutoTok Char TomlToken
-space (x::xs) = if validSpace x then space xs else Succ Space (x::xs)
-space []      = Succ Space []
+space ('\r'::'\n'::xs) = space xs
+space (x::xs)          = if validSpace x then space xs else Succ Space (x::xs)
+space []               = Succ Space []
 
 --------------------------------------------------------------------------------
 --          Single-step lexers
@@ -168,12 +165,21 @@ other ('#' :: xs)  = comment xs
 other (x   :: xs)  = if validSpace x then space xs else unknown xs
 other []           = failEmpty
 
+toKey :
+     Position
+  -> KeyType
+  -> SuffixRes Char cs String
+  -> SuffixRes Char cs TomlToken
+toKey x t (Succ v xs @{p}) = Succ (key1 $ KT v t $ BS x (move x p)) xs
+toKey _ _ (Fail x y z)     = Fail x y z
+
 -- lexes a key or sequence of dot-separated keys
-anyKey : Tok Char TomlToken
-anyKey ('"'  :: xs) = TKey . pure <$> str [<] xs
-anyKey ('\'' :: xs) = TKey . pure <$> literal [<] xs
-anyKey (x :: xs)    = if isKeyChar x then key [<x] xs else other (x::xs)
-anyKey xs           = other xs
+anyKey : Position -> Tok Char TomlToken
+anyKey pos ('"'  :: xs) = toKey pos Quoted $ str [<] xs
+anyKey pos ('\'' :: xs) = toKey pos Literal $ literal [<] xs
+anyKey pos (x :: xs)    =
+  if isKeyChar x then toKey pos Plain (key [<x] xs) else other (x::xs)
+anyKey _   xs           = other xs
 
 -- lexes a value or related symbol
 val : Tok Char TomlToken
@@ -232,9 +238,9 @@ adjState t     _          st              = (t ** st)
 -- decides on the lexer to run depending on the current
 -- context
 %inline
-anyTok : Ctxt -> Tok Char TomlToken
-anyTok Key   = anyKey
-anyTok Value = val
+anyTok : Position -> Ctxt -> Tok Char TomlToken
+anyTok pos Key   = anyKey pos
+anyTok _   Value = val
 
 -- We convert a `Space` token to a `NL` if the sequence of
 -- spaces contains a line break and we are not in an array
@@ -253,7 +259,7 @@ adjSpace _           _    t     = t
 -- a list of tokens.
 groupKeys :
      List (Bounded TomlToken)
-  -> Bounded Key
+  -> Bounded (List1 KeyToken)
   -> SnocList (Bounded TomlToken)
   -> List (Bounded TomlToken)
 
@@ -267,8 +273,7 @@ postProcess :
 
 groupKeys ts ks (sx :< B (TKey p) bk :< B '.' bd) =
   groupKeys ts (B (p <+> ks.val) (ks.bounds <+> bd <+> bk)) sx
-groupKeys ts ks (sx :< x) = postProcess (x :: map TKey ks :: ts) sx
-groupKeys ts ks [<] = map TKey ks :: ts
+groupKeys ts ks sx = postProcess (map TKey ks :: ts) sx
 
 postProcess ts [<]       = ts
 postProcess ts (sx :< x) = case x.val of
@@ -288,16 +293,16 @@ lex :
   -> SnocList (Bounded TomlToken)
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
-  -> Either (Bounded StopReason) (List $ Bounded TomlToken)
+  -> Either (Bounded TomlErr) (List $ Bounded TomlToken)
 lex st pos sx []           _      = Right $ postProcess [] sx
-lex st pos sx (x :: xs) (SA r) = case anyTok t (x::xs) of
+lex st pos sx (x :: xs) (SA r) = case anyTok pos t (x::xs) of
   Succ val ys @{p} =>
     let pos2        := endPos pos p
         v           := adjSpace st (pos2.line > pos.line) val
         (t2 ** st2) := adjState t v st
      in lex st2 pos2 (sx :< bounded v pos pos2) ys r
-  Stop start errEnd y => Left $ boundedErr pos start errEnd y
+  Fail start errEnd y => Left $ boundedErr pos start errEnd (Reason y)
 
 export %inline
-lexToml : String -> Either (Bounded StopReason) (List $ Bounded TomlToken)
+lexToml : String -> Either (Bounded TomlErr) (List $ Bounded TomlToken)
 lexToml s = lex {t = Key} TopLevel begin [<] (unpack s) suffixAcc

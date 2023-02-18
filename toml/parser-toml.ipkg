@@ -2,7 +2,7 @@ package parser-toml
 version   = 0.1.0
 authors   = "stefan-hoeck"
 sourcedir = "src"
-depends   = parser
+depends   = parser, elab-pretty
 brief     = "Total and efficient parser and lexer for the TOML config file language"
 
 modules = Text.TOML.Types

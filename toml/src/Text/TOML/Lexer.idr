@@ -8,11 +8,11 @@ import Text.TOML.Types
 %default total
 
 -- facilitates pattern matching on and creating of symbol
--- tokens such as '['. We don't want to export this, as it tends
--- to interfer with regular `Char` literals.
+-- tokens such as "[". We don't want to export this, as it tends
+-- to interfer with regular `String` literals.
 %inline
-fromChar : Char -> TomlToken
-fromChar = TSym
+fromString : String -> TomlToken
+fromString = TSym
 
 --------------------------------------------------------------------------------
 --          Keys
@@ -34,7 +34,9 @@ key sc []        = Succ (cast sc) []
 
 -- try to read a sequence of hexadecimal digits
 tryHex : Nat -> List Char -> Maybe Char
-tryHex k []        = Just $ cast k
+tryHex k []        =
+  if k <= 0x10FFFF && (k < 0xD800 || k > 0xDFFF) then Just $ cast k
+  else Nothing
 tryHex k (x :: xs) = case isHexDigit x of
   True  => tryHex (k*16 + hexDigit x) xs
   False => Nothing
@@ -133,10 +135,10 @@ num sc []           = Succ (intLit sc 0 1) []
 --------------------------------------------------------------------------------
 
 comment : AutoTok Char TomlToken
-comment []                   = Succ Comment []
-comment ('\n' :: xs)         = Succ Comment ('\n' :: xs)
-comment ('\r' :: '\n' :: xs) = Succ Comment ('\r' :: '\n' :: xs)
-comment ('\t' :: xs)         = comment xs
+comment []           = Succ Comment []
+comment ('\n' :: xs) = Succ Comment ('\n' :: xs)
+comment ('\r' :: xs) = Succ Comment ('\r' :: xs)
+comment ('\t' :: xs) = comment xs
 comment (x :: xs)            =
   if isControl x then range (InvalidControl x) p xs else comment xs
 
@@ -157,10 +159,10 @@ space []               = Succ Space []
 
 -- general lexemes that can occur in key and value contexts
 other : Tok Char TomlToken
-other ('.'  :: xs) = Succ '.' xs
-other ('='  :: xs) = Succ '=' xs
-other ('[' :: xs)  = Succ '[' xs
-other (']' :: xs)  = Succ ']' xs
+other ('.'  :: xs) = Succ "." xs
+other ('='  :: xs) = Succ "=" xs
+other ('[' :: xs)  = Succ "[" xs
+other (']' :: xs)  = Succ "]" xs
 other ('#' :: xs)  = comment xs
 other (x   :: xs)  = if validSpace x then space xs else unknown xs
 other []           = failEmpty
@@ -174,18 +176,21 @@ toKey x t (Succ v xs @{p}) = Succ (key1 $ KT v t $ BS x (move x p)) xs
 toKey _ _ (Fail x y z)     = Fail x y z
 
 -- lexes a key or sequence of dot-separated keys
+-- this includes double brackets for table arrays
 anyKey : Position -> Tok Char TomlToken
 anyKey pos ('"'  :: xs) = toKey pos Quoted $ str [<] xs
 anyKey pos ('\'' :: xs) = toKey pos Literal $ literal [<] xs
+anyKey pos ('['::'[':: xs) = Succ "[[" xs
+anyKey pos (']'::']':: xs) = Succ "]]" xs
 anyKey pos (x :: xs)    =
   if isKeyChar x then toKey pos Plain (key [<x] xs) else other (x::xs)
 anyKey _   xs           = other xs
 
 -- lexes a value or related symbol
 val : Tok Char TomlToken
-val ('{' :: xs)                   = Succ '{' xs
-val ('}' :: xs)                   = Succ '}' xs
-val (',' :: xs)                   = Succ ',' xs
+val ('{' :: xs)                   = Succ "{" xs
+val ('}' :: xs)                   = Succ "}" xs
+val (',' :: xs)                   = Succ "," xs
 val ('"' :: xs)                   = TVal . TStr <$> str [<] xs
 val ('\'' :: xs)                  = TVal . TStr <$> literal [<] xs
 val ('0'::'x':: xs)               = TVal . TInt . cast <$> hexSep xs
@@ -226,13 +231,13 @@ switch TopLevel        = TopLevel
 switch (InTable outer) = InTable outer
 
 adjState : (t : Ctxt) -> TomlToken -> LexState t -> (t2 ** LexState t2)
-adjState Key  (TSym '=')  outer           = (_ ** switch outer)
-adjState Value NL         TopLevel        = (Key ** TopLevel)
-adjState Value (TSym ']') (InArray outer) = (_ ** outer)
-adjState Value (TSym '}') (InTable outer) = (_ ** outer)
-adjState Value (TSym '[') outer           = (_ ** InArray outer)
-adjState Value (TSym '{') outer           = (Key ** InTable outer)
-adjState Value (TSym ',') (InTable outer) = (Key ** InTable outer)
+adjState Key  "="  outer           = (_ ** switch outer)
+adjState Value NL  TopLevel        = (Key ** TopLevel)
+adjState Value "]" (InArray outer) = (_ ** outer)
+adjState Value "}" (InTable outer) = (_ ** outer)
+adjState Value "[" outer           = (_ ** InArray outer)
+adjState Value "{" outer           = (Key ** InTable outer)
+adjState Value "," (InTable outer) = (Key ** InTable outer)
 adjState t     _          st              = (t ** st)
 
 -- decides on the lexer to run depending on the current
@@ -271,7 +276,7 @@ postProcess :
   -> SnocList (Bounded TomlToken)
   -> List (Bounded TomlToken)
 
-groupKeys ts ks (sx :< B (TKey p) bk :< B '.' bd) =
+groupKeys ts ks (sx :< B (TKey p) bk :< B "." bd) =
   groupKeys ts (B (p <+> ks.val) (ks.bounds <+> bd <+> bk)) sx
 groupKeys ts ks sx = postProcess (map TKey ks :: ts) sx
 

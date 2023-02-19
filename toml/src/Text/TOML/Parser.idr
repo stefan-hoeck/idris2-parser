@@ -22,7 +22,7 @@ insertEmpty s (x::xs) v = singleton s.key (TTbl False $ insertEmpty x xs v)
 keyErr : SnocList KeyToken -> KeyToken -> Either (Bounded TomlErr) a
 keyErr sx x =
   let ks := sx <>> [x]
-   in Left (B (Custom $ KeyExists ks) $ concatMap bounds ks)
+   in Left (B (Custom $ ValueExists ks) $ concatMap bounds ks)
 
 insertTbl :
      List1 KeyToken
@@ -92,10 +92,10 @@ assembleTable top []        _      = Right top
 
 -- facilitates pattern matching on and creating of symbol
 -- tokens such as '['. We don't want to export this, as it tends
--- to interfer with regular `Char` literals.
+-- to interfer with regular `String` literals.
 %inline
-fromChar : Char -> TomlToken
-fromChar = TSym
+fromString : String -> TomlToken
+fromString = TSym
 
 0 Rule : Bool -> Type -> Type
 Rule b a =
@@ -109,34 +109,45 @@ table : Bounds -> TomlTable -> Rule True TomlValue
 
 value : Rule True TomlValue
 value (B (TVal v) _ :: xs)       _      = Succ0 v xs
-value (B '[' _ :: B ']' _ :: xs) _      = Succ0 (TArr []) xs
-value (B '{' _ :: B '}' _ :: xs) _      = Succ0 (TTbl True empty) xs
-value (B '[' b :: xs)            (SA r) = succT $ array b [<] xs r
-value (B '{' b :: xs)            (SA r) = succT $ table b empty xs r
+value (B "[" _ :: B "]" _ :: xs) _      = Succ0 (TArr []) xs
+value (B "{" _ :: B "}" _ :: xs) _      = Succ0 (TTbl True empty) xs
+value (B "[" b :: xs)            (SA r) = succT $ array b [<] xs r
+value (B "{" b :: xs)            (SA r) = succT $ table b empty xs r
 value xs                         _      = fail xs
 
 array b sx xs acc@(SA r) = case value xs acc of 
-  Succ0 v (B ',' _ :: B ']' _ :: ys) => Succ0 (TArr $ sx <>> [v]) ys
-  Succ0 v (B ',' _ :: ys)            => succT $ array b (sx :< v) ys r
-  Succ0 v (B ']' _ :: ys)            => Succ0 (TArr $ sx <>> [v]) ys
-  res                                => failInParen b '[' res
+  Succ0 v (B "," _ :: B "]" _ :: ys) => Succ0 (TArr $ sx <>> [v]) ys
+  Succ0 v (B "," _ :: ys)            => succT $ array b (sx :< v) ys r
+  Succ0 v (B "]" _ :: ys)            => Succ0 (TArr $ sx <>> [v]) ys
+  res                                => failInParen b "[" res
 
 keyVal : Rule True (List1 KeyToken,TomlValue)
-keyVal (B (TKey x) _ :: B '=' _ :: xs) (SA r) = (x,) <$> succT (value xs r)
-keyVal (B (TKey _) _ :: x :: xs)       _      = expected x.bounds '='
+keyVal (B (TKey x) _ :: B "=" _ :: xs) (SA r) = (x,) <$> succT (value xs r)
+keyVal (B (TKey _) _ :: x :: xs)       _      = expected x.bounds "="
 keyVal xs                              _      = fail xs
 
 table b tbl xs acc@(SA r) = case keyVal xs acc of 
   Succ0 (bk,v) ys => case fromEither {b = True} ys $ insertTbl bk v tbl of
-    Succ0 tbl1 (B ',' _ :: ys) => succT $ table b tbl1 ys r
-    Succ0 tbl1 (B '}' _ :: ys) => Succ0 (TTbl True tbl1) ys
-    res                        => failInParen b '{' res
-  res => failInParen b '{' res
+    Succ0 tbl1 (B "," _ :: ys) => succT $ table b tbl1 ys r
+    Succ0 tbl1 (B "}" _ :: ys) => Succ0 (TTbl True tbl1) ys
+    res                        => failInParen b "{" res
+  res => failInParen b "{" res
 
 item : Rule True TomlItem
-item (B '[' _ :: B (TKey k) _ :: B ']' _ :: xs) _ = Succ0 (TableName k) xs
-item (B '[' _ :: B '[' _ :: B (TKey k) _ :: B ']' _ :: B ']' _ :: xs) _ =
-  Succ0 (TableArrayName k) xs
+item (B "[" b1 :: xs) _ = case xs of
+  B (TKey k) _ :: B "]" _ :: r => Succ0 (TableName k) r
+  B (TKey k) _ :: B NL  _ :: r => unclosed b1 "["
+  B (TKey k) _ :: B _   b :: r => expected b "]"
+  B NL b :: r                  => unclosed b1 "["
+  B _ b :: r                   => custom b ExpectedKey
+  []                           => unclosed b1 "["
+item (B "[[" b1 :: xs) _ = case xs of
+  B (TKey k) _ :: B "]]" _ :: r => Succ0 (TableArrayName k) r
+  B (TKey k) _ :: B NL   _ :: r => unclosed b1 "[["
+  B (TKey k) _ :: B _    b :: r => expected b "]]"
+  B NL _ :: r                   => unclosed b1 "[["
+  B _ b :: r                    => custom b ExpectedKey
+  []                            => unclosed b1 "[["
 item ts acc = uncurry KeyValPair <$> keyVal ts acc
 
 items :

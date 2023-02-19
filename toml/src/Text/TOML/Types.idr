@@ -99,8 +99,8 @@ data TomlToken : Type where
   ||| A (literal) value
   TVal    : TomlValue -> TomlToken
 
-  ||| A single character symbol like '[' or '.'
-  TSym    : Char -> TomlToken
+  ||| A single or multi-character symbol like "[", "[[" or "."
+  TSym    : String -> TomlToken
 
   ||| Whitespace containing at least one line break
   NL      : TomlToken
@@ -123,11 +123,17 @@ interpolateKey = concat . intersperse "." . map interpolate
 
 export
 Interpolation TomlToken where
-  interpolate NL       = "<lf>"
+  interpolate NL       = "<line break>"
   interpolate Space    = "<space>"
   interpolate Comment  = "<comment>"
   interpolate (TKey s) = interpolateKey $ forget s
-  interpolate (TVal v) = show v
+  interpolate (TVal v) = case v of
+    TStr str       => "string literal"
+    TBool x        => toLower $ show x
+    TInt i         => show i
+    TDbl dbl       => show dbl
+    TArr xs        => "array"
+    TTbl isValue x => "table"
   interpolate (TSym c) = show c
 
 --------------------------------------------------------------------------------
@@ -136,12 +142,14 @@ Interpolation TomlToken where
 
 public export
 data TomlParseError : Type where
-  KeyExists : List KeyToken -> TomlParseError
+  ValueExists : List KeyToken -> TomlParseError
+  ExpectedKey : TomlParseError
 
 export
 Interpolation TomlParseError where
-  interpolate (KeyExists k) =
-    "Trying to overwrite existing key: \{interpolateKey k}"
+  interpolate ExpectedKey = "Expected a key"
+  interpolate (ValueExists k) =
+    "Trying to overwrite existing value: \{interpolateKey k}"
 
 ||| Error type when lexing and parsing TOML files
 public export

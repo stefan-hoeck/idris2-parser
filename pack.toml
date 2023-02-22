@@ -30,6 +30,17 @@ type = "local"
 path = "toml/test"
 ipkg = "test.ipkg"
 
+[custom.all.parser-json]
+type = "local"
+path = "json"
+ipkg = "parser-json.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.parser-json-test]
+type = "local"
+path = "json/test"
+ipkg = "test.ipkg"
+
 [custom.all.pretty-show]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-pretty-show"

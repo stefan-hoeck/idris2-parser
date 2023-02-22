@@ -1,0 +1,12 @@
+package parser-json
+version   = 0.1.0
+authors   = "stefan-hoeck"
+sourcedir = "src"
+depends   = parser
+
+brief     = "Total and efficient parser and lexer for the JSON file format"
+
+modules = Text.JSON
+        , Text.JSON.Lexer
+        , Text.JSON.Parser
+        , Text.JSON.Value

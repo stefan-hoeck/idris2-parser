@@ -18,8 +18,8 @@ import Text.PrettyPrint.Bernardy
 public export
 record Hour where
   constructor H
-  hour : Nat
-  {auto 0 valid : Holds (< 24) hour}
+  hour : Integer
+  {auto 0 valid : Holds (InRange 0 23) hour}
 
 namespace Hour
   %runElab derive "Hour" [Show, Eq, Ord, RefinedInteger]
@@ -38,8 +38,8 @@ namespace Hour
 public export
 record Minute where
   constructor M
-  minute : Nat
-  {auto 0 valid : Holds (< 60) minute}
+  minute : Integer
+  {auto 0 valid : Holds (InRange 0 59) minute}
 
 namespace Minute
   %runElab derive "Minute" [Show, Eq, Ord, RefinedInteger]
@@ -58,8 +58,8 @@ namespace Minute
 public export
 record Second where
   constructor S
-  second : Nat
-  {auto 0 valid : Holds (<= 60) second}
+  second : Integer
+  {auto 0 valid : Holds (InRange 0 60) second}
 
 namespace Second
   %runElab derive "Second" [Show, Eq, Ord, RefinedInteger]
@@ -72,24 +72,24 @@ namespace Second
   Pretty Second where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
---          Milliseconds
+--          MicroSecond
 --------------------------------------------------------------------------------
 
 public export
-record MilliSecond where
+record MicroSecond where
   constructor MS
-  milliseconds : Nat
-  {auto 0 valid : Holds (< 1000) milliseconds}
+  milliseconds : Integer
+  {auto 0 valid : Holds (InRange 0 999999) milliseconds}
 
-namespace MilliSecond
-  %runElab derive "MilliSecond" [Show, Eq, Ord, RefinedInteger]
-
-  export
-  Interpolation MilliSecond where
-    interpolate (MS s) = padLeft 3 '0' $ show s
+namespace MicroSecond
+  %runElab derive "MicroSecond" [Show, Eq, Ord, RefinedInteger]
 
   export
-  Pretty MilliSecond where prettyPrec _ = line . interpolate
+  Interpolation MicroSecond where
+    interpolate (MS n) = padLeft 6 '0' $ show n
+
+  export
+  Pretty MicroSecond where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          LocalTime
@@ -101,7 +101,7 @@ record LocalTime where
   hour   : Hour
   minute : Minute
   second : Second
-  prec   : Maybe MilliSecond
+  prec   : Maybe MicroSecond
 
 %runElab derive "LocalTime" [Show, Eq, Ord]
 
@@ -202,3 +202,26 @@ Interpolation OffsetDateTime where
 
 export %inline
 Pretty OffsetDateTime where prettyPrec _ = line . interpolate
+
+--------------------------------------------------------------------------------
+--          AnyTime
+--------------------------------------------------------------------------------
+
+public export
+data AnyTime : Type where
+  ATDate : Date -> AnyTime
+  ATLocalTime      : LocalTime -> AnyTime
+  ATLocalDateTime  : LocalDateTime -> AnyTime
+  ATOffsetDateTime : OffsetDateTime -> AnyTime
+
+%runElab derive "AnyTime" [Show, Eq]
+
+export
+Interpolation AnyTime where
+  interpolate (ATDate x)           = interpolate x
+  interpolate (ATLocalTime x)      = interpolate x
+  interpolate (ATLocalDateTime x)  = interpolate x
+  interpolate (ATOffsetDateTime x) = interpolate x
+
+export %inline
+Pretty AnyTime where prettyPrec _ = line . interpolate

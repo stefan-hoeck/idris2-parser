@@ -10,6 +10,10 @@ import Text.PrettyPrint.Bernardy
 %default total
 %language ElabReflection
 
+public export %inline
+InRange : Integer -> Integer -> Integer -> Bool
+InRange lo hi n = lo <= n && n <= hi
+
 --------------------------------------------------------------------------------
 --          Year
 --------------------------------------------------------------------------------
@@ -17,8 +21,8 @@ import Text.PrettyPrint.Bernardy
 public export
 record Year where
   constructor Y
-  year : Nat
-  {auto 0 valid : Holds (<= 9999) year}
+  year : Integer
+  {auto 0 valid : Holds (InRange 0 9999) year}
 
 %runElab derive "Year" [Show, Eq, Ord, RefinedInteger]
 
@@ -59,7 +63,7 @@ export
 Pretty Month where prettyPrec _ = line . interpolate
 
 public export
-DaysInMonth : Month -> Nat
+DaysInMonth : Month -> Integer
 DaysInMonth JAN = 31
 DaysInMonth FEB = 29
 DaysInMonth MAR = 31
@@ -74,39 +78,39 @@ DaysInMonth NOV = 30
 DaysInMonth DEC = 31
 
 public export
-natToMonth : Nat -> Maybe Month
-natToMonth 1  = Just JAN
-natToMonth 2  = Just FEB
-natToMonth 3  = Just MAR
-natToMonth 4  = Just APR
-natToMonth 5  = Just MAY
-natToMonth 6  = Just JUN
-natToMonth 7  = Just JUL
-natToMonth 8  = Just AUG
-natToMonth 9  = Just SEP
-natToMonth 10 = Just OCT
-natToMonth 11 = Just NOV
-natToMonth 12 = Just DEC
-natToMonth _  = Nothing
+intToMonth : Integer -> Maybe Month
+intToMonth 1  = Just JAN
+intToMonth 2  = Just FEB
+intToMonth 3  = Just MAR
+intToMonth 4  = Just APR
+intToMonth 5  = Just MAY
+intToMonth 6  = Just JUN
+intToMonth 7  = Just JUL
+intToMonth 8  = Just AUG
+intToMonth 9  = Just SEP
+intToMonth 10 = Just OCT
+intToMonth 11 = Just NOV
+intToMonth 12 = Just DEC
+intToMonth _  = Nothing
 
 --------------------------------------------------------------------------------
 --          Day
 --------------------------------------------------------------------------------
 
-public export
-IsDayOf : Month -> Nat -> Bool
-IsDayOf m n = n > 0 && n <= DaysInMonth m
+public export %inline
+IsDayOf : Month -> Integer -> Bool
+IsDayOf m = InRange 1 $ DaysInMonth m
 
 public export
 record Day (m : Month) where
   constructor D
-  day : Nat
+  day : Integer
   {auto 0 valid : Holds (IsDayOf m) day}
 
 %runElab deriveIndexed "Day" [Show, Eq, Ord]
 
 public export
-refineDay : {m : _} -> Nat -> Maybe (Day m)
+refineDay : {m : _} -> Integer -> Maybe (Day m)
 refineDay n = case hdec0 {p = Holds (IsDayOf m)} n of
   Nothing0 => Nothing
   Just0 v  => Just $ D n

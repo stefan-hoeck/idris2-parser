@@ -4,6 +4,7 @@ authors = "stefan-hoeck"
 
 depends = parser-toml
         , hedgehog
+        , filepath
 
 main = Main
 executable = "parser-toml-test"

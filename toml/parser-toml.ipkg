@@ -9,7 +9,11 @@ depends   = parser
 
 brief     = "Total and efficient parser and lexer for the TOML config file language"
 
-modules = Text.TOML.Types
+modules = Data.Time.Date
+        , Data.Time.Time
+
+        , Text.Time.Lexer
+        , Text.TOML.Types
         , Text.TOML.Lexer
         , Text.TOML.Parser
         , Text.TOML

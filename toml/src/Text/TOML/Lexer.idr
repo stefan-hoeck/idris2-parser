@@ -1,8 +1,10 @@
 module Text.TOML.Lexer
 
+import Data.Time.Time
 import Data.List1
 import Data.SnocList
 import Text.Parse.Manual
+import Text.Time.Lexer
 import Text.TOML.Types
 
 %default total
@@ -41,6 +43,18 @@ tryHex k (x :: xs) = case isHexDigit x of
   True  => tryHex (k*16 + hexDigit x) xs
   False => Nothing
 
+commentControl : Char -> Bool
+commentControl '\127' = True
+commentControl x      = x <= '\8' || (x >= '\10' && x <= '\31')
+
+tomlControl : Char -> Bool
+tomlControl '\n' = True
+tomlControl '\f' = True
+tomlControl '\b' = True
+tomlControl '\r' = True
+tomlControl '\t' = True
+tomlControl x    = commentControl x
+
 -- reads and unescapes a plain string
 str : SnocList Char -> AutoTok Char String
 str sc ('\\' :: c  :: xs) = case c of
@@ -64,21 +78,77 @@ str sc ('\\' :: c  :: xs) = case c of
   _    => invalidEscape p (c::xs)
 str sc ('"'  :: xs) = Succ (cast sc) xs
 str sc (c    :: xs) =
-  if isControl c then range (InvalidControl c) p xs
+  if tomlControl c then range (InvalidControl c) p xs
   else str (sc :< c) xs
 str sc []           = failEOI p
+
+validTrim : List Char -> Bool
+validTrim ('\t' :: xs)     = validTrim xs
+validTrim (' ' :: xs)      = validTrim xs
+validTrim ('\n' :: xs)     = True
+validTrim ('\r'::'\n'::xs) = True
+validTrim _ = False
+
+-- reads and unescapes a multi-line string
+strML : (trim : Bool) -> SnocList Char -> AutoTok Char String
+strML trim sc ('\\' :: c  :: xs) = case c of
+  '"'  => strML False (sc :< '"') xs
+  'n'  => strML False (sc :< '\n') xs
+  'f'  => strML False (sc :< '\f') xs
+  'b'  => strML False (sc :< '\b') xs
+  'r'  => strML False (sc :< '\r') xs
+  't'  => strML False (sc :< '\t') xs
+  '\\' => strML False (sc :< '\\') xs
+  'u'  => case xs of
+    w::x::y::z::t' => case tryHex 0 [w,x,y,z] of
+      Just c => strML False (sc :< c) t'
+      Nothing => invalidEscape p t'
+    _    => invalidEscape p xs
+  'U'  => case xs of
+    s::t::u::v::w::x::y::z::t' => case tryHex 0 [s,t,u,v,w,x,y,z] of
+      Just c => strML False (sc :< c) t'
+      Nothing => invalidEscape p t'
+    _    => invalidEscape p xs
+  _    => if validTrim (c::xs) then strML True sc xs
+          else invalidEscape p (c::xs)
+strML trim sc ('"'::'"'::'"'::'"'::'"'::xs) = Succ (cast $ sc :< '"' :< '"') xs
+strML trim sc ('"'::'"'::'"'::'"'::xs) = Succ (cast $ sc :< '"') xs
+strML trim sc ('"'::'"'::'"'::xs) = Succ (cast sc) xs
+strML trim sc ('\n'::cs) =
+  if trim then strML trim sc cs else strML trim (sc :< '\n') cs
+strML trim sc ('\t'::cs) =
+  if trim then strML trim sc cs else strML trim (sc :< '\t') cs
+strML trim sc ('\r'::'\n'::cs) =
+  if trim then strML trim sc cs else strML trim (sc :< '\r' :< '\n') cs
+strML trim sc (c            ::xs) =
+  if tomlControl c then range (InvalidControl c) p xs
+  else if isSpace c && trim then strML trim sc xs
+  else strML False (sc :< c) xs
+strML trim sc []           = failEOI p
 
 -- reads a literal stirng
 literal : SnocList Char -> AutoTok Char String
 literal sc ('\''::cs) = Succ (cast sc) cs
 literal sc (c :: cs)  =
-  if isControl c && c /= '\t' then range (InvalidControl c) p cs
-  else str (sc :< c) cs
+  if tomlControl c && c /= '\t' then range (InvalidControl c) p cs
+  else literal (sc :< c) cs
 literal sc [] = failEOI p
 
---------------------------------------------------------------------------------
+-- reads a literal multi-line stirng
+literalML : SnocList Char -> AutoTok Char String
+literalML sc ('\''::'\''::'\''::'\''::'\''::cs) = Succ (cast $ sc :< '\'' :< '\'') cs
+literalML sc ('\''::'\''::'\''::'\''::cs) = Succ (cast $ sc :< '\'') cs
+literalML sc ('\''::'\''::'\''::cs) = Succ (cast sc) cs
+literalML sc ('\n'::cs) = literalML (sc :< '\n') cs
+literalML sc ('\r'::'\n'::cs) = literalML (sc :< '\r' :< '\n') cs
+literalML sc (c :: cs)  =
+  if tomlControl c && c /= '\t' then range (InvalidControl c) p cs
+  else literalML (sc :< c) cs
+literalML sc [] = failEOI p
+
+-------------------------------------------------------------------------------
 --          Numeric literals
---------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
 -- converts an integer literal
 intLit : SnocList Char -> (res,pow : Nat) -> TomlToken
@@ -90,10 +160,10 @@ intLit (sx :< x) res pow = intLit sx (res + pow * digit x) (pow * 10)
 dblLit : SnocList Char -> TomlToken
 dblLit sc = 
   if any (\c => '.' == c || 'e' == c) sc
-     then TVal . TDbl . cast $ cast {to = String} sc
+     then TVal . TDbl . Float . cast $ cast {to = String} sc
      else intLit sc 0 1
 
-num,rest,dot,exp,digs,digs1 : SnocList Char -> AutoTok Char TomlToken
+num',rest,dot,exp,digs,digs1 : SnocList Char -> AutoTok Char TomlToken
 
 -- addditional exponent digits, possibly separated by underscores
 digs sc ('_'::x::xs) = if isDigit x then digs (sc:<x) xs else unknown xs
@@ -126,9 +196,18 @@ rest sc ('.'::[])    = unknown []
 rest sc xs           = exp sc xs
 
 -- lexes an integer or floating point literal
-num sc ('_'::x::xs) = if isDigit x then num (sc:<x) xs else unknown xs
-num sc (x::xs)      = if isDigit x then num (sc:<x) xs else rest sc (x::xs)
-num sc []           = Succ (intLit sc 0 1) []
+num' sc ('_'::x::xs) = if isDigit x then num' (sc:<x) xs else unknown xs
+num' sc (x::xs)      = if isDigit x then num' (sc:<x) xs else rest sc (x::xs)
+num' sc []           = Succ (intLit sc 0 1) []
+
+num : Tok Char TomlToken
+num ('-'::'0'::t) = rest [<'-','0'] t
+num ('+'::'0'::t) = rest [<'0'] t
+num ('-'::d::t)   = if isDigit d then num' [<'-',d] t else unknown t
+num ('+'::d::t)   = if isDigit d then num' [<d] t else unknown t
+num ('0'::t)      = rest [<'0'] t
+num (d::t)        = if isDigit d then num' [<d] t else unknown t
+num []            = failEmpty
 
 --------------------------------------------------------------------------------
 --          Misc.
@@ -140,7 +219,7 @@ comment ('\n' :: xs) = Succ Comment ('\n' :: xs)
 comment ('\r' :: xs) = Succ Comment ('\r' :: xs)
 comment ('\t' :: xs) = comment xs
 comment (x :: xs)            =
-  if isControl x then range (InvalidControl x) p xs else comment xs
+  if commentControl x then range (InvalidControl x) p xs else comment xs
 
 validSpace : Char -> Bool
 validSpace ' '  = True
@@ -157,13 +236,27 @@ space []               = Succ Space []
 --          Single-step lexers
 --------------------------------------------------------------------------------
 
+isTime : List Char -> Bool
+isTime (_::_::':'::_)       = True
+isTime (_::_::_::_::'-'::_) = True
+isTime _                    = False
+
+isNum : List Char -> Bool
+isNum ('-'::_) = True
+isNum ('+'::_) = True
+isNum (d::_)   = isDigit d
+isNum []       = False
+
 -- general lexemes that can occur in key and value contexts
 other : Tok Char TomlToken
 other ('.'  :: xs) = Succ "." xs
+other (','  :: xs) = Succ "," xs
 other ('='  :: xs) = Succ "=" xs
 other ('[' :: xs)  = Succ "[" xs
 other (']' :: xs)  = Succ "]" xs
+other ('}' :: xs)  = Succ "}" xs
 other ('#' :: xs)  = comment xs
+other ('\r'::'\n'::xs) = space xs
 other (x   :: xs)  = if validSpace x then space xs else unknown xs
 other []           = failEmpty
 
@@ -189,8 +282,14 @@ anyKey _   xs           = other xs
 -- lexes a value or related symbol
 val : Tok Char TomlToken
 val ('{' :: xs)                   = Succ "{" xs
-val ('}' :: xs)                   = Succ "}" xs
-val (',' :: xs)                   = Succ "," xs
+val ('"' :: '"' :: '"' :: xs)     = case xs of
+  '\n'::t         => TVal . TStr <$> strML False [<] t
+  '\r' :: '\n'::t => TVal . TStr <$> strML False [<] t
+  _               => TVal . TStr <$> strML False [<] xs
+val ('\'' :: '\'' :: '\'' :: xs)     = case xs of
+  '\n'::t         => TVal . TStr <$> literalML [<] t
+  '\r' :: '\n'::t => TVal . TStr <$> literalML [<] t
+  _               => TVal . TStr <$> literalML [<] xs
 val ('"' :: xs)                   = TVal . TStr <$> str [<] xs
 val ('\'' :: xs)                  = TVal . TStr <$> literal [<] xs
 val ('0'::'x':: xs)               = TVal . TInt . cast <$> hexSep xs
@@ -198,13 +297,14 @@ val ('0'::'b':: xs)               = TVal . TInt . cast <$> binSep xs
 val ('0'::'o':: xs)               = TVal . TInt . cast <$> octSep xs
 val ('t'::'r'::'u'::'e'::xs)      = Succ (TVal $ TBool True) xs
 val ('f'::'a'::'l'::'s'::'e'::xs) = Succ (TVal $ TBool False) xs
-val ('+'::'0'::t) = rest [<'0'] t
-val ('-'::'0'::t) = rest [<'-','0'] t
-val ('+'::d::t)   = if isDigit d then num [<d] t else unknown t
-val ('-'::d::t)   = if isDigit d then num [<'-',d] t else unknown t
-val ('0'::t)      = rest [<'0'] t
-val (d::t)        = if isDigit d then num [<d] t else other (d::t)
-val []            = failEmpty
+val ('n'::'a'::'n'::xs)           = Succ (TVal $ TDbl NaN) xs
+val ('+'::'n'::'a'::'n'::xs)      = Succ (TVal $ TDbl NaN) xs
+val ('-'::'n'::'a'::'n'::xs)      = Succ (TVal $ TDbl NaN) xs
+val ('i'::'n'::'f'::xs)           = Succ (TVal $ TDbl $ Infty Nothing) xs
+val ('+'::'i'::'n'::'f'::xs)      = Succ (TVal $ TDbl $ Infty $ Just Plus) xs
+val ('-'::'i'::'n'::'f'::xs)      = Succ (TVal $ TDbl $ Infty $ Just Minus) xs
+val cs =
+  (TVal . TTime <$> anyTime cs) <|> num cs <|> other cs
 
 --------------------------------------------------------------------------------
 --          State
@@ -234,11 +334,11 @@ adjState : (t : Ctxt) -> TomlToken -> LexState t -> (t2 ** LexState t2)
 adjState Key  "="  outer           = (_ ** switch outer)
 adjState Value NL  TopLevel        = (Key ** TopLevel)
 adjState Value "]" (InArray outer) = (_ ** outer)
-adjState Value "}" (InTable outer) = (_ ** outer)
+adjState _     "}" (InTable outer) = (_ ** outer)
 adjState Value "[" outer           = (_ ** InArray outer)
 adjState Value "{" outer           = (Key ** InTable outer)
 adjState Value "," (InTable outer) = (Key ** InTable outer)
-adjState t     _          st              = (t ** st)
+adjState t     _   st              = (t ** st)
 
 -- decides on the lexer to run depending on the current
 -- context
@@ -250,10 +350,12 @@ anyTok _   Value = val
 -- We convert a `Space` token to a `NL` if the sequence of
 -- spaces contains a line break and we are not in an array
 -- literal (where arbitrary line breaks are allowed).
-adjSpace : LexState c -> (hasNL : Bool) -> TomlToken -> TomlToken
-adjSpace (InArray _) _    t     = t
-adjSpace _           True Space = NL
-adjSpace _           _    t     = t
+adjSpace : LexState c -> (hasNL : Bool) -> TomlToken -> Maybe TomlToken
+adjSpace TopLevel    True Space   = Just NL
+adjSpace (InTable _) True Space   = Just NL
+adjSpace _           _    Space   = Nothing
+adjSpace _           _    Comment = Nothing
+adjSpace _           _    t       = Just t
 
 --------------------------------------------------------------------------------
 --          Post Processing
@@ -284,7 +386,6 @@ postProcess ts [<]       = ts
 postProcess ts (sx :< x) = case x.val of
   TKey s  => groupKeys ts (x $> s) sx
   Comment => postProcess ts sx
-  Space   => postProcess ts sx
   _       => postProcess (x::ts) sx
 
 --------------------------------------------------------------------------------
@@ -299,11 +400,12 @@ lex :
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
   -> Either (Bounded TomlErr) (List $ Bounded TomlToken)
-lex st pos sx []           _      = Right $ postProcess [] sx
-lex st pos sx (x :: xs) (SA r) = case anyTok pos t (x::xs) of
+lex st pos sx [] _      = Right $ postProcess [] sx
+lex st pos sx xs (SA r) = case anyTok pos t xs of
   Succ val ys @{p} =>
     let pos2        := endPos pos p
-        v           := adjSpace st (pos2.line > pos.line) val
+        Just v      := adjSpace st (pos2.line > pos.line) val
+          | Nothing => lex st pos2 sx ys r
         (t2 ** st2) := adjState t v st
      in lex st2 pos2 (sx :< bounded v pos pos2) ys r
   Fail start errEnd y => Left $ boundedErr pos start errEnd (Reason y)

@@ -31,3 +31,9 @@ jobs:
         run: pack install parser
       - name: Test parser
         run: pack test parser -n 1000
+      - name: Build parser-toml
+        run: pack install parser-toml
+      - name: Test parser-toml
+        run: pack test parser-toml -n 1000
+      - name: Typecheck docs
+        run: pack typecheck parser-docs

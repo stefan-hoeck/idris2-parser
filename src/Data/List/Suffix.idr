@@ -140,9 +140,9 @@ Transitive (List a) (Suffix True) where
   transitive = trans
 
 
-infixr 3 ~>,~?>,~~>
+infixr 0 ~>,~?>,~~>
 
-infixl 3 <~,<~~
+infixl 0 <~,<~~
 
 ||| Operator alias for `trans`.
 public export %inline

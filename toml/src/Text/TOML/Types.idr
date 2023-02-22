@@ -1,6 +1,7 @@
 module Text.TOML.Types
 
-import Data.SortedMap
+import public Data.Time.Time
+import public Data.SortedMap
 import Derive.Prelude
 import Derive.Pretty
 import Text.Bounds
@@ -10,16 +11,50 @@ import Text.ParseError
 %language ElabReflection
 
 --------------------------------------------------------------------------------
+--          Floating Point Literals
+--------------------------------------------------------------------------------
+
+public export
+data TomlFloat : Type where
+  NaN   : TomlFloat
+  Infty : Maybe Sign -> TomlFloat
+  Float : Double -> TomlFloat
+
+%runElab derive "TomlFloat" [Eq,Show]
+
+export
+Interpolation TomlFloat where
+  interpolate NaN = "nan"
+  interpolate (Infty x) =
+    let s = maybe "" interpolate x
+     in "\{s}inf"
+  interpolate (Float dbl) = show dbl
+
+export %inline
+Pretty TomlFloat where
+  prettyPrec _ = line . interpolate
+
+--------------------------------------------------------------------------------
+--          Table Type
+--------------------------------------------------------------------------------
+
+public export
+data TableType = None | Inline | Table
+
+%runElab derive "TableType" [Show,Eq,Ord,Pretty]
+
+public export
+data ArrayType = Static | OfTables
+
+%runElab derive "ArrayType" [Show,Eq,Ord,Pretty]
+
+--------------------------------------------------------------------------------
 --          TomlValue and Table
 --------------------------------------------------------------------------------
 
 %runElab derive "Text.Bounds.Position" [Pretty]
 %runElab derive "Text.Bounds.Bounds" [Pretty]
 %runElab derive "Text.Bounds.Bounded" [Pretty]
-
-public export
-Pretty k => Pretty v => Pretty (SortedMap k v) where
-  prettyPrec p m = prettyCon p "fromList" [prettyArg $ SortedMap.toList m]
 
 public export
 Pretty a => Pretty (List1 a) where
@@ -40,22 +75,25 @@ Key = List1 String
 public export
 data TomlValue : Type where
   ||| A string literal
-  TStr  : String  -> TomlValue
+  TStr  : String -> TomlValue
 
   ||| A boolean literal
-  TBool : Bool  -> TomlValue
+  TBool : Bool -> TomlValue
+
+  ||| A date-time literal
+  TTime : AnyTime -> TomlValue
 
   ||| An integer
   TInt  : Integer -> TomlValue
 
   ||| A floating point number
-  TDbl  : Double  -> TomlValue
+  TDbl  : TomlFloat  -> TomlValue
 
   ||| An array of values
-  TArr  : List TomlValue -> TomlValue
+  TArr  : ArrayType -> SnocList TomlValue -> TomlValue
 
   ||| A table of key-value pairs
-  TTbl  : (isValue : Bool) -> SortedMap String TomlValue -> TomlValue
+  TTbl  : TableType -> SortedMap String TomlValue -> TomlValue
 
 %runElab derive "TomlValue" [Eq,Show,Pretty]
 
@@ -128,12 +166,13 @@ Interpolation TomlToken where
   interpolate Comment  = "<comment>"
   interpolate (TKey s) = interpolateKey $ forget s
   interpolate (TVal v) = case v of
-    TStr str       => "string literal"
-    TBool x        => toLower $ show x
-    TInt i         => show i
-    TDbl dbl       => show dbl
-    TArr xs        => "array"
-    TTbl isValue x => "table"
+    TStr str => "string literal"
+    TBool x  => toLower $ show x
+    TInt i   => show i
+    TTime i  => interpolate i
+    TDbl dbl => interpolate dbl
+    TArr _ _ => "array"
+    TTbl _ x => "table"
   interpolate (TSym c) = show c
 
 --------------------------------------------------------------------------------
@@ -142,14 +181,25 @@ Interpolation TomlToken where
 
 public export
 data TomlParseError : Type where
-  ValueExists : List KeyToken -> TomlParseError
-  ExpectedKey : TomlParseError
+  ValueExists       : List KeyToken -> TomlParseError
+  InlineTableExists : List KeyToken -> TomlParseError
+  TableExists       : List KeyToken -> TomlParseError
+  StaticArray       : List KeyToken -> TomlParseError
+  ExpectedKey       : TomlParseError
+
+%runElab derive "TomlParseError" [Eq,Show]
 
 export
 Interpolation TomlParseError where
   interpolate ExpectedKey = "Expected a key"
   interpolate (ValueExists k) =
     "Trying to overwrite existing value: \{interpolateKey k}"
+  interpolate (InlineTableExists k) =
+    "Trying to modify existing inline table: \{interpolateKey k}"
+  interpolate (TableExists k) =
+    "Trying to overwrite existing table: \{interpolateKey k}"
+  interpolate (StaticArray k) =
+    "Trying to modify a static array: \{interpolateKey k}"
 
 ||| Error type when lexing and parsing TOML files
 public export

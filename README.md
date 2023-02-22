@@ -22,3 +22,11 @@ will be addressed.
 The parser-toml sub-project provides a feature-complete, total lexer
 and parser for the [TOML config file format](https://toml.io/en/)
 implemented manually using the techniques described in the tutorial.
+
+## parser-json
+
+This sub-project provides a lexer and parser for the
+[JSON file format](https://en.wikipedia.org/wiki/JSON). They will eventually
+replace the lexer and parser currently used in
+[idris2-json](https://github.com/stefan-hoeck/idris2-json).
+

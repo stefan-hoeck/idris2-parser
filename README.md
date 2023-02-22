@@ -14,5 +14,11 @@ using explicit mutual recursion instead:
   being thrown
 * The code is not necessarily more obfuscated
 
-A [tutorial](docs/src/Intro.md) is the making where the points above
+A [tutorial](docs/src/Intro.md) is in the making where the points above
 will be addressed.
+
+## parser-toml
+
+The parser-toml sub-project provides a feature-complete, total lexer
+and parser for the [TOML config file format](https://toml.io/en/)
+implemented manually using the techniques described in the tutorial.

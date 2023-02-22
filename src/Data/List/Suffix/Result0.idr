@@ -1,8 +1,11 @@
 module Data.List.Suffix.Result0
 
+import Derive.Prelude
+import Data.Nat
 import Data.List.Suffix
 
 %default total
+%language ElabReflection
 
 ||| Result of consuming and converting a (possibly strict) prefix
 ||| of a list of tokens.
@@ -65,6 +68,16 @@ public export
 Functor (Result0 b t ts e) where
   map f (Succ0 v xs) = Succ0 (f v) xs
   map _ (Fail0 err)  = Fail0 err
+
+public export %inline
+fromEither :
+     {0 ts : List t}
+  -> (xs : List t)
+  -> {auto 0 p : Suffix b xs ts}
+  -> Either e a
+  -> Result0 b t ts e a
+fromEither xs (Left x)  = Fail0 x
+fromEither xs (Right x) = Succ0 x xs
 
 --------------------------------------------------------------------------------
 --          Conversions
@@ -240,3 +253,147 @@ runDropWhitespace f cs = go [<] cs suffixAcc
       else case f (x::xs) of
         Succ0 v xs2 => go (sx :< v) xs2 r
         Fail0 err   => Left err
+
+--------------------------------------------------------------------------------
+--          Erased Consumers
+-----------------------------------------------------------------------------
+
+public export
+data TokError : Type -> Type where
+  EOI         : TokError t
+  ExpectedEOI : t -> TokError t
+  Unexpected  : t -> TokError t
+
+export
+Interpolation t => Interpolation (TokError t) where
+  interpolate (Unexpected t)  = "Unexpected item: \{t}"
+  interpolate EOI             = "End of input"
+  interpolate (ExpectedEOI t) = "Expected end of input but found: \{t}"
+
+%runElab derive "TokError" [Show,Eq]
+
+||| A tokenizing function, which will consume additional characters
+||| from the input string. This can only be used if already some
+||| have been consumed.
+public export
+0 AutoTok0 : (t,e,a : Type) -> Type
+AutoTok0 t e a =
+     {orig     : List t}
+  -> (xs       : List t)
+  -> {auto 0 p : Suffix True xs orig}
+  -> Result0 True t orig e a
+
+||| A tokenizing function that cannot fail.
+public export
+0 SafeTok0 : (t,a : Type) -> Type
+SafeTok0 t a =
+     {0 e      : Type}
+  -> {orig     : List t}
+  -> (xs       : List t)
+  -> {auto 0 p : Suffix True xs orig}
+  -> Result0 True t orig e a
+
+||| A tokenizing function, which will consume additional items
+||| from the input.
+public export
+0 OntoTok0 : (t,e,a : Type) -> Type
+OntoTok0 t e a =
+     {orig     : List t}
+  -> (xs       : List t)
+  -> {auto 0 p : Suffix False xs orig}
+  -> Result0 True t orig e a
+
+public export
+head : OntoTok0 t (TokError t) t
+head (x :: xs) = Succ0 x xs
+head []        = Fail0 EOI
+
+public export
+eoi : AutoTok0 t (TokError t) ()
+eoi []        = Succ0 () []
+eoi (x :: _)  = Fail0 (ExpectedEOI x)
+
+public export
+takeOnto : SnocList t -> (n : Nat) -> AutoTok0 t (TokError t) (SnocList t)
+takeOnto st 0     xs        = Succ0 st xs
+takeOnto st (S k) (x :: xs) = takeOnto (st :< x) k xs
+takeOnto st (S k) []        = Fail0 EOI
+
+public export %inline
+take : (n : Nat) -> AutoTok0 t (TokError t) (SnocList t)
+take = takeOnto [<]
+
+public export %inline
+take1 : (n : Nat) -> (0 _ : IsSucc n) => OntoTok0 t (TokError t) (SnocList t)
+take1 (S n) (x :: xs) = takeOnto [<x] n xs
+take1 _     []        = Fail0 EOI
+
+public export
+takeWhileOnto : SnocList t -> (t -> Bool) -> SafeTok0 t (SnocList t)
+takeWhileOnto st f (x :: xs) =
+  if f x then takeWhileOnto (st :< x) f xs else Succ0 st (x::xs)
+takeWhileOnto st f []        = Succ0 st []
+
+public export %inline
+takeWhile : (t -> Bool) -> SafeTok0 t (SnocList t)
+takeWhile = takeWhileOnto [<]
+
+public export %inline
+takeWhile1 : (t -> Bool) -> OntoTok0 t (TokError t) (SnocList t)
+takeWhile1 f (x :: xs) =
+  if f x then takeWhileOnto [<x] f xs else Fail0 (Unexpected x)
+takeWhile1 f [] = Fail0 EOI
+
+public export %inline
+takeUntil : (t -> Bool) -> SafeTok0 t (SnocList t)
+takeUntil f = takeWhile (not . f)
+
+public export %inline
+takeUntil1 : (t -> Bool) -> OntoTok0 t (TokError t) (SnocList t)
+takeUntil1 f = takeWhile1 (not . f)
+
+public export
+takeWhileJustOnto : SnocList s -> (t -> Maybe s) -> SafeTok0 t (SnocList s)
+takeWhileJustOnto st f (x :: xs) = case f x of
+  Just vs => takeWhileJustOnto (st :< vs) f xs
+  Nothing => Succ0 st (x::xs)
+takeWhileJustOnto st f []        = Succ0 st []
+
+public export %inline
+takeWhileJust : (t -> Maybe s) -> SafeTok0 t (SnocList s)
+takeWhileJust = takeWhileJustOnto [<]
+
+public export
+takeWhileJust1 : (t -> Maybe s) -> OntoTok0 t (TokError t) (SnocList s)
+takeWhileJust1 f (x :: xs) = case f x of
+  Just vs => takeWhileJustOnto [<vs] f xs
+  Nothing => Fail0 (Unexpected x)
+takeWhileJust1 f []        = Fail0 EOI
+
+public export %inline
+accum : s -> (s -> t -> Maybe s) -> SafeTok0 t s
+accum cur f (x::xs) = case f cur x of
+  Just s2 => accum s2 f xs
+  Nothing => Succ0 cur (x::xs)
+accum cur f [] = Succ0 cur []
+
+public export %inline
+accum1 : s -> (s -> t -> Maybe s) -> OntoTok0 t (TokError t) s
+accum1 cur f (x::xs) = case f cur x of
+  Just s2 => accum s2 f xs
+  Nothing => Fail0 (Unexpected x)
+accum1 cur f [] = Fail0 EOI
+
+public export
+data AccumRes : (state,err : Type) -> Type where
+  Done  : {0 state,err : _} -> AccumRes state err
+  Cont  : {0 state,err : _} -> state -> AccumRes state err
+  Error : {0 state,err : _} -> err -> AccumRes state err
+
+public export %inline
+accumErr : s -> (s -> x) -> (s -> t -> AccumRes s e) -> AutoTok0 t e x
+accumErr cur f g (x::xs) = case g cur x of
+  Done      => Succ0 (f cur) (x::xs)
+  Cont s'   => accumErr s' f g xs
+  Error err => Fail0 err
+accumErr cur f g [] = Succ0 (f cur) []

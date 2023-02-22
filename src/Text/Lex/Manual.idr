@@ -117,6 +117,16 @@ AutoTok t a =
   -> {auto   p : Suffix True xs orig}
   -> SuffixRes t orig a
 
+||| A tokenizing function that cannot fail.
+public export
+0 SafeTok : (t,a : Type) -> Type
+SafeTok t a =
+     {0 e      : Type}
+  -> {orig     : List t}
+  -> (xs       : List t)
+  -> {auto   p : Suffix True xs orig}
+  -> Result True t orig e a
+
 ||| A tokenizing function, which will consume additional characters
 ||| from the input string.
 public export
@@ -134,6 +144,10 @@ tok f ts = f ts
 public export %inline
 autoTok : OntoTok t a -> AutoTok t a
 autoTok f ts @{p} = f ts @{weaken p}
+
+public export %inline
+safeTok : SafeTok t a -> AutoTok t a
+safeTok f ts = f ts
 
 public export %inline
 range :
@@ -201,7 +215,7 @@ failEmpty = Fail Same [] EOI
 
 ||| Tries to read additional decimal digits onto a growing natural number.
 public export
-dec1 : (n : Nat) -> AutoTok Char Nat
+dec1 : (n : Nat) -> SafeTok Char Nat
 dec1 n (x::xs) = if isDigit x then dec1 (n*10 + digit x) xs else succ n p
 dec1 n []      = succ n p
 
@@ -230,7 +244,7 @@ decSep []      = failEOI p
 
 ||| Tries to read more binary digits onto a growing natural number.
 public export
-bin1 : (n : Nat) -> AutoTok Char Nat
+bin1 : (n : Nat) -> SafeTok Char Nat
 bin1 n (x :: xs) = if isBinDigit x then bin1 (n*2 + binDigit x) xs else succ n p
 bin1 n []        = succ n p
 
@@ -261,7 +275,7 @@ binSep []      = failEOI p
 
 ||| Tries to read more octal digits onto a growing natural number.
 public export
-oct1 : (n : Nat) -> AutoTok Char Nat
+oct1 : (n : Nat) -> SafeTok Char Nat
 oct1 n (x :: xs) = if isOctDigit x then oct1 (n*8 + octDigit x) xs else succ n p
 oct1 n []        = succ n p
 
@@ -292,7 +306,7 @@ octSep []      = failEOI p
 
 ||| Tries to read more hexadecimal digits onto a growing natural number.
 public export
-hex1 : (n : Nat) -> AutoTok Char Nat
+hex1 : (n : Nat) -> SafeTok Char Nat
 hex1 n (x :: xs) = if isHexDigit x then hex1 (n*16 + hexDigit x) xs else succ n p
 hex1 n []        = succ n p
 
@@ -336,6 +350,32 @@ public export
 intPlus : OntoTok Char Integer
 intPlus ('+'::xs) = cast <$> dec xs
 intPlus xs        = int xs
+
+--------------------------------------------------------------------------------
+--          Other Convertions
+-----------------------------------------------------------------------------
+
+public export
+takeJustOnto : SnocList b -> (a -> Maybe b) -> SafeTok a (SnocList b)
+takeJustOnto sx f (x :: xs) = case f x of
+  Just vb => takeJustOnto (sx :< vb) f xs
+  Nothing => Succ sx (x::xs)
+takeJustOnto sx f []        = Succ sx []
+
+||| Consumes and converts a list prefix until the given
+||| function returns `Nothing`.
+public export %inline
+takeJust : (a -> Maybe b) -> SafeTok a (SnocList b)
+takeJust f = takeJustOnto [<] f
+
+||| Consumes and converts a strict list prefix until the given
+||| function returns `Nothing`.
+public export %inline
+takeJust1 : (a -> Maybe b) -> OntoTok a (SnocList b)
+takeJust1 f (x::xs) = case f x of
+  Just vb => takeJustOnto [<vb] f xs
+  Nothing => unknown xs
+takeJust1 _ [] = failEOI p
 
 --------------------------------------------------------------------------------
 --          Running Tokenizers

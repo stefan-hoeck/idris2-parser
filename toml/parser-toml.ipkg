@@ -1,0 +1,19 @@
+package parser-toml
+version   = 0.1.0
+authors   = "stefan-hoeck"
+sourcedir = "src"
+depends   = parser
+          , elab-pretty
+          , json
+          , refined
+
+brief     = "Total and efficient parser and lexer for the TOML config file language"
+
+modules = Data.Time.Date
+        , Data.Time.Time
+
+        , Text.Time.Lexer
+        , Text.TOML.Types
+        , Text.TOML.Lexer
+        , Text.TOML.Parser
+        , Text.TOML

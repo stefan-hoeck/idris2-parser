@@ -159,7 +159,7 @@ failInParen :
      (b : Bounds)
   -> (tok : t)
   -> Result0 b1 (Bounded t) ts (Bounded $ ParseError t y) a
-  -> Result0 b2 (Bounded t) ts (Bounded $ ParseError t y) a
+  -> Result0 b2 (Bounded t) ts (Bounded $ ParseError t y) x
 failInParen b tok (Fail0 (B (Reason EOI) _)) = unclosed b tok
 failInParen b tok (Fail0 err)                = Fail0 err
 failInParen b tok (Succ0 _ [])               = unclosed b tok

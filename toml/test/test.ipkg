@@ -1,0 +1,11 @@
+package parser-toml-test
+version = 0.1.0
+authors = "stefan-hoeck"
+
+depends = parser-toml
+        , hedgehog
+        , filepath
+
+main = Main
+executable = "parser-toml-test"
+sourcedir = "src"

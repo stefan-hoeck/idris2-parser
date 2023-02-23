@@ -133,55 +133,9 @@ trans :
   -> Result b1 t xs e a
   -> Suffix b2 xs ys
   -> Result (b1 || b2) t ys e a
-trans (Succ val ts @{p}) q = Succ val ts @{p ~> q}
-trans (Fail {stopStart} x y err) q = Fail {stopStart} (x ~?> q) y err
-
-||| Operator alias for `trans`.
-public export %inline
-(~>) :
-     {ys : _}
-  -> Result b1 t xs e a
-  -> Suffix b2 xs ys
-  -> Result (b1 || b2) t ys e a
-(~>) = trans
-
-||| Flipped version of `(~>)`.
-public export %inline
-(<~) :
-     {ys : _}
-  -> Suffix b1 xs ys
-  -> Result b2 t xs e a
-  -> Result (b1 || b2) t ys e a
-x <~ y = swapOr $ trans y x
-
-||| Operator alias for `trans` where the result is always non-strict
-public export %inline
-(~?>) :
-     {ys : _}
-   -> Result b1 t xs e a
-   -> Suffix b2 xs ys
-   -> Result False t ys e a
-(~?>) x y = weaken $ x ~> y
-
-||| Operator alias for `trans` where the strictness of the first
-||| `Suffix` dominates.
-public export %inline
-(~~>) :
-     {ys : _}
-  -> Result b1 t xs e a
-  -> Suffix True xs ys
-  -> Result b1 t ys e a
-(~~>) x y = weakens $ y <~ x
-
-||| Operator alias for `trans` where the strictness of the second
-||| `Suffix` dominates.
-public export %inline
-(<~~) :
-     {ys : _}
-  -> Suffix b1 xs ys
-  -> Result True t xs e a
-  -> Result b1 t ys e a
-(<~~) x y = weakens $ y ~> x
+trans (Succ val ts @{p}) q = Succ val ts @{trans p q}
+trans (Fail {stopStart} x y err) q =
+  Fail {stopStart} (weaken $ trans x q) y err
 
 public export %inline
 succT :
@@ -189,7 +143,7 @@ succT :
   ->  Result b1 t xs e a
   -> {auto p : Suffix True xs ys}
   -> Result True t ys e a
-succT r = p <~ r
+succT r = swapOr $ trans r p
 
 public export %inline
 succF :
@@ -197,4 +151,4 @@ succF :
   ->  Result b1 t xs e a
   -> {auto p : Suffix True xs ys}
   -> Result False t ys e a
-succF r = r ~?> p
+succF r = weaken $ trans r p

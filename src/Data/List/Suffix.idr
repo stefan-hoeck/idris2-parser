@@ -122,7 +122,11 @@ trans : Suffix b1 xs ys -> Suffix b2 ys cs -> Suffix (b1 || b2) xs cs
 trans Same y       = y
 trans (Uncons x) t = Uncons $ trans x t
 
-%transform "suffixTransPlus" Suffix.trans x y = believe_me (toNat x + toNat y)
+%inline
+transp : Suffix b1 xs ys -> Suffix b2 ys cs -> Suffix (b1 || b2) xs cs
+transp x y =  believe_me (toNat x + toNat y)
+
+%transform "suffixTransPlus" Suffix.trans = Suffix.transp
 
 ||| `Suffix False` is a reflexive relation on lists.
 public export %inline
@@ -138,38 +142,6 @@ Transitive (List a) (Suffix False) where
 public export %inline
 Transitive (List a) (Suffix True) where
   transitive = trans
-
-
-infixr 0 ~>,~?>,~~>
-
-infixl 0 <~,<~~
-
-||| Operator alias for `trans`.
-public export %inline
-(~>) : Suffix b1 xs ys -> Suffix b2 ys zs -> Suffix (b1 || b2) xs zs
-(~>) = trans
-
-||| Flipped version of `(~>)`.
-public export %inline
-(<~) : Suffix b1 ys zs -> Suffix b2 xs ys -> Suffix (b1 || b2) xs zs
-x <~ y = swapOr $ trans y x
-
-||| Operator alias for `trans` where the result is always non-strict
-public export %inline
-(~?>) : Suffix b1 xs ys -> Suffix b2 ys zs -> Suffix False xs zs
-(~?>) x y = weaken $ x ~> y
-
-||| Operator alias for `trans` where the strictness of the first
-||| `Suffix` dominates.
-public export %inline
-(~~>) : Suffix b1 xs ys -> Suffix True ys zs -> Suffix b1 xs zs
-(~~>) x y = weakens $ y <~ x
-
-||| Operator alias for `trans` where the strictness of the second
-||| `Suffix` dominates.
-public export %inline
-(<~~) : Suffix b1 ys zs -> Suffix True xs ys -> Suffix b1 xs zs
-(<~~) x y = weakens $ y ~> x
 
 --------------------------------------------------------------------------------
 --          SuffixAcc
@@ -193,7 +165,7 @@ sa f = SA $ f %search
 acc' : (ts : List t) -> Suffix False qs ts -> SuffixAcc qs
 acc' []        Same       = sa $ \v => absurd v
 acc' []        (Uncons x) = absurd x
-acc' (x :: xs) tt         = sa $ \v => acc' xs (unconsRight $ v ~> tt)
+acc' (x :: xs) tt         = sa $ \v => acc' xs (unconsRight $ trans v tt)
 
 export
 suffixAcc : {ts : List t} -> SuffixAcc ts

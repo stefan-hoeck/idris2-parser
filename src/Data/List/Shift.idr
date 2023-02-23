@@ -60,9 +60,9 @@ data Shift :
 |||
 ||| Performance: This is the identity function at runtime.
 public export
-toNat : Shift b t sx xs sy ys -> Nat
+toNat : {0 b : Bool} -> Shift b t sx xs sy ys -> Nat
 toNat Same   = Z
-toNat (SH x) = S $toNat x
+toNat (SH x) = S $ toNat x
 
 public export %inline
 Cast (Shift b t sx xs sy ys) Nat where cast = toNat
@@ -103,7 +103,7 @@ andFalse = andFalse (\k => Shift k t sx xs sy ys)
 |||
 ||| Performance: This is the identity function at runtime.
 public export
-weaken : Shift b t sx xs sy ys -> Shift False t sx xs sy ys
+weaken : {0 b : Bool} -> Shift b t sx xs sy ys -> Shift False t sx xs sy ys
 weaken Same   = Same
 weaken (SH x) = SH x
 
@@ -111,7 +111,7 @@ weaken (SH x) = SH x
 |||
 ||| Performance: This is the identity function at runtime.
 public export
-weakens : Shift True t sx xs sy ys -> Shift b t sx xs sy ys
+weakens : {0 b : Bool} -> Shift True t sx xs sy ys -> Shift b t sx xs sy ys
 weakens (SH x) = SH x
 weakens Same impossible
 
@@ -119,7 +119,7 @@ weakens Same impossible
 |||
 ||| Performance: This is the identity function at runtime.
 public export
-suffix : Shift b t sx xs sy ys -> Suffix b xs ys
+suffix : {0 b : Bool} -> Shift b t sx xs sy ys -> Suffix b xs ys
 suffix Same   = Same
 suffix (SH x) = Uncons $ suffix x
 
@@ -143,46 +143,11 @@ trans :
 trans Same y   = y
 trans (SH x) y = SH $ trans x y
 
-%transform "shiftTransPlus" Shift.trans x y = believe_me (toNat x + toNat y)
-
-||| Operator alias for `trans`.
-public export %inline
-(~>) :
+%inline
+transp :
      Shift b1 t sx xs sy ys
   -> Shift b2 t sy ys sz zs
   -> Shift (b1 || b2) t sx xs sz zs
-(~>) = trans
+transp x y = believe_me (toNat x + toNat y)
 
-||| Flipped version of `(~>)`.
-public export %inline
-(<~) :
-     Shift b1 t sy ys sz zs
-  -> Shift b2 t sx xs sy ys
-  -> Shift (b1 || b2) t sx xs sz zs
-x <~ y = swapOr $ trans y x
-
-||| Operator alias for `trans` where the result is always non-strict
-public export %inline
-(~?>) :
-     Shift b1 t sx xs sy ys
-  -> Shift b2 t sy ys sz zs
-  -> Shift False t sx xs sz zs
-(~?>) x y = weaken $ x ~> y
-
-||| Operator alias for `trans` where the strictness of the first
-||| `Shift` dominates.
-public export %inline
-(~~>) :
-     Shift b1 t sx xs sy ys
-  -> Shift True t sy ys sz zs
-  -> Shift b1 t sx xs sz zs
-(~~>) x y = weakens $ y <~ x
-
-||| Operator alias for `trans` where the strictness of the second
-||| `Shift` dominates.
-public export %inline
-(<~~) :
-     Shift b1 t sy ys sz zs
-  -> Shift True t sx xs sy ys
-  -> Shift b1 t sx xs sz zs
-(<~~) x y = weakens $ y ~> x
+%transform "shiftTransPlus" Shift.trans = Shift.transp

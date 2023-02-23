@@ -57,7 +57,7 @@ merge x v                     = v
 export
 succ : Res b t ts s e a -> (p : Suffix True ts ts') -> Res b1 t ts' s e a
 succ (Fail c err)          p = Fail c err
-succ (Succ x res toks prf) p = Succ x res toks (weakens $ orTrue $ prf ~> p)
+succ (Succ x res toks prf) p = Succ x res toks (weakens $ orTrue $ trans prf p)
 
 --------------------------------------------------------------------------------
 --          Grammar
@@ -376,13 +376,13 @@ prs (App x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
     Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 p3
   Succ s2 rf ts2 (Uncons p2) => case prs y s2 True ts2 rec of
     Fail c2 err       => Fail c2 err
-    Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 (Uncons p2 <~ p3)
+    Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 (swapOr $ trans p3 (Uncons p2))
   Fail c2 err => Fail c2 err
 
 prs (AppEat x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of
   Succ s2 rf ts2 p2 => case prs y s2 True ts2 rec of
     Fail c2 err       => Fail c2 err
-    Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 (p2 <~ p3)
+    Succ s3 ra ts3 p3 => Succ s3 (rf <*> ra) ts3 (swapOr $ trans p3 p2)
   Fail c2 err => Fail c2 err
 
 prs (BindEat x y) s1 c1 ts1 sa@(SA rec) = case prs x s1 c1 ts1 sa of

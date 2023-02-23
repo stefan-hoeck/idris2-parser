@@ -108,35 +108,8 @@ and2 r = swapAnd $ and1 r
 
 public export %inline
 trans : {ys : _} -> ShiftRes b1 t sx xs -> Shift b2 t sx xs sy ys -> ShiftRes (b1 || b2) t sy ys
-trans (Succ ts @{p})    q = Succ ts @{p ~> q}
-trans (Stop x y z @{p}) q = Stop (x ~?> q) y z
-
-||| Operator alias for `trans`.
-public export %inline
-(~>) : {ys : _} -> ShiftRes b1 t sx xs -> Shift b2 t sx xs sy ys -> ShiftRes (b1 || b2) t sy ys
-(~>) = trans
-
-||| Flipped version of `(~>)`.
-public export %inline
-(<~) : {ys : _} -> Shift b1 t sx xs sy ys -> ShiftRes b2 t sx xs -> ShiftRes (b1 || b2) t sy ys
-x <~ y = swapOr $ trans y x
-
-||| Operator alias for `trans` where the result is always non-strict
-public export %inline
-(~?>) : {ys : _} -> ShiftRes b1 t sx xs -> Shift b2 t sx xs sy ys -> ShiftRes False t sy ys
-(~?>) x y = weaken $ x ~> y
-
-||| Operator alias for `trans` where the strictness of the first
-||| `Shift` dominates.
-public export %inline
-(~~>) : {ys : _} -> ShiftRes b1 t sx xs -> Shift True t sx xs sy ys -> ShiftRes b1 t sy ys
-(~~>) x y = weakens $ y <~ x
-
-||| Operator alias for `trans` where the strictness of the second
-||| `Shift` dominates.
-public export %inline
-(<~~) : {ys : _} -> Shift b1 t sx xs sy ys -> ShiftRes True t sx xs -> ShiftRes b1 t sy ys
-(<~~) x y = weakens $ y ~> x
+trans (Succ ts @{p})    q = Succ ts @{Shift.trans p q}
+trans (Stop x y z @{p}) q = Stop (weaken $ trans x q) y z
 
 --------------------------------------------------------------------------------
 --          Combinators

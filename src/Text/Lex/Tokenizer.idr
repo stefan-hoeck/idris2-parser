@@ -54,8 +54,8 @@ record TokRes (strict : Bool) (cs : List Char) r a where
   rem    : List Char
   0 suf  : Suffix strict rem cs
 
-(~?>) : TokRes False cs r a -> (0 y : Suffix True cs xs) -> TokRes False xs r a
-(~?>) (TR x sx r rem z) y = TR x sx r rem (z ~?> y)
+wtrans : TokRes False cs r a -> (0 y : Suffix True cs xs) -> TokRes False xs r a
+wtrans (TR x sx r rem z) y = TR x sx r rem (weaken $ trans z y)
 
 tokenise :
      (tokenizer : Tokenizer Char a)
@@ -67,7 +67,7 @@ tokenise :
 tokenise x pos toks [] _ = TR pos toks Nothing [] Same
 tokenise x pos toks cs acc@(SA r) = case next x cs acc of
   Right (TR pos2 toks2 Nothing cs2 su) =>
-    tokenise x pos2 toks2 cs2 r ~?> su
+    tokenise x pos2 toks2 cs2 r `wtrans` su
   Left y  => TR pos toks (Just y) cs Same
   where
     next :
@@ -96,7 +96,7 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
                 Succ val cs4 @{p4}   =>
                   let pos4   := endPos pos3 p4
                       toks4  := toks3 :< bounded val pos3 pos4
-                   in Right (TR pos4 toks4 Nothing cs4 $ p4 ~> p3 ~> p2)
+                   in Right (TR pos4 toks4 Nothing cs4 $ trans p4 (trans p3 p2))
                 Fail start errEnd y => case y of
                   EOI => Left $ boundedErr pos start errEnd (Unclosed st)
                   r    => Left $ boundedErr pos start errEnd (Reason r)

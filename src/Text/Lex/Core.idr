@@ -92,12 +92,12 @@ run (x <+> y) st ts a@(SA r) = case run x st ts a of
     Same => run y pre ts a
     SH q =>
       let su := suffix {b = True} (SH q)
-       in swapOr $ run y pre ts2 r ~> SH q
+       in swapOr $ run y pre ts2 r `trans` SH q
   Stop start errEnd r        => Stop start errEnd r
 run (x <++> y) st ts a@(SA r) = case run x st ts a of
   Succ {pre} ts2 @{p} =>
     let su := suffix {b = True} p
-     in swapOr $ run y pre ts2 r ~> p
+     in swapOr $ run y pre ts2 r `trans` p
   Stop start errEnd r        => Stop start errEnd r
 run (x <|> y) st ts a = run x st ts a <|> run y st ts a
 

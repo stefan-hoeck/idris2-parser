@@ -1,0 +1,10 @@
+package parser-webidl-test
+version = 0.1.0
+authors = "stefan-hoeck"
+
+depends = parser-webidl
+        , hedgehog
+
+main = Main
+executable = "parser-webidl-test"
+sourcedir = "src"

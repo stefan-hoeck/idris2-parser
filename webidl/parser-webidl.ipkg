@@ -8,8 +8,20 @@ depends   = parser
 
 brief     = "A total parser and lexer for the WebIDL interface description language"
 
-modules = Text.WebIDL.Types
+modules = Data.Bitraversable
+        , Data.Functor.Const
+        , Data.Traversable
+
+        , Text.WebIDL.Types
+        , Text.WebIDL.Types.Argument
+        , Text.WebIDL.Types.Attribute
+        , Text.WebIDL.Types.Definition
         , Text.WebIDL.Types.Identifier
+        , Text.WebIDL.Types.Member
+        , Text.WebIDL.Types.Numbers
         , Text.WebIDL.Types.StringLit
         , Text.WebIDL.Types.Symbol
         , Text.WebIDL.Types.Token
+        , Text.WebIDL.Types.Type
+
+        , Text.WebIDL.Lexer

@@ -11,6 +11,9 @@ import Text.WebIDL.Types
 --------------------------------------------------------------------------------
 
 keep : IdlToken -> Bool
+keep Comment = False
+keep Space   = False
+keep _       = True
 
 spaces : AutoTok Char IdlToken
 spaces ('\n' :: xs) = spaces xs
@@ -109,7 +112,7 @@ term [] = failEmpty
 
 public export
 0 ParseErr : Type
-ParseErr = ParseError IdlToken Void
+ParseErr = ParseError IdlToken IdlError
 
 go :
      SnocList (Bounded IdlToken)

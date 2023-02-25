@@ -1,9 +1,9 @@
 module Data.Time.Date
 
 import Data.String
+import Decidable.HDec.Integer
 import Derive.Prelude
 import Derive.Refined
-import Decidable.HDec.Integer
 
 %default total
 %language ElabReflection

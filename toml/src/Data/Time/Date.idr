@@ -1,18 +1,12 @@
 module Data.Time.Date
 
 import Data.String
-import Data.Refined
 import Derive.Prelude
 import Derive.Refined
-import Data.Nat
-import Text.PrettyPrint.Bernardy
+import Decidable.HDec.Integer
 
 %default total
 %language ElabReflection
-
-public export %inline
-InRange : Integer -> Integer -> Integer -> Bool
-InRange lo hi n = lo <= n && n <= hi
 
 --------------------------------------------------------------------------------
 --          Year
@@ -22,17 +16,13 @@ public export
 record Year where
   constructor Y
   year : Integer
-  {auto 0 valid : Holds (InRange 0 9999) year}
+  {auto 0 valid : FromTo 0 9999 year}
 
 %runElab derive "Year" [Show, Eq, Ord, RefinedInteger]
 
 export
 Interpolation Year where
   interpolate (Y y) = padLeft 4 '0' $ show y
-
-export
-Pretty Year where
-  prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          Month
@@ -58,9 +48,6 @@ data Month : Type where
 export
 Interpolation Month where
   interpolate m = padLeft 2 '0' $ show (conIndexMonth m + 1)
-
-export
-Pretty Month where prettyPrec _ = line . interpolate
 
 public export
 DaysInMonth : Month -> Integer
@@ -97,21 +84,17 @@ intToMonth _  = Nothing
 --          Day
 --------------------------------------------------------------------------------
 
-public export %inline
-IsDayOf : Month -> Integer -> Bool
-IsDayOf m = InRange 1 $ DaysInMonth m
-
 public export
 record Day (m : Month) where
   constructor D
   day : Integer
-  {auto 0 valid : Holds (IsDayOf m) day}
+  {auto 0 valid : FromTo 1 (DaysInMonth m) day}
 
 %runElab deriveIndexed "Day" [Show, Eq, Ord]
 
 public export
 refineDay : {m : _} -> Integer -> Maybe (Day m)
-refineDay n = case hdec0 {p = Holds (IsDayOf m)} n of
+refineDay n = case hdec0 {p = FromTo 1 (DaysInMonth m)} n of
   Nothing0 => Nothing
   Just0 v  => Just $ D n
 
@@ -127,9 +110,6 @@ namespace Day
 export
 Interpolation (Day m) where
   interpolate (D d) = padLeft 2 '0' $ show d
-
-export
-Pretty (Day m) where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          Date
@@ -159,9 +139,6 @@ Ord Date where
 export
 Interpolation Date where
   interpolate (MkDate y m d) = "\{y}-\{m}-\{d}"
-
-export
-Pretty Date where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          Tests

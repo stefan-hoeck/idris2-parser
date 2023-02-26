@@ -3,7 +3,6 @@ module Text.TOML.Types
 import public Data.Time.Time
 import public Data.SortedMap
 import Derive.Prelude
-import Derive.Pretty
 import Text.Bounds
 import Text.ParseError
 
@@ -30,10 +29,6 @@ Interpolation TomlFloat where
      in "\{s}inf"
   interpolate (Float dbl) = show dbl
 
-export %inline
-Pretty TomlFloat where
-  prettyPrec _ = line . interpolate
-
 --------------------------------------------------------------------------------
 --          Table Type
 --------------------------------------------------------------------------------
@@ -41,31 +36,16 @@ Pretty TomlFloat where
 public export
 data TableType = None | Inline | Table
 
-%runElab derive "TableType" [Show,Eq,Ord,Pretty]
+%runElab derive "TableType" [Show,Eq,Ord]
 
 public export
 data ArrayType = Static | OfTables
 
-%runElab derive "ArrayType" [Show,Eq,Ord,Pretty]
+%runElab derive "ArrayType" [Show,Eq,Ord]
 
 --------------------------------------------------------------------------------
 --          TomlValue and Table
 --------------------------------------------------------------------------------
-
-%runElab derive "Text.Bounds.Position" [Pretty]
-%runElab derive "Text.Bounds.Bounds" [Pretty]
-%runElab derive "Text.Bounds.Bounded" [Pretty]
-
-public export
-Pretty a => Pretty (List1 a) where
-  prettyPrec p (v ::: vs) =
-    let pv  := prettyPrec (User 7) v
-        pvs := prettyPrec (User 7) vs
-        opstyle := parenthesise (p >= User 7) $ hsep [pv, line ":::", pvs]
-     in ifMultiline opstyle (parenthesise (p >= App) constyle )
-       where
-         constyle : Doc opts
-         constyle = prettyCon p "(:::)" [prettyArg v, prettyArg vs]
 
 public export
 0 Key : Type
@@ -95,7 +75,7 @@ data TomlValue : Type where
   ||| A table of key-value pairs
   TTbl  : TableType -> SortedMap String TomlValue -> TomlValue
 
-%runElab derive "TomlValue" [Eq,Show,Pretty]
+%runElab derive "TomlValue" [Eq,Show]
 
 ||| Currently, a TOML table is a list of pairs. This might be later
 ||| changed to some kind of dictionary.
@@ -110,7 +90,7 @@ TomlTable = SortedMap String TomlValue
 public export
 data KeyType = Plain | Quoted | Literal
 
-%runElab derive "KeyType" [Eq,Show,Pretty]
+%runElab derive "KeyType" [Eq,Show]
 
 public export
 record KeyToken where
@@ -119,7 +99,7 @@ record KeyToken where
   tpe    : KeyType
   bounds : Bounds
 
-%runElab derive "KeyToken" [Eq,Show,Pretty]
+%runElab derive "KeyToken" [Eq,Show]
 
 export
 Interpolation KeyToken where
@@ -149,7 +129,7 @@ data TomlToken : Type where
   ||| A line comment
   Comment : TomlToken
 
-%runElab derive "TomlToken" [Eq,Show,Pretty]
+%runElab derive "TomlToken" [Eq,Show]
 
 public export %inline
 key1 : KeyToken -> TomlToken

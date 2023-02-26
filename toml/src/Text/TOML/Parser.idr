@@ -1,6 +1,5 @@
 module Text.TOML.Parser
 
-import Text.PrettyPrint.Bernardy
 import Data.List1
 import Data.SortedMap
 import Text.Parse.Manual

@@ -152,17 +152,17 @@ assemble top []        _      = Right top
 fromString : String -> TomlToken
 fromString = TSym
 
+0 AccRule : Bool -> Type -> Type
+AccRule b = AccGrammar b TomlToken TomlParseError
+
 0 Rule : Bool -> Type -> Type
-Rule b a =
-     (ts : List (Bounded TomlToken))
-  -> (0 acc : SuffixAcc ts)
-  -> Res b TomlToken ts TomlParseError a
+Rule b = Grammar b TomlToken TomlParseError
 
-array : Bounds -> SnocList TomlValue -> Rule True TomlValue
+array : Bounds -> SnocList TomlValue -> AccRule True TomlValue
 
-table : Bounds -> TomlValue -> Rule True TomlValue
+table : Bounds -> TomlValue -> AccRule True TomlValue
 
-value : Rule True TomlValue
+value : AccRule True TomlValue
 value (B (TVal v) _ :: xs)       _      = Succ0 v xs
 value (B "[" _ :: B "]" _ :: xs) _      = Succ0 (TArr Static [<]) xs
 value (B "{" _ :: B "}" _ :: xs) _      = Succ0 (TTbl Inline empty) xs
@@ -176,7 +176,10 @@ array b sx xs acc@(SA r) = case value xs acc of
   Succ0 v (B "]" _ :: ys)            => Succ0 (TArr Static $ sx :< v) ys
   res                                => failInParen b "[" res
 
-keyVal : Rule True (List1 KeyToken,TomlValue)
+key : Rule True (List1 KeyToken)
+key = terminal $ \case TKey x => Just x; _ => Nothing
+
+keyVal : AccRule True (List1 KeyToken,TomlValue)
 keyVal (B (TKey x) _ :: B "=" _ :: xs) (SA r) = (x,) <$> succT (value xs r)
 keyVal (B (TKey _) _ :: x :: xs)       _      = expected x.bounds "="
 keyVal xs                              _      = fail xs
@@ -193,21 +196,9 @@ table b tbl xs acc@(SA r) = case keyVal xs acc of
   res => failInParen b "{" res
 
 item : Rule True TomlItem
-item (B "[" b1 :: xs) _ = case xs of
-  B (TKey k) _ :: B "]" _ :: r => Succ0 (TableName k) r
-  B (TKey k) _ :: B NL  _ :: r => unclosed b1 "["
-  B (TKey k) _ :: B _   b :: r => expected b "]"
-  B NL b :: r                  => unclosed b1 "["
-  B _ b :: r                   => custom b ExpectedKey
-  []                           => unclosed b1 "["
-item (B "[[" b1 :: xs) _ = case xs of
-  B (TKey k) _ :: B "]]" _ :: r => Succ0 (ArrayName k) r
-  B (TKey k) _ :: B NL   _ :: r => unclosed b1 "[["
-  B (TKey k) _ :: B _    b :: r => expected b "]]"
-  B NL _ :: r                   => unclosed b1 "[["
-  B _ b :: r                    => custom b ExpectedKey
-  []                            => unclosed b1 "[["
-item ts acc = uncurry KeyVal <$> keyVal ts acc
+item (B "[" b1 :: xs)  = TableName <$> succT (before key "]" xs)
+item (B "[[" b1 :: xs) = ArrayName <$> succT (before key "]]" xs)
+item ts                = uncurry KeyVal <$> acc keyVal ts
 
 items :
      SnocList TomlItem
@@ -216,7 +207,7 @@ items :
   -> Either (Bounded TomlErr) (List TomlItem)
 items sx []             _      = Right $ sx <>> []
 items sx (B NL _ :: xs) (SA r) = items sx xs r
-items sx xs       acc@(SA r)   = case item xs acc of
+items sx xs             (SA r) = case item xs of
   Succ0 i (B NL _ :: xs) => items (sx :< i) xs r
   Succ0 i (x::xs)        => Left (Unexpected <$> x)
   Succ0 i []             => Right (sx <>> [i])

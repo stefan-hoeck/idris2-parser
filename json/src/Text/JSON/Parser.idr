@@ -24,8 +24,7 @@ value (B '[' _ :: B ']' _ :: xs) _      = Succ0 (JArray []) xs
 value (B '[' b :: xs)            (SA r) = succT $ array b [<] xs r
 value (B '{' _ :: B '}' _ :: xs) _      = Succ0 (JObject []) xs
 value (B '{' b :: xs)            (SA r) = succT $ object b [<] xs r
-value (x :: xs) _                       = unexpected x
-value [] _                              = eoi
+value xs                         _      = fail xs
 
 array b sv xs sa@(SA r) = case value xs sa of
   Succ0 v (B ',' _ :: ys) => succT $ array b (sv :< v) ys r

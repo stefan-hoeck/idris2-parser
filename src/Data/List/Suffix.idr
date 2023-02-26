@@ -170,3 +170,45 @@ acc' (x :: xs) tt         = sa $ \v => acc' xs (unconsRight $ trans v tt)
 export
 suffixAcc : {ts : List t} -> SuffixAcc ts
 suffixAcc = acc' ts Same
+
+--------------------------------------------------------------------------------
+--          Suffix Chains
+--------------------------------------------------------------------------------
+
+||| Syntactic sugar for describing transitive chains of suffixes.
+public export
+data Link : (xs,ys : List a) -> Type where
+  F : {0 ys : _} -> (0 xs : _) -> {auto 0 p : Suffix False xs ys} -> Link xs ys
+  T : {0 ys : _} -> (0 xs : _) -> {auto 0 p : Suffix True xs ys} -> Link xs ys
+
+public export
+any : {b : _} -> Suffix b xs ys -> Link xs ys
+any {b = True}  _ = T xs
+any {b = False} _ = F xs
+
+||| Syntactic sugar for describing transitive chains of suffixes.
+public export
+data Chain : (xs,ys : List a) -> Type where
+  Nil  : {0 xs : List a} -> Chain xs xs
+  (::) :
+       {0 xs,ys,zs : List a}
+    -> (0 link : Link xs ys)
+    -> (0 ch   : Chain ys zs)
+    -> Chain xs zs
+
+public export
+data IsStrict : Chain xs ys -> Type where
+  Here : IsStrict (T xs @{p} :: ys)
+  There : IsStrict c -> IsStrict (l :: c)
+
+public export
+0 weak : Chain xs ys -> Suffix False xs ys
+weak []               = Same
+weak (F _ @{p} :: ch) = trans p $ weak ch
+weak (T _ @{p} :: ch) = weaken $ trans p (weak ch)
+
+public export
+0 strict : (c : Chain xs ys) -> {auto p : IsStrict c} -> Suffix True xs ys
+strict (T _ @{q} :: c) @{Here}    = trans q $ weak c
+strict (T _ @{q} :: c) @{There _} = trans q $ weak c
+strict (F _ @{q} :: c) @{There _} = trans q $ strict c

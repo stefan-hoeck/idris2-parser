@@ -49,6 +49,11 @@ public export
 0 InnerOrOther : Type
 InnerOrOther = Either EAInner Other
 
+public export
+innerAttribute : SnocList InnerOrOther -> EAInner -> EAInner
+innerAttribute [<]       x = x
+innerAttribute (sx :< y) x = innerAttribute sx $ y :: x
+
 namespace EAInner
 
   ||| Number of `Other`s.
@@ -89,10 +94,7 @@ data ExtAttribute : Type where
 %runElab derive "ExtAttribute" [Eq,Show]
 
 public export
-extAttribute :
-     SnocList InnerOrOther
-  -> ExtAttribute
-  -> ExtAttribute
+extAttribute : SnocList InnerOrOther -> ExtAttribute -> ExtAttribute
 extAttribute [<]       x = x
 extAttribute (sx :< y) x = extAttribute sx $ Cons y x
 

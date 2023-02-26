@@ -25,3 +25,9 @@ modules = Data.Bitraversable
         , Text.WebIDL.Types.Type
 
         , Text.WebIDL.Lexer
+
+        , Text.WebIDL.Parser
+        , Text.WebIDL.Parser.Arguments
+        , Text.WebIDL.Parser.Attributes
+        , Text.WebIDL.Parser.Type
+        , Text.WebIDL.Parser.Util

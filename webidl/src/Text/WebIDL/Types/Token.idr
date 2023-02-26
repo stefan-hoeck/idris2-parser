@@ -12,13 +12,12 @@ import Text.WebIDL.Types.Symbol
 
 public export
 data IdlError : Type where
-  EmptyAttributeList : IdlError
 
 %runElab derive "IdlError" [Show,Eq]
 
 export
 Interpolation IdlError where
-  interpolate EmptyAttributeList = "Empty attribute list"
+  interpolate _ impossible
 
 ||| Text tokens in the WebIDL grammar. The `Invalid` token
 ||| is not recognized by any parser and will lead to a

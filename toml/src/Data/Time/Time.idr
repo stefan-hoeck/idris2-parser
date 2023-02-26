@@ -1,12 +1,11 @@
 module Data.Time.Time
 
-import public Data.Nat
 import public Data.Refined
 import public Data.Time.Date
+import public Decidable.HDec.Integer
 import Data.String
 import Derive.Prelude
 import Derive.Refined
-import Text.PrettyPrint.Bernardy
 
 %default total
 %language ElabReflection
@@ -19,7 +18,7 @@ public export
 record Hour where
   constructor H
   hour : Integer
-  {auto 0 valid : Holds (InRange 0 23) hour}
+  {auto 0 valid : FromTo 0 23 hour}
 
 namespace Hour
   %runElab derive "Hour" [Show, Eq, Ord, RefinedInteger]
@@ -27,9 +26,6 @@ namespace Hour
   export
   Interpolation Hour where
     interpolate (H h) = padLeft 2 '0' $ show h
-
-  export
-  Pretty Hour where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          Minute
@@ -39,7 +35,7 @@ public export
 record Minute where
   constructor M
   minute : Integer
-  {auto 0 valid : Holds (InRange 0 59) minute}
+  {auto 0 valid : FromTo 0 59 minute}
 
 namespace Minute
   %runElab derive "Minute" [Show, Eq, Ord, RefinedInteger]
@@ -47,9 +43,6 @@ namespace Minute
   export
   Interpolation Minute where
     interpolate (M m) = padLeft 2 '0' $ show m
-
-  export
-  Pretty Minute where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          Second
@@ -59,7 +52,7 @@ public export
 record Second where
   constructor S
   second : Integer
-  {auto 0 valid : Holds (InRange 0 60) second}
+  {auto 0 valid : FromTo 0 60 second}
 
 namespace Second
   %runElab derive "Second" [Show, Eq, Ord, RefinedInteger]
@@ -68,9 +61,6 @@ namespace Second
   Interpolation Second where
     interpolate (S s) = padLeft 2 '0' $ show s
 
-  export
-  Pretty Second where prettyPrec _ = line . interpolate
-
 --------------------------------------------------------------------------------
 --          MicroSecond
 --------------------------------------------------------------------------------
@@ -78,8 +68,8 @@ namespace Second
 public export
 record MicroSecond where
   constructor MS
-  milliseconds : Integer
-  {auto 0 valid : Holds (InRange 0 999999) milliseconds}
+  us : Integer
+  {auto 0 valid : FromTo 0 999999 us}
 
 namespace MicroSecond
   %runElab derive "MicroSecond" [Show, Eq, Ord, RefinedInteger]
@@ -87,9 +77,6 @@ namespace MicroSecond
   export
   Interpolation MicroSecond where
     interpolate (MS n) = padLeft 6 '0' $ show n
-
-  export
-  Pretty MicroSecond where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          LocalTime
@@ -111,9 +98,6 @@ Interpolation LocalTime where
     let mss := maybe "" (\x => ".\{x}") ms
      in "\{h}:\{m}:\{s}\{mss}"
 
-export %inline
-Pretty LocalTime where prettyPrec _ = line . interpolate
-
 --------------------------------------------------------------------------------
 --          Sign
 --------------------------------------------------------------------------------
@@ -127,9 +111,6 @@ export
 Interpolation Sign where
   interpolate Minus = "-"
   interpolate Plus  = "+"
-
-export %inline
-Pretty Sign where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          Offset
@@ -147,9 +128,6 @@ Interpolation Offset where
   interpolate Z = "Z"
   interpolate (O sign h m) = "\{sign}\{h}:\{m}"
 
-export %inline
-Pretty Offset where prettyPrec _ = line . interpolate
-
 --------------------------------------------------------------------------------
 --          OffsetTime
 --------------------------------------------------------------------------------
@@ -165,9 +143,6 @@ record OffsetTime where
 export
 Interpolation OffsetTime where
   interpolate (OT t o) = "\{t}\{o}"
-
-export %inline
-Pretty OffsetTime where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          DateTime
@@ -185,9 +160,6 @@ export
 Interpolation LocalDateTime where
   interpolate (LDT d t) = "\{d}T\{t}"
 
-export %inline
-Pretty LocalDateTime where prettyPrec _ = line . interpolate
-
 public export
 record OffsetDateTime where
   constructor ODT
@@ -199,9 +171,6 @@ record OffsetDateTime where
 export
 Interpolation OffsetDateTime where
   interpolate (ODT d t) = "\{d}T\{t}"
-
-export %inline
-Pretty OffsetDateTime where prettyPrec _ = line . interpolate
 
 --------------------------------------------------------------------------------
 --          AnyTime
@@ -222,6 +191,3 @@ Interpolation AnyTime where
   interpolate (ATLocalTime x)      = interpolate x
   interpolate (ATLocalDateTime x)  = interpolate x
   interpolate (ATOffsetDateTime x) = interpolate x
-
-export %inline
-Pretty AnyTime where prettyPrec _ = line . interpolate

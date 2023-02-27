@@ -16,4 +16,4 @@ record StringLit where
 
 export %inline
 Interpolation StringLit where
-  interpolate = show . value
+  interpolate v = #""\#{v.value}""#

@@ -12,12 +12,15 @@ import Text.WebIDL.Types.Symbol
 
 public export
 data IdlError : Type where
+  ExpectedStringLit : IdlError
+  InvalidArgName : String -> IdlError
 
 %runElab derive "IdlError" [Show,Eq]
 
 export
 Interpolation IdlError where
-  interpolate _ impossible
+  interpolate ExpectedStringLit = "Expected string literal"
+  interpolate (InvalidArgName s) = "Invalid argument name: \{s}"
 
 ||| Text tokens in the WebIDL grammar. The `Invalid` token
 ||| is not recognized by any parser and will lead to a

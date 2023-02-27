@@ -19,7 +19,6 @@ digs :
   -> List Char
   -> Integer
   -> String
-digs b [] 0 = "0"
 digs b cs 0 = pack cs
 digs b cs n = digs b (hexDigit (mod n b) :: cs) (assert_smaller n $ div n b)
 
@@ -33,8 +32,10 @@ data IntLit = Hex Nat | Oct Nat | I Integer
 
 export
 Interpolation IntLit where
+  interpolate (Hex 0) = "0x0"
   interpolate (Hex k) = "0x\{digs 16 [] $ cast k}"
-  interpolate (Oct k) = digs 8 ['0'] $ cast k
+  interpolate (Oct 0) = "0"
+  interpolate (Oct k) = "0\{digs 8 [] $ cast k}" 
   interpolate (I i)   = show i
 
 --------------------------------------------------------------------------------

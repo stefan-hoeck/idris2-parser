@@ -24,10 +24,13 @@ modules = Data.Bitraversable
         , Text.WebIDL.Types.Token
         , Text.WebIDL.Types.Type
 
+        , Text.WebIDL.Encoder
         , Text.WebIDL.Lexer
 
         , Text.WebIDL.Parser
         , Text.WebIDL.Parser.Arguments
         , Text.WebIDL.Parser.Attributes
+        , Text.WebIDL.Parser.Definitions
+        , Text.WebIDL.Parser.Members
         , Text.WebIDL.Parser.Type
         , Text.WebIDL.Parser.Util

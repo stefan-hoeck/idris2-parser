@@ -19,8 +19,38 @@ public export
 AccRule b a =
      (ts : List (Bounded IdlToken))
   -> (0 acc : SuffixAcc ts)
-  -> Res b IdlToken ts ParseErr a
+  -> Res b IdlToken ts IdlError a
 
 public export
 0 Rule : Bool -> Type -> Type
-Rule b a = (ts : List (Bounded IdlToken)) -> Res b IdlToken ts ParseErr a
+Rule b a = (ts : List (Bounded IdlToken)) -> Res b IdlToken ts IdlError a
+
+idlErr : Bounds -> IdlError -> Res b IdlToken ts IdlError a
+idlErr b err = custom b err
+
+public export
+isOpen : IdlToken -> Bool
+isOpen '(' = True
+isOpen '[' = True
+isOpen '{' = True
+isOpen _   = False
+
+public export
+closes : IdlToken -> IdlToken -> Bool
+')' `closes` '(' = True
+']' `closes` '[' = True
+'}' `closes` '{' = True
+_   `closes` _   = False
+
+public export
+ident : Rule True Identifier
+ident = terminal $ \case Ident i => Just i; _ => Nothing
+
+public export %inline
+inj :
+      {0 a  : Type}
+   -> {0 xs : List Type}
+   -> Result0 b t ts e a
+   -> {auto   p : Elem a xs}
+   -> Result0 b t ts e (NS I xs)
+inj r = map (\v => inject v) r

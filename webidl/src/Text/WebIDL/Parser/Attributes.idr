@@ -8,18 +8,6 @@ import Text.WebIDL.Parser.Util
 --          Extended Attributes
 --------------------------------------------------------------------------------
 
-isOpen : IdlToken -> Bool
-isOpen '(' = True
-isOpen '[' = True
-isOpen '{' = True
-isOpen _   = False
-
-closes : IdlToken -> IdlToken -> Bool
-')' `closes` '(' = True
-']' `closes` '[' = True
-'}' `closes` '{' = True
-_   `closes` _   = False
-
 toOther : IdlToken -> Maybe Other
 toOther (SLit x)         = Just $ inject x
 toOther (ILit x)         = Just $ inject x
@@ -69,16 +57,18 @@ eaRest sx x ts acc@(SA r) = case innerOrOther ts acc of
 --     [ ExtendedAttributeInner ] ExtendedAttributeRest
 --     { ExtendedAttributeInner } ExtendedAttributeRest
 --     Other ExtendedAttributeRest
-ea : Rule True ExtAttribute
-ea xs = case innerOrOther xs suffixAcc of
+export
+extAttribute : Rule True ExtAttribute
+extAttribute xs = case innerOrOther xs suffixAcc of
   Succ0 e ys => succT $ eaRest [<] e ys suffixAcc
   Fail0 err  => Fail0 err
 
 -- ExtendedAttributes ::
 --     , ExtendedAttribute ExtendedAttributes
 --     ε
+export
 eas : SnocList ExtAttribute -> Bounds -> AccRule True ExtAttributeList
-eas sa b ts (SA r) = case ea ts of
+eas sa b ts (SA r) = case extAttribute ts of
   Succ0 v (B ']' _ :: xs) => Succ0 (sa <>> [v]) xs
   Succ0 v (B ',' _ :: xs) => succT $ eas (sa :< v) b xs r
   res                     => failInParen b '[' res
@@ -90,3 +80,7 @@ export
 attributes : Rule False ExtAttributeList
 attributes (B '[' b :: xs) = succF $ eas [<] b xs suffixAcc
 attributes xs              = Succ0 [] xs
+
+export
+attributed : Rule True a -> Rule True (Attributed a)
+attributed f = Manual.[| MkPair attributes f |]

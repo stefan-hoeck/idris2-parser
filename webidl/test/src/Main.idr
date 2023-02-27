@@ -1,4 +1,8 @@
 module Main
 
+import Lexer
+import Parser
+import Hedgehog
+
 main : IO ()
-main = putStrLn "Test dummy"
+main = test [ Lexer.props, Parser.props ]

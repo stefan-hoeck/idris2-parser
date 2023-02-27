@@ -109,6 +109,30 @@ data Nullable a = MaybeNull a | NotNull a
 
 %runElab derive "Nullable" [Eq,Show,HasAttributes]
 
+public export
+val : Nullable a -> a
+val (MaybeNull x) = x
+val (NotNull x)   = x
+
+public export
+zipWith : (a -> b -> c) -> Nullable a -> Nullable b -> Nullable c
+zipWith f (NotNull x) (NotNull y) = NotNull $ f x y
+zipWith f x y                     = MaybeNull $ f (val x) (val y)
+
+public export
+Functor Nullable where
+  map f (MaybeNull x) = MaybeNull $ f x
+  map f (NotNull x)   = NotNull $ f x
+
+public export
+Foldable Nullable where
+  foldr f acc v = f (val v) acc
+
+public export
+Traversable Nullable where
+  traverse f (MaybeNull x) = MaybeNull <$> f x
+  traverse f (NotNull x)   = NotNull <$> f x
+
 export
 nullVal : Nullable a -> a
 nullVal (MaybeNull x) = x
@@ -261,18 +285,6 @@ isIndex _                                 = False
 --------------------------------------------------------------------------------
 --          Implementations
 --------------------------------------------------------------------------------
-
-mutual
-  export
-  Functor Nullable where map = mapDefault
-
-  export
-  Foldable Nullable where foldr = foldrDefault
-
-  export
-  Traversable Nullable where
-    traverse f (MaybeNull x) = MaybeNull <$> f x
-    traverse f (NotNull x)   = NotNull <$> f x
 
 mutual
   export

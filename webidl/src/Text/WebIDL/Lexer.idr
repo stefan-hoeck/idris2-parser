@@ -47,7 +47,7 @@ toIdent s           = maybe (Ident $ MkIdent s) Key (refineKeyword s)
 
 ident : SnocList Char -> AutoTok Char IdlToken
 ident sc ('-' :: xs) = ident (sc :< '-') xs
-ident sc ('_' :: xs) = ident (sc :< '_')  xs
+ident sc ('_' :: xs) = ident (sc :< '_') xs
 ident sc (x   :: xs) =
   if isAlphaNum x then ident (sc :< x) xs else Succ (toIdent $ cast sc) (x::xs)
 ident sc  []         = Succ (toIdent $ cast sc) []
@@ -90,11 +90,20 @@ num s n []        = Succ (ILit $ I $ toInt s n) []
 --          Numbers
 --------------------------------------------------------------------------------
 
+isFloat : List Char -> Bool
+isFloat ('.' :: _) = True
+isFloat ('e' :: _) = True
+isFloat ('E' :: _) = True
+isFloat _          = False
+
 term : Tok Char IdlToken
+term ('"':: xs) = string [<] xs
 term ('/'::'/':: xs) = comment xs
+term ('/'::'*':: xs) = mlComment xs
 term ('0'::'x':: xs) = ILit . Hex <$> hex xs
 term ('0'::'X':: xs) = ILit . Hex <$> hex xs
-term ('0':: xs)      = ILit . Oct <$> oct ('0'::xs)
+term ('0'::xs)       =
+  if isFloat xs then rest 0 xs else ILit . Oct <$> oct ('0'::xs)
 term ('.'::'.'::'.'::xs) = Succ (Other Ellipsis) xs
 term ('_':: x::xs)   =
   if isAlpha x then ident [<'_',x] xs
@@ -104,7 +113,7 @@ term ('-':: x::xs)   =
   else if isDigit x then num Minus (digit x) xs
   else Succ (Other $ Symb '-') (x::xs)
 term (x::xs)         =
-  if      isAlpha x then ident [<'_',x] xs
+  if      isAlpha x then ident [<x] xs
   else if isDigit x then num Plus (digit x) xs
   else if isSpace x then spaces xs
   else Succ (Other $ Symb x) xs

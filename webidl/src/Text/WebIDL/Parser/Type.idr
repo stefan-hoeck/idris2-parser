@@ -1,8 +1,30 @@
 module Text.WebIDL.Parser.Type
 
+import Text.WebIDL.Parser.Attributes
 import Text.WebIDL.Parser.Util
 
 %default total
+
+data UnionTree : Bool -> Type where
+  Leaf   : UnionMemberType -> UnionTree False
+  Branch : UnionTree b -> UnionTree c -> UnionTree d
+
+weaken : UnionTree x -> UnionTree False
+weaken (Leaf m)     = Leaf m
+weaken (Branch l r) = Branch l r
+
+flat : UnionTree b -> List1 UnionMemberType
+flat (Leaf x)     = singleton x
+flat (Branch x y) = flat x ++ flat y
+
+flatten : Nullable (UnionTree True) -> IdlType
+flatten x =
+  let Branch l r  := val x
+      (hl ::: tl) := flat l
+      (hr ::: tr) := flat r
+   in case tl of
+        []     => U $ x $> UT hl hr tr
+        (h::t) => U $ x $> UT hl h  (t ++ hr :: tr)
 
 int : Rule True IntType
 int (B "long" _ :: B "long" _ :: xs) = Succ0 LongLong xs
@@ -15,6 +37,7 @@ float (B "double" _ :: xs) = Succ0 Dbl xs
 float (B "float" _ :: xs)  = Succ0 Float xs
 float xs                   = fail xs
 
+export
 primitive : Rule True PrimitiveType
 primitive (B "boolean" _ :: xs)      = Succ0 Boolean xs
 primitive (B "byte" _ :: xs)         = Succ0 Byte xs
@@ -42,14 +65,84 @@ simple (B "DOMString" _ :: xs)         = Succ0 (S DOMString) xs
 simple (B "USVString" _ :: xs)         = Succ0 (S USVString) xs
 simple xs                              = P <$> primitive xs
 
+export
 constType : Rule True ConstType
 constType (B (Ident i) _ :: xs) = Succ0 (CI i) xs
 constType xs                    = CP <$> primitive xs
 
--- nullable : IdlGrammar a -> IdlGrammar (Nullable a)
--- nullable g = map MaybeNull (g <* symbol '?') <|> map NotNull g
+idlAttr : (ExtAttributeList -> IdlType -> a) -> AccRule True a
 
-distinguishable : AccRule True IdlType
+idlAttrAngle : (ExtAttributeList -> IdlType -> a) -> AccRule True a
+
+idlTpe : AccRule True IdlType
+
+unionMember : AccRule True (Nullable $ UnionTree False)
+
+unionRest : Bounds -> AccRule True (Nullable $ UnionTree False)
+
+union : Bounds -> AccRule True (Nullable $ UnionTree True)
+
+-- RecordType ::
+--     record < StringType , TypeWithExtendedAttributes >
+recrd : Bounds -> StringType -> AccRule True Distinguishable
+recrd b s (B ',' _ :: xs) (SA r) = case succT (idlAttr (Record s) xs r) of
+  Succ0 t (B '>' _ :: ys) => Succ0 t ys
+  res                     => failInParen b '<' res
+recrd b s (x :: xs) _ = expected x.bounds ','
+recrd b s []        _ = eoi
+
+  -- DistinguishableType ::
+  --     PrimitiveType Null
+  --     StringType Null
+  --     identifier Null
+  --     sequence < TypeWithExtendedAttributes > Null
+  --     object Null
+  --     symbol Null
+  --     BufferRelatedType Null
+  --     FrozenArray < TypeWithExtendedAttributes > Null
+  --     ObservableArray < TypeWithExtendedAttributes > Null
+  --     RecordType Null
+distinguishable : AccRule True Distinguishable
+distinguishable [] _           = eoi
+distinguishable (x::xs) (SA r) = case x.val of
+  "object"          => Succ0 Object xs
+  "symbol"          => Succ0 Symbol xs
+  "sequence"        => succT (idlAttrAngle Sequence xs r)
+  "FrozenArray"     => succT (idlAttrAngle FrozenArray xs r)
+  "ObservableArray" => succT (idlAttrAngle ObservableArray xs r)
+  "record"          => case xs of
+    B '<' b :: B "DOMString"  _ :: ys => succT (recrd b DOMString ys r)
+    B '<' b :: B "ByteString" _ :: ys => succT (recrd b ByteString ys r)
+    B '<' b :: B "USVString"  _ :: ys => succT (recrd b USVString ys r)
+    B '<' b :: y :: ys  => unexpected y
+    B '<' b :: []       => unclosed b '<'
+    x :: xs             => expected x.bounds '<'
+    []                  => eoi
+  Ident i           => Succ0 (I i) xs
+  _                 => simple (x::xs)
+
+distinguishableType : AccRule True (Nullable Distinguishable)
+distinguishableType ts acc = case distinguishable ts acc of
+  Succ0 d (B '?' _ :: xs) => Succ0 (MaybeNull d) xs
+  Succ0 d xs              => Succ0 (NotNull d) xs
+  Fail0 err               => Fail0 err
+
+unionMember (B '(' b :: xs) (SA r) = succT (map weaken <$> union b xs r)
+unionMember (B '[' b :: xs) (SA r) =
+  let Succ0 as r1 := succT $ eas [<] b xs r | Fail0 err => Fail0 err
+   in map (Leaf . MkUnionMember as) <$> succT (distinguishableType r1 r)
+unionMember xs a = map (Leaf . MkUnionMember []) <$> distinguishableType xs a
+
+union b xs acc@(SA r) = case unionMember xs acc of
+  Succ0 u1 (B "or" _ :: ys) => succT (zipWith Branch u1 <$> unionRest b ys r)
+  Succ0 _  (x :: _)         => expected x.bounds "or"
+  res                       => failInParen b '(' res
+
+unionRest b xs acc@(SA r) = case unionMember xs acc of
+  Succ0 u1 (B "or" _ :: ys) => succT (zipWith Branch u1 <$> unionRest b ys r)
+  Succ0 u1 (B ')' _  :: B '?' _ :: ys) => Succ0 (MaybeNull $ val u1) ys
+  Succ0 u1 (B ')' _  :: ys) => Succ0 u1 ys
+  res                       => failInParen b '(' res
 
 -- Type ::
 --     SingleType
@@ -61,93 +154,29 @@ distinguishable : AccRule True IdlType
 --     PromiseType
 -- PromiseType ::
 --     Promise < Type >
-export
-idlType : AccRule True IdlType
-idlType (B "any" _ :: xs) _ = Succ0 Any xs
-idlType (B "Promise" _ :: B '<' b :: xs) (SA r) = case succT $ idlType xs r of
+idlTpe (B "any" _ :: xs) _ = Succ0 Any xs
+idlTpe (B "Promise" _ :: B '<' b :: xs) (SA r) = case succT $ idlTpe xs r of
   Succ0 t (B '>' _ :: ys) => Succ0 (Promise t) ys
   xs                      => failInParen b '<' xs
-idlType xs acc = distinguishable xs acc
+idlTpe (B '(' b :: xs) (SA r)  = flatten <$> succT (union b xs r)
+idlTpe xs acc = D <$> distinguishableType xs acc
 
--- 
--- mutual
---   export
---   idlType =   (key "any" $> Any)
---           <|> map Promise (key "Promise" *> inAngles idlType)
---           <|> map D distinguishableType
---           <|> (nullable flatUnion >>= map U . fromFlatUnion)
--- 
---     where um : Attributed (Nullable Distinguishable) -> UnionMemberType
---           um (a, MaybeNull x) = MkUnionMember a x
---           um (a, NotNull x)   = MkUnionMember a x
--- 
---           fromFlatUnion :  Nullable (List1 $ Attributed $ Nullable Distinguishable)
---                         -> IdlGrammar' (Nullable UnionType)
---           fromFlatUnion (MaybeNull $ a ::: b :: t) =
---             pure . MaybeNull $ UT (um a) (um b) (map um t)
--- 
---           fromFlatUnion (NotNull   $ a ::: b :: t) =
---             if any (isNullable . snd) (a::b::t)
---                then pure . MaybeNull $ UT (um a) (um b) (map um t)
---                else pure . NotNull   $ UT (um a) (um b) (map um t)
--- 
---           fromFlatUnion _                          = fail "no enough union members"
+idlAttr f (B '[' b :: xs) (SA r) = case succT (eas [<] b xs r) of
+  Succ0 as ys => f as <$> succT (idlTpe ys r)
+  Fail0 err   => Fail0 err
+idlAttr f xs acc = f [] <$> idlTpe xs acc
 
---   -- TypeWithExtendedAttributes ::
---   --     ExtendedAttributeList Type
---   attrTpe : IdlGrammar (Attributed IdlType)
---   attrTpe = attributed idlType
--- 
---   -- RecordType ::
---   --     record < StringType , TypeWithExtendedAttributes >
---   recrd : IdlGrammar Distinguishable
---   recrd = Record <$> (key "record" *> symbol '<' *> stringType)
---                  <*> (comma *> attributes)
---                  <*> (idlType <* symbol '>')
--- 
---   -- DistinguishableType ::
---   --     PrimitiveType Null
---   --     StringType Null
---   --     identifier Null
---   --     sequence < TypeWithExtendedAttributes > Null
---   --     object Null
---   --     symbol Null
---   --     BufferRelatedType Null
---   --     FrozenArray < TypeWithExtendedAttributes > Null
---   --     ObservableArray < TypeWithExtendedAttributes > Null
---   --     RecordType Null
---   distinguishable : IdlGrammar Distinguishable
---   distinguishable =
---         map P primitive
---     <|> map S stringType
---     <|> map B bufferRelated
---     <|> (key "object" $> Object)
---     <|> (key "symbol" $> Symbol)
---     <|> (key "sequence" *> inAngles [| Sequence attributes idlType |])
---     <|> (key "FrozenArray" *> inAngles [| FrozenArray attributes idlType |])
---     <|> (key "ObservableArray" *> inAngles [| ObservableArray attributes idlType |])
---     <|> recrd
---     <|> map I ident
--- 
---   distinguishableType : IdlGrammar (Nullable Distinguishable)
---   distinguishableType = nullable distinguishable
--- 
---   -- UnionType ::
---   --     ( UnionMemberType or UnionMemberType UnionMemberTypes )
---   --
---   -- UnionMemberTypes ::
---   --     or UnionMemberType UnionMemberTypes
---   --     ε
---   flatUnion : IdlGrammar (List1 $ Attributed $ Nullable Distinguishable)
---   flatUnion = inParens $ do (a :: b :: t) <- sepBy (key "or") flatMember
---                               | _ => fail "Non enough Union members"
---                             pure (join $ a ::: b :: t)
--- 
---   -- UnionMemberType ::
---   --     ExtendedAttributeList DistinguishableType
---   --     UnionType Null
---   flatMember : IdlGrammar (List1 $ Attributed $ Nullable Distinguishable)
---   flatMember = map singleton (attributed distinguishableType) <|> flatUnion
--- 
--- optionalType : IdlGrammar' OptionalType
--- optionalType = optional (symbol ',' *> attributed idlType)
+idlAttrAngle f (B '<' b :: xs) (SA r) = case succT (idlAttr f xs r) of
+  Succ0 v (B '>' _ :: ys) => Succ0 v ys
+  res                     => failInParen b '<' res
+idlAttrAngle f (x::xs) _ = expected x.bounds '<'
+idlAttrAngle f []      _ = eoi
+
+export %inline
+idlType : Rule True IdlType
+idlType = acc idlTpe
+
+export %inline
+optionalType : Rule False OptionalType
+optionalType (B ',' _ :: xs) = succF $ Just <$> attributed idlType xs
+optionalType xs              = Succ0 Nothing xs

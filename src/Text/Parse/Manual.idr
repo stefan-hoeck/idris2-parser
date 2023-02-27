@@ -131,8 +131,27 @@ terminalE _ []            = eoi
 ||| at the head does not match.
 public export
 exact : Eq t => t -> Grammar True t e ()
-exact x (B y b :: xs) = if x == y then Succ0 () xs else expected b x
-exact x []            = expected NoBounds x
+exact v (x::xs) = if v == x.val then Succ0 () xs else expected x.bounds v
+exact v []      = expected NoBounds v
+
+||| Look at the next token without consuming any input.
+public export
+peek : Grammar False t e t
+peek (x::xs) = Succ0 x.val (x::xs)
+peek []      = eoi
+
+||| Check whether the next token satisfies a predicate. Does not consume.
+public export
+nextIs : (t -> Bool) -> Grammar False t e t
+nextIs f (x::xs) = if f x.val then Succ0 x.val (x :: xs) else unexpected x
+nextIs f []      = eoi
+
+||| Check whether the next token equals the given value. Does not consume.
+public export
+nextEquals : Eq t => t -> Grammar False t e t
+nextEquals v (x::xs) =
+  if v == x.val then Succ0 x.val (x::xs) else expected x.bounds v
+nextEquals v []      = expected NoBounds v
 
 --------------------------------------------------------------------------------
 --          Applicative Syntax
@@ -192,7 +211,7 @@ between o c f (B x b :: xs) = case o == x of
   False => expected b o
   True  =>
     let Succ0 v (B y b2 :: ys) := succT (f xs) | res => failInParen b x res
-     in if c == y then Succ0 v xs else unexpected (B y b2)
+     in if c == y then Succ0 v ys else unexpected (B y b2)
 between o c f [] = eoi
 
 --------------------------------------------------------------------------------

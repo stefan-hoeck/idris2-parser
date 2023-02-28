@@ -1,0 +1,36 @@
+package parser-webidl
+version   = 0.1.0
+authors   = "stefan-hoeck"
+sourcedir = "src"
+depends   = parser
+          , refined
+          , sop
+
+brief     = "A total parser and lexer for the WebIDL interface description language"
+
+modules = Data.Bitraversable
+        , Data.Functor.Const
+        , Data.Traversable
+
+        , Text.WebIDL.Types
+        , Text.WebIDL.Types.Argument
+        , Text.WebIDL.Types.Attribute
+        , Text.WebIDL.Types.Definition
+        , Text.WebIDL.Types.Identifier
+        , Text.WebIDL.Types.Member
+        , Text.WebIDL.Types.Numbers
+        , Text.WebIDL.Types.StringLit
+        , Text.WebIDL.Types.Symbol
+        , Text.WebIDL.Types.Token
+        , Text.WebIDL.Types.Type
+
+        , Text.WebIDL.Encoder
+        , Text.WebIDL.Lexer
+
+        , Text.WebIDL.Parser
+        , Text.WebIDL.Parser.Arguments
+        , Text.WebIDL.Parser.Attributes
+        , Text.WebIDL.Parser.Definitions
+        , Text.WebIDL.Parser.Members
+        , Text.WebIDL.Parser.Type
+        , Text.WebIDL.Parser.Util

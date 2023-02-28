@@ -39,5 +39,9 @@ jobs:
         run: pack install parser-json
       - name: Test parser-json
         run: pack test parser-json -n 1000
+      - name: Build parser-webidl
+        run: pack install parser-webidl
+      - name: Test parser-webidl
+        run: pack test parser-webidl -n 1000
       - name: Typecheck docs
         run: pack typecheck parser-docs

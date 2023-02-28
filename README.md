@@ -30,3 +30,19 @@ This sub-project provides a lexer and parser for the
 replace the lexer and parser currently used in
 [idris2-json](https://github.com/stefan-hoeck/idris2-json).
 
+## parser-webidl
+
+As of now, this module provides the most complex parser written in
+the manual style presented here:
+A full-spec lexer and parser for the
+[WebIDL language](https://webidl.spec.whatwg.org/).
+They will eventually replace the lexer and parser currently used in
+[idris2-webidl](https://github.com/stefan-hoeck/idris2-webidl).
+
+This sub-project not only demonstrates how to manually write a total
+parser for a non-trivial language, it also shows, that these
+parsers perform considerably better than the ones written with a
+combinators library such as the one from contrib: The parser presented
+here parses an example WebIDL string of about 2'000 lines of code in
+about 8 ms on my machine, while the parser currently in use in the
+idris-webidl project takes over 60 ms for the same string.

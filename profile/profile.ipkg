@@ -5,6 +5,7 @@ depends = parser
         , profiler
         , idris2
         , json
+        , parser-webidl
 
 main = Main
 executable = "parser-profile"

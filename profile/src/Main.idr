@@ -5,6 +5,7 @@ import Data.String
 import Profile
 import LexUtil
 import System
+import WebIDL
 
 fromArgs : List String -> String -> Bool
 fromArgs [_,p] = case split ('=' ==) p of
@@ -15,4 +16,4 @@ fromArgs _ = const True
 main : IO ()
 main = do
   select <- fromArgs <$> getArgs
-  runDefault select Table show LexUtil.bench
+  runDefault select Table show WebIDL.bench

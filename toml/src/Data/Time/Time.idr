@@ -70,7 +70,7 @@ public export
 record MicroSecond where
   constructor MS
   us : Integer
-  {auto 0 valid : FromTo 0 999999 us}
+  {auto 0 valid : FromTo 0 999_999 us}
 
 namespace MicroSecond
   %runElab derive "MicroSecond" [Show, Eq, Ord, RefinedInteger]

@@ -101,11 +101,101 @@ bool : Gen (Encoded TomlValue)
 bool = element [Enc "true" $ TBool True, Enc "false" $ TBool False]
 
 --------------------------------------------------------------------------------
+--          Date/Time
+--------------------------------------------------------------------------------
+
+export
+year : Gen Year
+year = fromMaybe 0 . refineYear <$> integer (exponential 0 9999)
+
+export
+month : Gen Month
+month = fromMaybe JAN . intToMonth <$> integer (linear 1 12)
+
+export
+date : Gen Date
+date = [| toDate year month (integer $ linear 1 31) |]
+  where
+    toDate : Year -> Month -> Integer -> Date
+    toDate y m i = case refineDay {m} i of
+      Just d  => MkDate y m d
+      Nothing => MkDate y JAN 1
+
+export
+hour : Gen Hour
+hour = fromMaybe 0 . refineHour <$> integer (linear 0 23)
+
+export
+minute : Gen Minute
+minute = fromMaybe 0 . refineMinute <$> integer (linear 0 59)
+
+export
+second : Gen Second
+second = fromMaybe 0 . refineSecond <$> integer (linear 0 60)
+
+export
+microsecond : Gen MicroSecond
+microsecond = fromMaybe 0 . refineMicroSecond <$> integer (exponential 0 999_999)
+
+export
+localTime : Gen LocalTime
+localTime = [| LT hour minute second (maybe microsecond) |]
+
+export
+sign : Gen Sign
+sign = element [Minus,Plus]
+
+export
+offset : Gen Offset
+offset = frequency
+  [ (5, [| O sign hour minute |])
+  , (1, constant Z)
+  ]
+
+export
+offsetTime : Gen OffsetTime
+offsetTime = [| OT localTime offset |]
+
+export
+localDateTime : Gen LocalDateTime
+localDateTime = [| LDT date localTime |]
+
+export
+offsetDateTime : Gen OffsetDateTime
+offsetDateTime = [| ODT date offsetTime |]
+
+export
+anyTime : Gen AnyTime
+anyTime = choice
+  [ map ATDate date
+  , map ATLocalTime localTime
+  , map ATLocalDateTime localDateTime
+  , map ATOffsetDateTime offsetDateTime
+  ]
+
+noZ : String -> String
+noZ = pack . map adj . unpack
+  where
+    adj : Char -> Char
+    adj 'T' = ' '
+    adj c   = c
+
+export
+encodedTime : Gen (Encoded AnyTime)
+encodedTime = choice
+ [ map (\t => Enc "\{t}" t) anyTime
+ , map (\t => Enc (toLower "\{t}") t) anyTime
+ ]
+
+--------------------------------------------------------------------------------
 --          Inline Values
 --------------------------------------------------------------------------------
 
 inlineValue : Gen (Encoded TomlValue)
-inlineValue = choice [bool]
+inlineValue = choice
+  [ bool
+  , map TTime <$> encodedTime
+  ]
 
 export
 keyVal : Gen (Encoded a) -> Gen (Encoded (Key, a))

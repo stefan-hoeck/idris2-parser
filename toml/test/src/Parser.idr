@@ -12,11 +12,11 @@ parseProp val = property $ do
   footnote "Encoded: \{c}"
   parse Virtual c === Right v
 
-prop_bool : Property
-prop_bool = parseProp $ keyValTbl bool
+prop_keyval : Property
+prop_keyval = parseProp $ keyValTbl bool
 
 export
 properties : Group
 properties = MkGroup "Parser"
-  [ ("prop_bool", prop_bool)
+  [ ("prop_keyval", prop_keyval)
   ]

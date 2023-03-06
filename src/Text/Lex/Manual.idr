@@ -12,15 +12,20 @@ public export
 0 SuffixRes : (t : Type) -> List t -> (a : Type) -> Type
 SuffixRes t ts a = Result True t ts StopReason a
 
+||| Result of running a (strict) tokenizer.
+public export
+0 WeakRes : (t : Type) -> List t -> (a : Type) -> Type
+WeakRes t ts a = Result False t ts StopReason a
+
 --------------------------------------------------------------------------------
 --          Combinators
 --------------------------------------------------------------------------------
 
 public export
 (<|>) :
-     SuffixRes t ts a
-  -> Lazy (SuffixRes t ts a)
-  -> SuffixRes t ts a
+     Result b t ts r a
+  -> Lazy (Result b t ts r a)
+  -> Result b t ts r a
 s@(Succ {}) <|> _ = s
 _           <|> r = r
 
@@ -151,62 +156,68 @@ safeTok f ts = f ts
 
 public export %inline
 range :
-     {orig      : List t}
+     {0 b, bres : Bool}
+  -> {orig      : List t}
   -> {current   : List t}
   -> StopReason
   -> (suffixCur : Suffix b current orig)
   -> (0 rest    : List t)
   -> {auto sr   : Suffix False rest current}
-  -> SuffixRes t orig a
+  -> Result bres t orig StopReason a
 range r sc rest = Fail (weaken sc) rest r
 
 public export %inline
 invalidEscape :
-     {orig      : List t}
+     {0 b, bres : Bool}
+  -> {orig      : List t}
   -> {current   : List t}
   -> (suffixCur : Suffix b current orig)
   -> (0 rest    : List t)
   -> {auto sr   : Suffix False rest current}
-  -> SuffixRes t orig a
+  -> Result bres t orig StopReason a
 invalidEscape = range InvalidEscape
 
 public export %inline
 unknownRange :
-     {orig      : List t}
+     {0 b, bres : Bool}
+  -> {orig      : List t}
   -> {current   : List t}
   -> (suffixCur : Suffix b current orig)
   -> (0 rest    : List t)
   -> {auto sr   : Suffix False rest current}
-  -> SuffixRes t orig a
+  -> Result bres t orig StopReason a
 unknownRange = range UnknownToken
 
 public export %inline
 whole :
-     {orig      : List t}
+     {0 bres    : Bool}
+  -> {orig      : List t}
   -> StopReason
   -> (0 current : List t)
   -> {auto suffixCur : Suffix False current orig}
-  -> SuffixRes t orig a
+  -> Result bres t orig StopReason a
 whole r current = Fail Same current r
 
 public export %inline
 unknown :
-     {orig      : List t}
+     {0 bres    : Bool}
+  -> {orig      : List t}
   -> (0 current : List t)
   -> {auto suffixCur : Suffix False current orig}
-  -> SuffixRes t orig a
+  -> Result bres t orig StopReason a
 unknown = whole UnknownToken
 
 public export %inline
 failEOI :
-     {0 current : List t}
+     {0 b, bres : Bool}
+  -> {0 current : List t}
   -> {orig      : List t}
   -> (suffixCur : Suffix b current orig)
-  -> SuffixRes t orig a
+  -> Result bres t orig StopReason a
 failEOI sc = Fail {end = weaken sc} Same current EOI
 
 public export %inline
-failEmpty : SuffixRes t [] a
+failEmpty : Result b t [] StopReason a
 failEmpty = Fail Same [] EOI
 
 --------------------------------------------------------------------------------

@@ -47,7 +47,7 @@ data ShiftRes :
     -> ShiftRes b t st ts
 
 public export %inline
-suffix : (SnocList t -> a) -> ShiftRes True t [<] ts -> SuffixRes t ts a
+suffix : (SnocList t -> a) -> ShiftRes True t [<] ts -> LexRes True t ts a
 suffix f (Succ {pre} post @{sh}) = Succ (f pre) post @{suffix sh} 
 suffix f (Stop s e x @{sh})      = Fail (suffix s) e x @{suffix sh}
 
@@ -319,7 +319,7 @@ number sc (x          :: xs) = if isDigit x then digs xs else unknown xs
 number sc []                 = failEmpty
 
 public export
-double : Tok Char Double
+double : Tok True Char Double
 double cs = suffix (cast . cast {to = String}) $ number [<] cs
 
 public export

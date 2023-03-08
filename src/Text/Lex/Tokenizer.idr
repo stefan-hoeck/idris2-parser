@@ -13,13 +13,13 @@ data Tokenizer : (charType, tokenType : Type) -> Type where
   ||| Use this for fast, direct lexing of constant tokens.
   ||| Note: It is assumed that the lexed characters do *NOT* contain
   ||| any line breaks.
-  Direct : {0 ct,tt : _} -> Tok ct tt -> Tokenizer ct tt
+  Direct : {0 ct,tt : _} -> Tok True ct tt -> Tokenizer ct tt
 
   Compose :
        {0 ct, tt, tag : Type}
-    -> (begin    : Tok ct (tt, tag))
+    -> (begin    : Tok True ct (tt, tag))
     -> (middle   : Inf (tag -> Tokenizer ct tt))
-    -> (end      : tag -> Tok ct tt)
+    -> (end      : tag -> Tok True ct tt)
     -> Tokenizer ct tt
 
   (<|>) :

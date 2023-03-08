@@ -68,9 +68,9 @@ str sc ('"'  :: xs) = Succ (strLit sc) xs
 str sc (c    :: xs) =
   if isControl c then range (InvalidControl c) p xs
   else str (sc :< c) xs
-str sc []           = failEOI p
+str sc []           = eoiAt p
 
-term : Tok Char JSToken
+term : Tok True Char JSToken
 term (x :: xs) = case x of
   ',' => Succ ',' xs
   '"' => str [<] xs
@@ -81,17 +81,17 @@ term (x :: xs) = case x of
   '}' => Succ '}' xs
   'n' => case xs of
     'u' :: 'l' :: 'l' :: t => Succ (Lit JNull) t
-    _                      => unknown xs
+    _                      => unknown Same
   't' => case xs of
     'r' :: 'u' :: 'e' :: t => Succ (Lit $ JBool True) t
-    _                      => unknown xs
+    _                      => unknown Same
   'f' => case xs of
     'a' :: 'l' :: 's' :: 'e' :: t => Succ (Lit $ JBool False) t
-    _                             => unknown xs
+    _                             => unknown Same
   d   => suffix (Lit . JNumber . cast . cast {to = String}) $
          number [<] (d :: xs)
 
-term []        = failEmpty
+term []        = eoiAt Same
 
 go :
      SnocList (Bounded JSToken)

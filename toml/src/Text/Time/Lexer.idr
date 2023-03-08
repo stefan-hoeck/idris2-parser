@@ -39,13 +39,13 @@ readSecond cs = readInt 0 cs >>= refineSecond
 --------------------------------------------------------------------------------
 
 export
-date : OntoTok Char Date
+date : StrictTok Char Date
 date (y1::y2::y3::y4::'-'::m1::m2::'-'::d1::d2::t) =
   let Just y := readYear [y1,y2,y3,y4] | Nothing => unknownRange p t
       Just m := readMonth [m1,m2]      | Nothing => unknownRange p t
       Just d := readDay {m} [d1,d2]    | Nothing => unknownRange p t
    in Succ (MkDate y m d) t
-date xs = unknown xs
+date xs = fail p
 
 --------------------------------------------------------------------------------
 --          LocalTime
@@ -67,17 +67,17 @@ prec' h m s digs cur [] = Succ (LT h m s $ toMS digs cur) []
 export
 prec : Hour -> Minute -> Second -> AutoTok Char LocalTime
 prec h m s ('.'::d::t) =
-  if isDigit d then prec' h m s 5 (digit d) t else unknown (d::t)
+  if isDigit d then prec' h m s 5 (digit d) t else unknownRange p t
 prec h m s xs = Succ (LT h m s Nothing) xs
 
 export
-localTime : OntoTok Char LocalTime
+localTime : StrictTok Char LocalTime
 localTime (h1::h2::':'::m1::m2::':'::s1::s2::t) =
   let Just hh := readHour   [h1,h2] | Nothing => unknownRange p t
       Just mm := readMinute [m1,m2] | Nothing => unknownRange p t
       Just ss := readSecond [s1,s2] | Nothing => unknownRange p t
    in prec hh mm ss t
-localTime xs = unknown xs
+localTime xs = fail p
 
 --------------------------------------------------------------------------------
 --          OffsetTime
@@ -99,7 +99,7 @@ offset (s::h1::h2::':'::m1::m2::t) =
 offset xs = unknownRange p xs
 
 export
-offsetTime : OntoTok Char OffsetTime
+offsetTime : StrictTok Char OffsetTime
 offsetTime xs =
   let Succ lt ys := localTime xs | Fail s e r => Fail s e r
    in OT lt <$> offset ys
@@ -108,7 +108,7 @@ offsetTime xs =
 --          AnyTime
 --------------------------------------------------------------------------------
 
-anyTimeOnly : OntoTok Char (Either LocalTime OffsetTime)
+anyTimeOnly : StrictTok Char (Either LocalTime OffsetTime)
 anyTimeOnly xs =
   let Succ lt ys := localTime xs | Fail s e r => Fail s e r
       Succ o  zs := offset ys    | Fail {} => Succ (Left lt) ys
@@ -119,7 +119,7 @@ addDate : Date -> Either LocalTime OffsetTime -> AnyTime
 addDate x = either (ATLocalDateTime . LDT x) (ATOffsetDateTime . ODT x)
 
 export
-anyTime : OntoTok Char AnyTime
+anyTime : StrictTok Char AnyTime
 anyTime xs =
   let Succ dt ys := date xs                | Fail {} => ATLocalTime <$> localTime xs
    in case ys of

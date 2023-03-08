@@ -30,12 +30,12 @@ comment []           = Succ Comment []
 mlComment : AutoTok Char IdlToken
 mlComment ('*' :: '/' :: xs) = Succ Comment xs
 mlComment (x :: xs)          = mlComment xs
-mlComment []                 = failEOI p
+mlComment []                 = eoiAt p
 
 string : SnocList Char -> AutoTok Char IdlToken
 string sc ('"' :: xs) = Succ (SLit $ MkStrLit $ cast sc) xs
 string sc (x :: xs)   = string (sc :< x)  xs
-string _  []          = failEOI p
+string _  []          = eoiAt p
 
 -- Takes a valid identifier and converts it either
 -- to a FloatLit, a Keyword, or an Identifier
@@ -77,8 +77,8 @@ dot i n (x :: xs) =
 dot i n []        = Succ (toNum i (Just n) Nothing) []
 
 rest : Integer -> AutoTok Char IdlToken
-rest i ('.'::x::xs) = if isDigit x then dot i (digit x) xs else unknown xs
-rest i ('.'::[])    = unknown []
+rest i ('.'::x::xs) = if isDigit x then dot i (digit x) xs else unknownRange p xs
+rest i ('.'::[])    = unknown p
 rest i xs           = exp i Nothing xs
 
 num : Signum -> Nat -> AutoTok Char IdlToken
@@ -96,7 +96,7 @@ isFloat ('e' :: _) = True
 isFloat ('E' :: _) = True
 isFloat _          = False
 
-term : Tok Char IdlToken
+term : Tok True Char IdlToken
 term ('"':: xs) = string [<] xs
 term ('/'::'/':: xs) = comment xs
 term ('/'::'*':: xs) = mlComment xs
@@ -117,7 +117,7 @@ term (x::xs)         =
   else if isDigit x then num Plus (digit x) xs
   else if isSpace x then spaces xs
   else Succ (Other $ Symb x) xs
-term [] = failEmpty
+term [] = eoiAt Same
 
 public export
 0 ParseErr : Type

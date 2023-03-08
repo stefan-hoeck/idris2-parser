@@ -45,3 +45,5 @@ jobs:
         run: pack test parser-webidl -n 1000
       - name: Typecheck docs
         run: pack typecheck parser-docs
+      - name: Typecheck show
+        run: pack typecheck parser-show

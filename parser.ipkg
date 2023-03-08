@@ -25,3 +25,4 @@ modules = Data.Bool.Rewrite
         , Text.Parse
         , Text.Parse.Core
         , Text.Parse.Manual
+        , Text.Parse.Syntax

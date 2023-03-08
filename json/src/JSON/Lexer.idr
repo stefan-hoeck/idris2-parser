@@ -1,8 +1,8 @@
-module Text.JSON.Lexer
+module JSON.Lexer
 
 import Derive.Prelude
+import JSON.Value
 import Text.Parse.Manual
-import Text.JSON.Value
 
 %default total
 %language ElabReflection

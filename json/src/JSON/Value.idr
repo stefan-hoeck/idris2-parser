@@ -1,4 +1,4 @@
-module Text.JSON.Value
+module JSON.Value
 
 import Derive.Prelude
 

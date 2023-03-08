@@ -1,8 +1,8 @@
-module Text.JSON.Parser
+module JSON.Parser
 
+import JSON.Lexer
+import JSON.Value
 import Text.Parse.Manual
-import Text.JSON.Lexer
-import Text.JSON.Value
 
 %inline
 fromChar : Char -> JSToken

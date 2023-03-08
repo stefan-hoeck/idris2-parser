@@ -3,6 +3,7 @@ module Text.TOML.Parser
 import Data.List1
 import Data.SortedMap
 import Text.Parse.Manual
+import Text.Parse.Syntax
 import Text.TOML.Lexer
 import Text.TOML.Types
 

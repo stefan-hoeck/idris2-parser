@@ -3,6 +3,7 @@ module Text.WebIDL.Parser.Arguments
 import Text.WebIDL.Parser.Attributes
 import Text.WebIDL.Parser.Type
 import Text.WebIDL.Parser.Util
+import Text.Parse.Syntax
 
 %hide Prelude.(<*>)
 %hide Prelude.(*>)

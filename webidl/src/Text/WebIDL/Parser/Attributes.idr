@@ -1,6 +1,7 @@
 module Text.WebIDL.Parser.Attributes
 
 import Text.WebIDL.Parser.Util
+import Text.Parse.Syntax
 
 %default total
 
@@ -83,4 +84,4 @@ attributes xs              = Succ0 [] xs
 
 export
 attributed : Rule True a -> Rule True (Attributed a)
-attributed f = Manual.[| MkPair attributes f |]
+attributed f = Syntax.[| MkPair attributes f |]

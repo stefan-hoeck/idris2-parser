@@ -1,4 +1,4 @@
-#!/usr/env/bin/bash
+#!/usr/bin/env bash
 
 rm -rvf build
 rm -rvf test/build

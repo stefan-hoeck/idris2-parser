@@ -1,5 +1,6 @@
 module Text.WebIDL.Parser.Members
 
+import Text.Parse.Syntax
 import Text.WebIDL.Parser.Arguments
 import Text.WebIDL.Parser.Attributes
 import Text.WebIDL.Parser.Type

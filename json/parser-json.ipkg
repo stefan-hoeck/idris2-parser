@@ -6,6 +6,4 @@ depends   = parser
 
 brief     = "Total and efficient parser and lexer for the JSON file format"
 
-modules = JSON.Lexer
-        , JSON.Parser
-        , JSON.Value
+modules   = JSON.Parser

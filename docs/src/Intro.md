@@ -340,7 +340,7 @@ of a string. We can use this to drastically simplify our lexer
 without suffering a penalty in performance.
 
 ```idris
-tok4 : (cs : List Char) -> SuffixRes Char cs Token
+tok4 : (cs : List Char) -> LexRes True Char cs Token
 tok4 ('(' :: xs) = Succ (TSym '(') xs
 tok4 (')' :: xs) = Succ (TSym ')') xs
 tok4 ('*' :: xs) = Succ (TOp M) xs

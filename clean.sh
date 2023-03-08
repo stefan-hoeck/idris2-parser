@@ -1,3 +1,5 @@
+#!/usr/env/bin/bash
+
 rm -rvf build
 rm -rvf test/build
 rm -rvf profile/build

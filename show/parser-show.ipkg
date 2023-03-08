@@ -1,0 +1,10 @@
+package parser-show
+version   = 0.1.0
+authors   = "stefan-hoeck"
+sourcedir = "src"
+depends   = parser
+          , prettier
+
+brief     = "Parsing and pretty-printing regular Show output"
+
+modules = Text.Show.Value

@@ -108,7 +108,7 @@ str sc ('"'  :: xs) = Succ (strLit sc) xs
 str sc (c    :: xs) =
   if isControl c then range (InvalidControl c) p xs
   else str (sc :< c) xs
-str sc []           = failEOI p
+str sc []           = eoiAt p
 ```
 
 The most important new thing here is the `AutoTok Char JSToken`
@@ -187,7 +187,7 @@ num sc ('0'        :: xs) = rest xs
 num sc (x          :: xs) = if isDigit x then digs0 xs else unknown xs
 num sc []                 = failEmpty
 
-dbl : Tok Char JSToken
+dbl : Tok True Char JSToken
 dbl cs = suffix (Lit . JNumber . cast . cast {to = String}) $ num [<] cs
 ```
 
@@ -197,7 +197,7 @@ a library of combinators makes the code much nicer.
 Compared to this, the rest is very simple:
 
 ```idris
-tok : Tok Char JSToken
+tok : Tok True Char JSToken
 tok (','::xs)                    = Succ ',' xs
 tok ('"'::xs)                    = str [<] xs
 tok (':'::xs)                    = Succ ':' xs

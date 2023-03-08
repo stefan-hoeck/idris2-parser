@@ -194,10 +194,10 @@ public export
 TokenMap ct tt = List (Recognise True ct, SnocList ct -> tt)
 
 public export %inline
-step : Recognise True t -> (SnocList t -> a) -> Tok t a
+step : Recognise True t -> (SnocList t -> a) -> Tok True t a
 step x f cs = suffix f $ run x [<] cs suffixAcc
 
 public export
-first : (ps : TokenMap t a) -> {auto 0 prf : NonEmpty ps} -> Tok t a
+first : (ps : TokenMap t a) -> {auto 0 prf : NonEmpty ps} -> Tok True t a
 first ((f,g) :: [])         cs = step f g cs
 first ((f,g) :: t@(_ :: _)) cs = step f g cs <|> first t cs

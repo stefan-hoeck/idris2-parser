@@ -80,7 +80,7 @@ str sc ('"'  :: xs) = Succ (cast sc) xs
 str sc (c    :: xs) =
   if tomlControl c then range (InvalidControl c) p xs
   else str (sc :< c) xs
-str sc []           = failEOI p
+str sc []           = eoiAt p
 
 validTrim : List Char -> Bool
 validTrim ('\t' :: xs)     = validTrim xs
@@ -124,7 +124,7 @@ strML trim sc (c            ::xs) =
   if tomlControl c then range (InvalidControl c) p xs
   else if isSpace c && trim then strML trim sc xs
   else strML False (sc :< c) xs
-strML trim sc []           = failEOI p
+strML trim sc []           = eoiAt p
 
 -- reads a literal stirng
 literal : SnocList Char -> AutoTok Char String
@@ -132,7 +132,7 @@ literal sc ('\''::cs) = Succ (cast sc) cs
 literal sc (c :: cs)  =
   if tomlControl c && c /= '\t' then range (InvalidControl c) p cs
   else literal (sc :< c) cs
-literal sc [] = failEOI p
+literal sc [] = eoiAt p
 
 -- reads a literal multi-line stirng
 literalML : SnocList Char -> AutoTok Char String
@@ -144,7 +144,7 @@ literalML sc ('\r'::'\n'::cs) = literalML (sc :< '\r' :< '\n') cs
 literalML sc (c :: cs)  =
   if tomlControl c && c /= '\t' then range (InvalidControl c) p cs
   else literalML (sc :< c) cs
-literalML sc [] = failEOI p
+literalML sc [] = eoiAt p
 
 -------------------------------------------------------------------------------
 --          Numeric literals
@@ -166,14 +166,15 @@ dblLit sc =
 num',rest,dot,exp,digs,digs1 : SnocList Char -> AutoTok Char TomlToken
 
 -- addditional exponent digits, possibly separated by underscores
-digs sc ('_'::x::xs) = if isDigit x then digs (sc:<x) xs else unknown xs
+digs sc ('_'::x::xs) =
+  if isDigit x then digs (sc:<x) xs else unknownRange p xs
 digs sc (x::xs)      =
   if isDigit x then digs (sc:<x) xs else Succ (dblLit sc) (x::xs)
 digs sc []           = Succ (dblLit sc) []
 
 -- mandatory exponent digits, possibly separated by underscores
-digs1 sc (x :: xs) = if isDigit x then digs (sc:<x) xs else unknown xs
-digs1 sc []        = failEOI p
+digs1 sc (x :: xs) = if isDigit x then digs (sc:<x) xs else unknown p
+digs1 sc []        = eoiAt p
 
 -- exponent: 'e' or 'E' followed by optional '+' or '-' and
 -- at least one decimal digit
@@ -186,28 +187,28 @@ exp sc ('E'::xs)      = digs1 (sc:<'e') xs
 exp sc xs             = Succ (dblLit sc) xs
 
 -- digits after the decimal dot, possibly separated by '_'
-dot sc ('_'::x::xs) = if isDigit x then dot (sc:<x) xs else unknown xs
+dot sc ('_'::x::xs) = if isDigit x then dot (sc:<x) xs else unknownRange p xs
 dot sc (x::xs)      = if isDigit x then dot (sc:<x) xs else exp sc (x::xs)
 dot sc []           = Succ (dblLit sc) []
 
 -- optional decimal and exponent part.
-rest sc ('.'::x::xs) = if isDigit x then dot (sc:<'.':< x) xs else unknown xs
-rest sc ('.'::[])    = unknown []
+rest sc ('.'::x::xs) = if isDigit x then dot (sc:<'.':< x) xs else unknown p
+rest sc ('.'::[])    = unknown p
 rest sc xs           = exp sc xs
 
 -- lexes an integer or floating point literal
-num' sc ('_'::x::xs) = if isDigit x then num' (sc:<x) xs else unknown xs
+num' sc ('_'::x::xs) = if isDigit x then num' (sc:<x) xs else unknownRange p xs
 num' sc (x::xs)      = if isDigit x then num' (sc:<x) xs else rest sc (x::xs)
 num' sc []           = Succ (intLit sc 0 1) []
 
-num : Tok Char TomlToken
+num : Tok True Char TomlToken
 num ('-'::'0'::t) = rest [<'-','0'] t
 num ('+'::'0'::t) = rest [<'0'] t
-num ('-'::d::t)   = if isDigit d then num' [<'-',d] t else unknown t
-num ('+'::d::t)   = if isDigit d then num' [<d] t else unknown t
+num ('-'::d::t)   = if isDigit d then num' [<'-',d] t else unknownRange Same t
+num ('+'::d::t)   = if isDigit d then num' [<d] t else unknown Same
 num ('0'::t)      = rest [<'0'] t
-num (d::t)        = if isDigit d then num' [<d] t else unknown t
-num []            = failEmpty
+num (d::t)        = if isDigit d then num' [<d] t else unknown Same
+num []            = eoiAt Same
 
 --------------------------------------------------------------------------------
 --          Misc.
@@ -248,7 +249,7 @@ isNum (d::_)   = isDigit d
 isNum []       = False
 
 -- general lexemes that can occur in key and value contexts
-other : Tok Char TomlToken
+other : Tok True Char TomlToken
 other ('.'  :: xs) = Succ "." xs
 other (','  :: xs) = Succ "," xs
 other ('='  :: xs) = Succ "=" xs
@@ -257,20 +258,20 @@ other (']' :: xs)  = Succ "]" xs
 other ('}' :: xs)  = Succ "}" xs
 other ('#' :: xs)  = comment xs
 other ('\r'::'\n'::xs) = space xs
-other (x   :: xs)  = if validSpace x then space xs else unknown xs
-other []           = failEmpty
+other (x   :: xs)  = if validSpace x then space xs else unknown Same
+other []           = eoiAt Same
 
 toKey :
      Position
   -> KeyType
-  -> SuffixRes Char cs String
-  -> SuffixRes Char cs TomlToken
+  -> LexRes True Char cs String
+  -> LexRes True Char cs TomlToken
 toKey x t (Succ v xs @{p}) = Succ (key1 $ KT v t $ BS x (move x p)) xs
 toKey _ _ (Fail x y z)     = Fail x y z
 
 -- lexes a key or sequence of dot-separated keys
 -- this includes double brackets for table arrays
-anyKey : Position -> Tok Char TomlToken
+anyKey : Position -> Tok True Char TomlToken
 anyKey pos ('"'  :: xs) = toKey pos Quoted $ str [<] xs
 anyKey pos ('\'' :: xs) = toKey pos Literal $ literal [<] xs
 anyKey pos ('['::'[':: xs) = Succ "[[" xs
@@ -280,7 +281,7 @@ anyKey pos (x :: xs)    =
 anyKey _   xs           = other xs
 
 -- lexes a value or related symbol
-val : Tok Char TomlToken
+val : Tok True Char TomlToken
 val ('{' :: xs)                   = Succ "{" xs
 val ('"' :: '"' :: '"' :: xs)     = case xs of
   '\n'::t         => TVal . TStr <$> strML False [<] t
@@ -343,7 +344,7 @@ adjState t     _   st              = (t ** st)
 -- decides on the lexer to run depending on the current
 -- context
 %inline
-anyTok : Position -> Ctxt -> Tok Char TomlToken
+anyTok : Position -> Ctxt -> Tok True Char TomlToken
 anyTok pos Key   = anyKey pos
 anyTok _   Value = val
 

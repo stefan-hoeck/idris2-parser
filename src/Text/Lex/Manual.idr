@@ -9,13 +9,8 @@ import public Data.List.Suffix.Result
 
 ||| Result of running a (strict) tokenizer.
 public export
-0 SuffixRes : (t : Type) -> List t -> (a : Type) -> Type
-SuffixRes t ts a = Result True t ts StopReason a
-
-||| Result of running a (strict) tokenizer.
-public export
-0 WeakRes : (t : Type) -> List t -> (a : Type) -> Type
-WeakRes t ts a = Result False t ts StopReason a
+0 LexRes : (b : Bool) -> (t : Type) -> List t -> (a : Type) -> Type
+LexRes b t ts a = Result b t ts StopReason a
 
 --------------------------------------------------------------------------------
 --          Combinators
@@ -108,8 +103,8 @@ binDigit _   = 1
 ||| A tokenizing function, which will consume a strict
 ||| prefix of the input list or fail with a stop reason.
 public export
-0 Tok : (t,a : Type) -> Type
-Tok t a = (ts : List t) -> SuffixRes t ts a
+0 Tok : (b : Bool) -> (t,a : Type) -> Type
+Tok b t a = (ts : List t) -> LexRes b t ts a
 
 ||| A tokenizing function, which will consume additional characters
 ||| from the input string. This can only be used if already some
@@ -120,7 +115,7 @@ AutoTok t a =
      {orig     : List t}
   -> (xs       : List t)
   -> {auto   p : Suffix True xs orig}
-  -> SuffixRes t orig a
+  -> LexRes True t orig a
 
 ||| A tokenizing function that cannot fail.
 public export
@@ -135,20 +130,20 @@ SafeTok t a =
 ||| A tokenizing function, which will consume additional characters
 ||| from the input string.
 public export
-0 OntoTok : (t,a : Type) -> Type
-OntoTok t a =
+0 StrictTok : (t,a : Type) -> Type
+StrictTok t a =
      {orig     : List t}
   -> (xs       : List t)
   -> {auto   p : Suffix False xs orig}
-  -> SuffixRes t orig a
+  -> LexRes True t orig a
 
 public export %inline
-tok : OntoTok t a -> Tok t a
+tok : StrictTok t a -> Tok True t a
 tok f ts = f ts
 
 public export %inline
-autoTok : OntoTok t a -> AutoTok t a
-autoTok f ts @{p} = f ts @{weaken p}
+autoTok : StrictTok t a -> AutoTok t a
+autoTok f ts @{p} = weakens $ f ts @{weaken p}
 
 public export %inline
 safeTok : SafeTok t a -> AutoTok t a
@@ -189,36 +184,42 @@ unknownRange :
 unknownRange = range UnknownToken
 
 public export %inline
-whole :
-     {0 bres    : Bool}
-  -> {orig      : List t}
+single :
+     {0 bres       : Bool}
+  -> {x            : t}
+  -> {orig,current : List t}
   -> StopReason
-  -> (0 current : List t)
-  -> {auto suffixCur : Suffix False current orig}
+  -> (suffixCur    : Suffix b (x::current) orig)
   -> Result bres t orig StopReason a
-whole r current = Fail Same current r
+single r p = range r p current
 
 public export %inline
 unknown :
-     {0 bres    : Bool}
-  -> {orig      : List t}
-  -> (0 current : List t)
-  -> {auto suffixCur : Suffix False current orig}
+     {0 bres       : Bool}
+  -> {x            : t}
+  -> {orig,current : List t}
+  -> (suffixCur    : Suffix b (x::current) orig)
   -> Result bres t orig StopReason a
-unknown = whole UnknownToken
+unknown = single UnknownToken
 
 public export %inline
-failEOI :
+eoiAt :
      {0 b, bres : Bool}
   -> {0 current : List t}
   -> {orig      : List t}
   -> (suffixCur : Suffix b current orig)
   -> Result bres t orig StopReason a
-failEOI sc = Fail {end = weaken sc} Same current EOI
+eoiAt sc = Fail @{weaken sc} Same current EOI
 
 public export %inline
-failEmpty : Result b t [] StopReason a
-failEmpty = Fail Same [] EOI
+fail :
+     {0 b, bres : Bool}
+  -> {current   : List t}
+  -> {orig      : List t}
+  -> (suffixCur : Suffix b current orig)
+  -> Result bres t orig StopReason a
+fail {current = x::xs} p = unknown p
+fail {current = []}    p = eoiAt p
 
 --------------------------------------------------------------------------------
 --          Natural Numbers
@@ -233,9 +234,9 @@ dec1 n []      = succ n p
 ||| Tries to read a natural number. Fails, if this does not contain at least
 ||| one digit.
 public export
-dec : OntoTok Char Nat
-dec (x::xs) = if isDigit x then dec1 (digit x) xs else unknown xs
-dec []      = failEOI p
+dec : StrictTok Char Nat
+dec (x::xs) = if isDigit x then dec1 (digit x) xs else unknown p
+dec []      = eoiAt p
 
 ||| Tries to read more decimal digits onto a growing natural number.
 ||| Supports underscores as separators for better readability.
@@ -249,9 +250,9 @@ dec_1 n []           = Succ n []
 ||| Tries to read a natural number.
 ||| Supports underscores as separators for better readability.
 public export
-decSep : OntoTok Char Nat
-decSep (x::xs) = if isDigit x then dec_1 (digit x) xs else unknown xs
-decSep []      = failEOI p
+decSep : StrictTok Char Nat
+decSep (x::xs) = if isDigit x then dec_1 (digit x) xs else unknown p
+decSep []      = eoiAt p
 
 ||| Tries to read more binary digits onto a growing natural number.
 public export
@@ -262,9 +263,9 @@ bin1 n []        = succ n p
 ||| Tries to read a binary natural number.
 ||| Fails, if this does not contain at least one digit.
 public export
-bin : OntoTok Char Nat
-bin (x::xs) = if isBinDigit x then bin1 (binDigit x) xs else unknown xs
-bin []      = failEOI p
+bin : StrictTok Char Nat
+bin (x::xs) = if isBinDigit x then bin1 (binDigit x) xs else unknown p
+bin []      = eoiAt p
 
 ||| Tries to read more binary digits onto a growing natural number.
 ||| Supports underscores as separators for better readability.
@@ -280,9 +281,9 @@ bin_1 n []        = succ n p
 ||| Fails, if this does not contain at least one digit.
 ||| Supports underscores as separators for better readability.
 public export
-binSep : OntoTok Char Nat
-binSep (x::xs) = if isBinDigit x then bin_1 (binDigit x) xs else unknown xs
-binSep []      = failEOI p
+binSep : StrictTok Char Nat
+binSep (x::xs) = if isBinDigit x then bin_1 (binDigit x) xs else unknown p
+binSep []      = eoiAt p
 
 ||| Tries to read more octal digits onto a growing natural number.
 public export
@@ -293,9 +294,9 @@ oct1 n []        = succ n p
 ||| Tries to read a octal natural number.
 ||| Fails, if this does not contain at least one digit.
 public export
-oct : OntoTok Char Nat
-oct (x::xs) = if isOctDigit x then oct1 (octDigit x) xs else unknown xs
-oct []      = failEOI p
+oct : StrictTok Char Nat
+oct (x::xs) = if isOctDigit x then oct1 (octDigit x) xs else unknown p
+oct []      = eoiAt p
 
 ||| Tries to read more octal digits onto a growing natural number.
 ||| Supports underscores as separators for better readability.
@@ -311,9 +312,9 @@ oct_1 n []        = succ n p
 ||| Fails, if this does not contain at least one digit.
 ||| Supports underscores as separators for better readability.
 public export
-octSep : OntoTok Char Nat
-octSep (x::xs) = if isOctDigit x then oct_1 (octDigit x) xs else unknown xs
-octSep []      = failEOI p
+octSep : StrictTok Char Nat
+octSep (x::xs) = if isOctDigit x then oct_1 (octDigit x) xs else unknown p
+octSep []      = eoiAt p
 
 ||| Tries to read more hexadecimal digits onto a growing natural number.
 public export
@@ -324,9 +325,9 @@ hex1 n []        = succ n p
 ||| Tries to read a hexadecimal natural number.
 ||| Fails, if this does not contain at least one digit.
 public export
-hex : OntoTok Char Nat
-hex (x::xs) = if isHexDigit x then hex1 (hexDigit x) xs else unknown xs
-hex []      = failEOI p
+hex : StrictTok Char Nat
+hex (x::xs) = if isHexDigit x then hex1 (hexDigit x) xs else unknown p
+hex []      = eoiAt p
 
 ||| Tries to read more hexadecimal digits onto a growing natural number.
 ||| Supports underscores as separators for better readability.
@@ -342,9 +343,9 @@ hex_1 n []        = succ n p
 ||| Fails, if this does not contain at least one digit.
 ||| Supports underscores as separators for better readability.
 public export
-hexSep : OntoTok Char Nat
-hexSep (x::xs) = if isHexDigit x then hex_1 (hexDigit x) xs else unknown xs
-hexSep []      = failEOI p
+hexSep : StrictTok Char Nat
+hexSep (x::xs) = if isHexDigit x then hex_1 (hexDigit x) xs else unknown p
+hexSep []      = eoiAt p
 
 --------------------------------------------------------------------------------
 --          Integer Literals
@@ -352,13 +353,13 @@ hexSep []      = failEOI p
 
 ||| A shifter that takes moves an integer prefix
 public export
-int : OntoTok Char Integer
+int : StrictTok Char Integer
 int ('-' :: xs) = negate . cast <$> dec xs
 int xs          = cast <$> dec xs
 
 ||| Like `int` but also allows an optional leading `'+'` character.
 public export
-intPlus : OntoTok Char Integer
+intPlus : StrictTok Char Integer
 intPlus ('+'::xs) = cast <$> dec xs
 intPlus xs        = int xs
 
@@ -367,7 +368,7 @@ intPlus xs        = int xs
 -----------------------------------------------------------------------------
 
 public export
-takeJustOnto : SnocList b -> (a -> Maybe b) -> SafeTok a (SnocList b)
+takeJustOnto : SnocList y -> (x -> Maybe y) -> SafeTok x (SnocList y)
 takeJustOnto sx f (x :: xs) = case f x of
   Just vb => takeJustOnto (sx :< vb) f xs
   Nothing => Succ sx (x::xs)
@@ -376,17 +377,17 @@ takeJustOnto sx f []        = Succ sx []
 ||| Consumes and converts a list prefix until the given
 ||| function returns `Nothing`.
 public export %inline
-takeJust : (a -> Maybe b) -> SafeTok a (SnocList b)
+takeJust : (x -> Maybe y) -> SafeTok x (SnocList y)
 takeJust f = takeJustOnto [<] f
 
 ||| Consumes and converts a strict list prefix until the given
 ||| function returns `Nothing`.
 public export %inline
-takeJust1 : (a -> Maybe b) -> OntoTok a (SnocList b)
+takeJust1 : (x -> Maybe y) -> StrictTok x (SnocList y)
 takeJust1 f (x::xs) = case f x of
   Just vb => takeJustOnto [<vb] f xs
-  Nothing => unknown xs
-takeJust1 _ [] = failEOI p
+  Nothing => unknown p
+takeJust1 _ [] = eoiAt p
 
 --------------------------------------------------------------------------------
 --          Running Tokenizers
@@ -405,7 +406,7 @@ takeJust1 _ [] = failEOI p
 ||| function.
 public export
 singleLineDropSpaces :
-     Tok Char a
+     Tok True Char a
   -> String
   -> Either (Bounded StopReason) (List $ Bounded a)
 singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
@@ -432,7 +433,7 @@ singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
 ||| function.
 public export
 multiLineDropSpaces :
-     Tok Char a
+     Tok True Char a
   -> String
   -> Either (Bounded StopReason) (List $ Bounded a)
 multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
@@ -460,7 +461,7 @@ multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
 ||| function.
 public export
 lexManual :
-     Tok Char a
+     Tok True Char a
   -> String
   -> Either (Bounded StopReason) (List $ Bounded a)
 lexManual f s = go begin [<] (unpack s) suffixAcc

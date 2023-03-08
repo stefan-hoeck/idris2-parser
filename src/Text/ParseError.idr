@@ -24,7 +24,7 @@ export
 Interpolation StopReason where
   interpolate InvalidEscape      = "Invalid escape sequence"
   interpolate (InvalidControl c) = "Invalid control character: \{show c}"
-  interpolate UnknownToken       = "Unknown token"
+  interpolate UnknownToken       = "Unknown or invalid token"
   interpolate EOI                = "End of input"
   interpolate ExpectedEOI        = "Expected end of input"
 

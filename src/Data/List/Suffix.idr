@@ -212,3 +212,17 @@ public export
 strict (T _ @{q} :: c) @{Here}    = trans q $ weak c
 strict (T _ @{q} :: c) @{There _} = trans q $ weak c
 strict (F _ @{q} :: c) @{There _} = trans q $ strict c
+
+--------------------------------------------------------------------------------
+--          Utilities
+--------------------------------------------------------------------------------
+
+public export
+takePrefix : (ys : List t) -> Suffix b xs ys -> List t
+takePrefix ys Same            = []
+takePrefix (y::ys) (Uncons p) = y :: takePrefix ys (unconsBoth p)
+takePrefix []      (Uncons p) = absurd p
+
+public export %inline
+packPrefix : {cs : List Char} -> Suffix b xs cs -> String
+packPrefix = pack . takePrefix cs

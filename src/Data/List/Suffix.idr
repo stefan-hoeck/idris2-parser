@@ -28,6 +28,11 @@ export
 Uninhabited (Suffix True xs []) where
   uninhabited (Uncons x) = uninhabited x
 
+||| Strict version of `Uncons`
+public export %inline
+uncons : Suffix b (h::t) cs -> Suffix True t cs
+uncons = Uncons
+
 --------------------------------------------------------------------------------
 --          Conversions
 --------------------------------------------------------------------------------

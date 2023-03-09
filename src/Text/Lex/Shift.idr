@@ -20,94 +20,95 @@ import public Data.List.Shift
 ||| @ ts     : the initial list of remaining characters
 public export
 data ShiftRes :
-     (b : Bool)
-  -> (t : Type)
-  -> (st : SnocList t)
-  -> (ts : List t)
+     (b  : Bool)
+  -> (sc : SnocList Char)
+  -> (cs : List Char)
   -> Type where
   Succ :
-       {0 t     : Type}
-    -> {0 b     : Bool}
-    -> {0 st    : SnocList t}
-    -> {0 ts    : List t}
-    -> {pre     : SnocList t}
-    -> (post    : List t)
-    -> {auto sh : Shift b t pre post st ts}
-    -> ShiftRes b t st ts
+       {0 b     : Bool}
+    -> {0 st    : SnocList Char}
+    -> {0 ts    : List Char}
+    -> {pre     : SnocList Char}
+    -> (post    : List Char)
+    -> {auto sh : Shift b Char pre post st ts}
+    -> ShiftRes b st ts
 
   Stop :
-       {0 t   : Type}
-    -> {0 b     : Bool}
-    -> {0 st,se,ee  : SnocList t}
-    -> {ts,errStart : List t}
-    -> (start : Shift False t se errStart st ts)
-    -> (0 errEnd : List t)
-    -> {auto end : Shift False t ee errEnd se errStart}
-    -> StopReason
-    -> ShiftRes b t st ts
+       {0 b         : Bool}
+    -> {0 st,se,ee  : SnocList Char}
+    -> {ts,errStart : List Char}
+    -> (start       : Shift False Char se errStart st ts)
+    -> (0 errEnd    : List Char)
+    -> {auto end    : Shift False Char ee errEnd se errStart}
+    -> ParseError String Void
+    -> ShiftRes b st ts
 
 public export %inline
-suffix : (SnocList t -> a) -> ShiftRes True t [<] ts -> LexRes True t ts a
+suffix : (SnocList Char -> a) -> ShiftRes True [<] cs -> LexRes True cs e a
 suffix f (Succ {pre} post @{sh}) = Succ (f pre) post @{suffix sh} 
-suffix f (Stop s e x @{sh})      = Fail (suffix s) e x @{suffix sh}
+suffix f (Stop s e x @{sh})      = Fail (suffix s) e (fromVoid x) @{suffix sh}
 
 --------------------------------------------------------------------------------
 --         Conversions
 --------------------------------------------------------------------------------
 
 public export
-swapOr : {0 x,y : _} -> ShiftRes (x || y) t st ts -> ShiftRes (y || x) t st ts
-swapOr = swapOr (\k => ShiftRes k t st ts)
+swapOr : {0 x,y : _} -> ShiftRes (x || y) st ts -> ShiftRes (y || x) st ts
+swapOr = swapOr (\k => ShiftRes k st ts)
 
 public export %inline
-orSame : {0 x : _} -> ShiftRes (x || x) t st ts -> ShiftRes x t st ts
-orSame = orSame (\k => ShiftRes k t st ts)
+orSame : {0 x : _} -> ShiftRes (x || x) st ts -> ShiftRes x st ts
+orSame = orSame (\k => ShiftRes k st ts)
 
 public export %inline
-orTrue : {0 x : _} -> ShiftRes (x || True) t st ts -> ShiftRes True t st ts
-orTrue = orTrue (\k => ShiftRes k t st ts)
+orTrue : {0 x : _} -> ShiftRes (x || True) st ts -> ShiftRes True st ts
+orTrue = orTrue (\k => ShiftRes k st ts)
 
 public export %inline
-orFalse : {0 x : _} -> ShiftRes (x || False) t st ts -> ShiftRes x t st ts
-orFalse = orFalse (\k => ShiftRes k t st ts)
+orFalse : {0 x : _} -> ShiftRes (x || False) st ts -> ShiftRes x st ts
+orFalse = orFalse (\k => ShiftRes k st ts)
 
 public export %inline
-swapAnd : {0 x,y : _} -> ShiftRes (x && y) t st ts -> ShiftRes (y && x) t st ts
-swapAnd = swapAnd (\k => ShiftRes k t st ts)
+swapAnd : {0 x,y : _} -> ShiftRes (x && y) st ts -> ShiftRes (y && x) st ts
+swapAnd = swapAnd (\k => ShiftRes k st ts)
 
 public export %inline
-andSame : {0 x : _} -> ShiftRes (x && x) t st ts -> ShiftRes x t st ts
-andSame = andSame (\k => ShiftRes k t st ts)
+andSame : {0 x : _} -> ShiftRes (x && x) st ts -> ShiftRes x st ts
+andSame = andSame (\k => ShiftRes k st ts)
 
 public export %inline
-andTrue : {0 x : _} -> ShiftRes (x && True) t st ts -> ShiftRes x t st ts
-andTrue = andTrue (\k => ShiftRes k t st ts)
+andTrue : {0 x : _} -> ShiftRes (x && True) st ts -> ShiftRes x st ts
+andTrue = andTrue (\k => ShiftRes k st ts)
 
 public export %inline
-andFalse : {0 x : _} -> ShiftRes (x && False) t st ts -> ShiftRes False t st ts
-andFalse = andFalse (\k => ShiftRes k t st ts)
+andFalse : {0 x : _} -> ShiftRes (x && False) st ts -> ShiftRes False st ts
+andFalse = andFalse (\k => ShiftRes k st ts)
 
 public export
-weaken : {0 x : _} -> ShiftRes x t st ts -> ShiftRes False t st ts
+weaken : {0 x : _} -> ShiftRes x st ts -> ShiftRes False st ts
 weaken (Succ xs @{p}) = Succ xs @{weaken p}
 weaken (Stop s e r) = Stop s e r
 
 public export
-weakens : {0 x : _} -> ShiftRes True t st ts -> ShiftRes x t st ts
+weakens : {0 x : _} -> ShiftRes True st ts -> ShiftRes x st ts
 weakens (Succ xs @{p}) = Succ xs @{weakens p}
 weakens (Stop s e r) = Stop s e r
 
 public export
-and1 : {0 x : _} -> ShiftRes x t st ts -> ShiftRes (x && y) t st ts
+and1 : {0 x : _} -> ShiftRes x st ts -> ShiftRes (x && y) st ts
 and1 (Succ xs @{p})= Succ xs @{and1 p}
 and1 (Stop s e r)  = Stop s e r
 
 public export %inline
-and2 : {0 x : _} -> ShiftRes x t st ts -> ShiftRes (y && x) t st ts
+and2 : {0 x : _} -> ShiftRes x st ts -> ShiftRes (y && x) st ts
 and2 r = swapAnd $ and1 r
 
 public export %inline
-trans : {ys : _} -> ShiftRes b1 t sx xs -> Shift b2 t sx xs sy ys -> ShiftRes (b1 || b2) t sy ys
+trans :
+     {ys : _}
+  -> ShiftRes b1 sx xs
+  -> Shift b2 Char sx xs sy ys
+  -> ShiftRes (b1 || b2) sy ys
 trans (Succ ts @{p})    q = Succ ts @{Shift.trans p q}
 trans (Stop x y z @{p}) q = Stop (weaken $ trans x q) y z
 
@@ -117,9 +118,9 @@ trans (Stop x y z @{p}) q = Stop (weaken $ trans x q) y z
 
 public export
 (<|>) :
-     ShiftRes b1 t sx xs
-  -> Lazy (ShiftRes b2 t sx xs)
-  -> ShiftRes (b1 && b2) t sx xs
+     ShiftRes b1 sx xs
+  -> Lazy (ShiftRes b2 sx xs)
+  -> ShiftRes (b1 && b2) sx xs
 s@(Succ {}) <|> _ = and1 s
 _           <|> r = and2 r
 
@@ -134,93 +135,105 @@ _           <|> r = and2 r
 ||| lexer (via function `run`) leads to the underlying `Shifter`
 ||| (see `Text.Lex.Core`).
 public export
-0 Shifter : (b : Bool) -> Type -> Type
-Shifter b t = (st : SnocList t) -> (ts : List t) -> ShiftRes b t st ts
+0 Shifter : (b : Bool) -> Type
+Shifter b = (st : SnocList Char) -> (ts : List Char) -> ShiftRes b st ts
 
 public export
-0 AutoShift : Bool -> Type -> Type
-AutoShift s t =
+0 AutoShift : Bool -> Type
+AutoShift s =
      {0 b     : Bool}
-  -> {0 giro  : SnocList t}
-  -> {orig    : List t}
-  -> {pre     : SnocList t}
-  -> (post    : List t)
-  -> {auto sh : Shift b t pre post giro orig}
-  -> ShiftRes (s || b) t giro orig
+  -> {0 giro  : SnocList Char}
+  -> {orig    : List Char}
+  -> {pre     : SnocList Char}
+  -> (post    : List Char)
+  -> {auto sh : Shift b Char pre post giro orig}
+  -> ShiftRes (s || b) giro orig
 
 public export
 range :
      {0 b1,b2 : Bool}
-  -> {0 giro,ruc,tser : SnocList t}
-  -> {orig,cur   : List t}
-  -> StopReason
-  -> (shiftCur   : Shift b1 t ruc cur giro orig)
-  -> (0 rest     : List t)
-  -> {auto sr    : Shift False t tser rest ruc cur}
-  -> ShiftRes b2 t giro orig
+  -> {0 giro,ruc,tser : SnocList Char}
+  -> {orig,cur   : List Char}
+  -> (err        : ParseError String Void)
+  -> (shiftCur   : Shift b1 Char ruc cur giro orig)
+  -> (0 rest     : List Char)
+  -> {auto sr    : Shift False Char tser rest ruc cur}
+  -> ShiftRes b2 giro orig
 range r sc rest = Stop (weaken sc) rest r
 
 public export %inline
 invalidEscape :
      {0 b1,b2 : Bool}
-  -> {0 giro,ruc,tser : SnocList t}
-  -> {orig,cur   : List t}
-  -> (shiftCur   : Shift b1 t ruc cur giro orig)
-  -> (0 rest     : List t)
-  -> {auto sr    : Shift False t tser rest ruc cur}
-  -> ShiftRes b2 t giro orig
+  -> {0 giro,ruc,tser : SnocList Char}
+  -> {orig,cur   : List Char}
+  -> (shiftCur   : Shift b1 Char ruc cur giro orig)
+  -> (0 rest     : List Char)
+  -> {auto sr    : Shift False Char tser rest ruc cur}
+  -> ShiftRes b2 giro orig
 invalidEscape = range InvalidEscape
 
 public export %inline
 unknownRange :
      {0 b1,b2 : Bool}
-  -> {0 giro,ruc,tser : SnocList t}
-  -> {orig,cur   : List t}
-  -> (shiftCur   : Shift b1 t ruc cur giro orig)
-  -> (0 rest     : List t)
-  -> {auto sr    : Shift False t tser rest ruc cur}
-  -> ShiftRes b2 t giro orig
-unknownRange = range UnknownToken
+  -> {0 giro,ruc,tser : SnocList Char}
+  -> {orig,cur   : List Char}
+  -> (shiftCur   : Shift b1 Char ruc cur giro orig)
+  -> (0 rest     : List Char)
+  -> {auto sr    : Shift False Char tser rest ruc cur}
+  -> ShiftRes b2 giro orig
+unknownRange sc ee = range (Unknown $ packPrefix $ suffix sr) sc ee
 
-public export
-whole :
-     {0 b           : Bool}
-  -> {0 ruc,giro    : SnocList t}
-  -> StopReason
-  -> (0 cur         : List t)
-  -> {orig          : List t}
-  -> {auto shiftCur : Shift False t ruc cur giro orig}
-  -> ShiftRes b t giro orig
-whole r cur = Stop Same cur r
+public export %inline
+single :
+     {0 b,bres      : Bool}
+  -> {0 giro,ruc    : SnocList Char}
+  -> {c             : Char}
+  -> {orig,errEnd   : List Char}
+  -> (err           : ParseError String Void)
+  -> (shiftCur      : Shift b Char ruc (c::errEnd) giro orig)
+  -> ShiftRes bres giro orig
+single r p = range r p errEnd
 
 public export %inline
 unknown :
-     {0 b           : Bool}
-  -> {0 ruc,giro    : SnocList t}
-  -> (0 cur         : List t)
-  -> {orig          : List t}
-  -> {auto shiftCur : Shift False t ruc cur giro orig}
-  -> ShiftRes b t giro orig
-unknown = whole UnknownToken
+     {0 b,bres      : Bool}
+  -> {0 giro,ruc    : SnocList Char}
+  -> {c             : Char}
+  -> {orig,errEnd   : List Char}
+  -> (shiftCur      : Shift b Char ruc (c::errEnd) giro orig)
+  -> ShiftRes bres giro orig
+unknown p = unknownRange p errEnd
+
+public export %inline
+failCharClass :
+     {0 b,bres      : Bool}
+  -> {0 giro,ruc    : SnocList Char}
+  -> {c             : Char}
+  -> {orig,errEnd   : List Char}
+  -> (class         : CharClass)
+  -> (shiftCur      : Shift b Char ruc (c::errEnd) giro orig)
+  -> ShiftRes bres giro orig
+failCharClass cc = single (ExpectedChar cc)
+
+public export %inline
+failDigit :
+     {0 b,bres      : Bool}
+  -> {0 giro,ruc    : SnocList Char}
+  -> {c             : Char}
+  -> {orig,errEnd   : List Char}
+  -> (tpe           : DigitType)
+  -> (shiftCur      : Shift b Char ruc (c::errEnd) giro orig)
+  -> ShiftRes bres giro orig
+failDigit = failCharClass . Digit
 
 public export
-failEOI :
+eoiAt :
      {0 b1,b2 : Bool}
-  -> {0 ruc,giro : SnocList t}
-  -> {0 cur      : List t}
-  -> {orig       : List t}
-  -> (shiftCur   : Shift b1 t ruc cur giro orig)
-  -> ShiftRes b2 t giro orig
-failEOI sc = Stop {end = weaken sc} Same cur EOI
-
-public export
-failEmpty :
-     {0 b        : Bool}
-  -> {0 ruc,giro : SnocList t}
-  -> {orig       : List t}
-  -> {auto sh    : Shift False t ruc [] giro orig}
-  -> ShiftRes b t giro orig
-failEmpty = Stop sh [] EOI
+  -> {0 ruc,giro : SnocList Char}
+  -> {orig       : List Char}
+  -> (shiftCur   : Shift b1 Char ruc [] giro orig)
+  -> ShiftRes b2 giro orig
+eoiAt sc = range EOI sc []
 
 --------------------------------------------------------------------------------
 --          General Purpose Shifters
@@ -228,74 +241,74 @@ failEmpty = Stop sh [] EOI
 
 ||| Shifter that recognises the empty String
 public export
-eoi : Shifter False t
+eoi : Shifter False
 eoi _ []      = Succ []
-eoi _ (x::xs) = whole ExpectedEOI xs
+eoi _ (x::xs) = single ExpectedEOI Same
 
 ||| Shifter that always fails
 public export
-fail : Shifter True t
-fail _ []      = failEmpty
-fail _ (x::xs) = unknown xs
+fail : Shifter True
+fail _ []      = eoiAt Same
+fail _ (x::xs) = unknown Same
 
 ||| A shifter that moves exactly one value, if
 ||| it fulfills the given predicate.
 public export
-one : (t -> Bool) -> AutoShift True t
-one f (x :: xs) = if f x then Succ xs else unknownRange sh xs
-one _ []        = failEOI sh
+one : (Char -> Bool) -> AutoShift True
+one f (x :: xs) = if f x then Succ xs else unknown sh
+one _ []        = eoiAt sh
 
 ||| A shifter that moves items while the given predicate returns
 ||| `True`
 public export
-takeWhile : (t -> Bool) -> AutoShift False t
+takeWhile : (Char -> Bool) -> AutoShift False
 takeWhile f (x :: xs) = if f x then takeWhile f xs else Succ (x::xs)
 takeWhile f []        = Succ []
 
 ||| A strict version of `takeWhile`, which moves at least one item.
 public export
-takeWhile1 : (t -> Bool) -> AutoShift True t
-takeWhile1 f (x :: xs) = if f x then takeWhile f xs else unknownRange sh xs
-takeWhile1 f []        = failEOI sh
+takeWhile1 : (Char -> Bool) -> AutoShift True
+takeWhile1 f (x :: xs) = if f x then takeWhile f xs else unknown sh
+takeWhile1 f []        = eoiAt sh
 
 ||| A shifter that moves items while the give predicate returns
 ||| `False`
 public export
-takeUntil : (t -> Bool) -> AutoShift False t
+takeUntil : (Char -> Bool) -> AutoShift False
 takeUntil f (x :: xs) = if f x then Succ (x::xs) else takeUntil f xs
 takeUntil f []        = Succ []
 
 ||| A strict version of `takeUntil`, which moves at least one item.
 public export
-takeUntil1 : (t -> Bool) -> AutoShift True t
-takeUntil1 f (x :: xs) = if f x then unknownRange sh xs else takeUntil f xs
-takeUntil1 f []        = failEOI sh
+takeUntil1 : (Char -> Bool) -> AutoShift True
+takeUntil1 f (x :: xs) = if f x then unknown sh else takeUntil f xs
+takeUntil1 f []        = eoiAt sh
 
 ||| A shifter that moves digits.
 public export
-digits : AutoShift False Char
+digits : AutoShift False
 digits (x :: xs) = if isDigit x then digits xs else Succ (x::xs)
 digits []        = Succ []
 
 ||| A strict version of `digits`.
 public export
-digits1 : AutoShift True Char
-digits1 (x :: xs) = if isDigit x then digits xs else unknownRange sh xs
-digits1 []        = failEOI sh
+digits1 : AutoShift True
+digits1 (x :: xs) = if isDigit x then digits xs else failDigit Dec sh
+digits1 []        = eoiAt sh
 
 ||| A shifter that moves an integer prefix
 public export
-int : AutoShift True Char
+int : AutoShift True
 int ('-' :: xs) = digits1 {b} xs
 int xs          = digits1 {b} xs
 
 ||| Like `int` but also allows an optional leading `'+'` character.
 public export
-intPlus : AutoShift True Char
+intPlus : AutoShift True
 intPlus ('+' :: xs) = digits1 {b} xs
 intPlus xs          = int {b} xs
 
-dot,rest,digs,exp : AutoShift False Char
+dot,rest,digs,exp : AutoShift False
 exp ('e' :: xs) = weakens $ intPlus {b} xs
 exp ('E' :: xs) = weakens $ intPlus {b} xs
 exp xs          = Succ xs
@@ -303,8 +316,9 @@ exp xs          = Succ xs
 dot (x :: xs) = if isDigit x then dot xs else exp (x::xs)
 dot []        = Succ []
 
-rest ('.'::x::xs) = if isDigit x then dot xs else unknown xs
-rest ('.'::[])    = unknown []
+rest ('.'::x::xs) =
+  if isDigit x then dot xs else failDigit Dec (shift sh)
+rest ('.'::[])    = eoiAt (shift sh)
 rest xs           = exp xs
 
 digs (x :: xs) = if isDigit x then digs xs else rest (x::xs)
@@ -312,44 +326,45 @@ digs []        = Succ []
 
 ||| A shifter for recognizing JSON numbers
 public export
-number : Shifter True Char
+number : Shifter True
 number sc ('-' :: '0' :: xs) = rest xs
-number sc ('-' :: x   :: xs) = if isDigit x then digs xs else unknown xs
-number sc (x          :: xs) = if isDigit x then digs xs else unknown xs
-number sc []                 = failEmpty
+number sc ('-' :: x   :: xs) =
+  if isDigit x then digs xs else failDigit Dec (shift Same)
+number sc (x          :: xs) = if isDigit x then digs xs else failDigit Dec Same
+number sc []                 = eoiAt Same
 
 public export
 double : Tok True Char Double
 double cs = suffix (cast . cast {to = String}) $ number [<] cs
 
 public export
-take : (n : Nat) -> {auto 0 p : IsSucc n} -> AutoShift True t
+take : (n : Nat) -> {auto 0 p : IsSucc n} -> AutoShift True
 take (S Z)       (x::xs)   = Succ xs
 take (S k@(S _)) (x :: xs) = take {b} k xs
-take (S k) []              = failEOI sh
+take (S k) []              = eoiAt sh
 
 public export
-tail : AutoShift True t
+tail : AutoShift True
 tail (x::xs)   = Succ xs
-tail []        = failEOI sh
+tail []        = eoiAt sh
 
 public export
-exact : Eq t => (ts : List t) -> {auto 0 p : NonEmpty ts} -> AutoShift True t
+exact : (ts : List Char) -> {auto 0 p : NonEmpty ts} -> AutoShift True
 exact (v :: vs) (x :: xs) = case v == x of
   True => case vs of
-    []         => Succ xs
+    []        => Succ xs
     ws@(_::_) => exact {b} ws xs
-  False => unknown xs
-exact (v :: vs) []        = failEOI sh
+  False => single (Expected $ show v) sh
+exact (v :: vs) []        = eoiAt sh
 
-str : AutoShift True Char
+str : AutoShift True
 str ('"'       :: xs) = Succ xs
 str ('\\' :: x :: xs) = str {b} xs
 str (x         :: xs) = str {b} xs
-str []                = failEOI sh
+str []                = eoiAt sh
 
 public export
-string : Shifter True Char
+string : Shifter True
 string sc ('"' :: xs) = str {b = True} xs
-string sc (h   :: t)  = unknown t
-string sc []          = failEmpty
+string sc (h   :: t)  = single (Expected $ show '"') Same
+string sc []          = eoiAt Same

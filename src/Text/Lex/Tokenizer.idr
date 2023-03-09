@@ -9,38 +9,38 @@ import Text.Lex.Manual
 
 ||| Description of a language's tokenization rule.
 public export
-data Tokenizer : (charType, tokenType : Type) -> Type where
+data Tokenizer : (errType, tokenType : Type) -> Type where
   ||| Use this for fast, direct lexing of constant tokens.
   ||| Note: It is assumed that the lexed characters do *NOT* contain
   ||| any line breaks.
-  Direct : {0 ct,tt : _} -> Tok True ct tt -> Tokenizer ct tt
+  Direct : {0 e,tt : _} -> Tok True e tt -> Tokenizer e tt
 
   Compose :
-       {0 ct, tt, tag : Type}
-    -> (begin    : Tok True ct (tt, tag))
-    -> (middle   : Inf (tag -> Tokenizer ct tt))
-    -> (end      : tag -> Tok True ct tt)
-    -> Tokenizer ct tt
+       {0 e, tt, tag : Type}
+    -> (begin    : Tok True e (tt, tag))
+    -> (middle   : Inf (tag -> Tokenizer e tt))
+    -> (end      : tag -> Tok True e tt)
+    -> Tokenizer e tt
 
   (<|>) :
-       {0 ct, tt : Type}
-    -> Tokenizer ct tt
-    -> Lazy (Tokenizer ct tt)
-    -> Tokenizer ct tt
+       {0 e,tt : _}
+    -> Tokenizer e tt
+    -> Lazy (Tokenizer e tt)
+    -> Tokenizer e tt
 
 export
 choiceMap :
-     (a -> Tokenizer ct tt)
+     (a -> Tokenizer e tt)
   -> (as : List a)
   -> {auto 0 prf : NonEmpty as}
-  -> Tokenizer ct tt
+  -> Tokenizer e tt
 choiceMap f (h :: t) = foldl (\v,e => v <|> f e) (f h) t
 
 export %inline
 choice :
-     (rs : List $ Tokenizer ct tt)
+     (rs : List $ Tokenizer e tt)
   -> {auto 0 prf : NonEmpty rs}
-  -> Tokenizer ct tt
+  -> Tokenizer e tt
 choice rs = choiceMap id rs
 
 ||| Result of running a `Tokenizer` repeatedly over a
@@ -58,12 +58,12 @@ wtrans : TokRes False cs r a -> (0 y : Suffix True cs xs) -> TokRes False xs r a
 wtrans (TR x sx r rem z) y = TR x sx r rem (weaken $ trans z y)
 
 tokenise :
-     (tokenizer : Tokenizer Char a)
+     (tokenizer : Tokenizer e a)
   -> Position
   -> (toks    : SnocList (Bounded a))
   -> (cs      : List Char)
   -> (0 acc   : SuffixAcc cs)
-  -> TokRes False cs (Bounded $ ParseError a e) a
+  -> TokRes False cs (Bounded $ ParseError String e) a
 tokenise x pos toks [] _ = TR pos toks Nothing [] Same
 tokenise x pos toks cs acc@(SA r) = case next x cs acc of
   Right (TR pos2 toks2 Nothing cs2 su) =>
@@ -71,19 +71,19 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
   Left y  => TR pos toks (Just y) cs Same
   where
     next :
-         Tokenizer Char a
+         Tokenizer e a
       -> (cs    : List Char)
       -> (0 acc : SuffixAcc cs)
-      -> Either (Bounded $ ParseError a e) (TokRes True cs Void a)
+      -> Either (Bounded $ ParseError String e) (TokRes True cs Void a)
     next (Direct f) cs _ = case f cs of
       Succ val xs     @{p} =>
         let pos2 := endPos pos p
          in Right (TR pos2 (toks :< bounded val pos pos2) Nothing xs p)
       Fail start errEnd r =>
-        Left $ boundedErr pos start errEnd (Reason r)
+        Left $ boundedErr pos start errEnd r
     next (Compose beg midFn endFn) cs acc@(SA r) = case beg cs of
       Fail start errEnd r =>
-        Left $ boundedErr pos start errEnd (Reason r)
+        Left $ boundedErr pos start errEnd r
       Succ (st,tg) cs2 @{p2} =>
         let pos2   := endPos pos p2
             middle := midFn tg
@@ -99,18 +99,18 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
                    in Right (TR pos4 toks4 Nothing cs4 $ trans p4 (trans p3 p2))
                 Fail start errEnd y => case y of
                   EOI => Left $ boundedErr pos start errEnd (Unclosed st)
-                  r    => Left $ boundedErr pos start errEnd (Reason r)
+                  r    => Left $ boundedErr pos start errEnd r
     next (x <|> y) cs acc = case next x cs acc of
       Right res                  => Right res
       Left  r@(B (Unclosed _) _) => Left r
       Left  _                    => next y cs acc
-
-||| Given a tokenizer and an input string, return a list of recognised tokens,
-||| and the line, column, and remainder of the input at the first point in the string
-||| where there are no recognised tokens.
-export %inline
-lex :
-     Tokenizer Char a
-  -> (s : String)
-  -> TokRes False (unpack s) (Bounded $ ParseError a Void) a
-lex x s = tokenise x begin [<] (unpack s) suffixAcc
+-- 
+-- ||| Given a tokenizer and an input string, return a list of recognised tokens,
+-- ||| and the line, column, and remainder of the input at the first point in the string
+-- ||| where there are no recognised tokens.
+-- export %inline
+-- lex :
+--      Tokenizer Char a
+--   -> (s : String)
+--   -> TokRes False (unpack s) (Bounded $ ParseError a Void) a
+-- lex x s = tokenise x begin [<] (unpack s) suffixAcc

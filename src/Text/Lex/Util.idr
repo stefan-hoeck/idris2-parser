@@ -44,7 +44,7 @@ namespace SnocList
 --------------------------------------------------------------------------------
 
 export
-any : Recognise True t
+any : Lexer
 any = autoLift tail
 
 ||| Recognise any character if the sub-lexer `l` fails.
@@ -56,13 +56,13 @@ non l = reject l <+> any
 ||| Recognise a specific item.
 ||| /[`x`]/
 export %inline
-is : Eq t => (x : t) -> Recognise True t
+is : (c : Char) -> Lexer
 is x = pred (==x)
 
 ||| Recognise anything but the given item.
 ||| /[\^`x`]/
 export %inline
-isNot : Eq t => (x : t) -> Recognise True t
+isNot : (x : Char) -> Lexer
 isNot x = pred (/=x)
 
 ||| Recognise a single whitespace character.
@@ -89,13 +89,13 @@ notLike x = let x' := toUpper x in pred ((x' /=) . toUpper)
 
 ||| Recognises one of the given characters.
 export %inline
-oneOf : Eq t => List t -> Recognise True t
+oneOf : List Char -> Lexer
 oneOf ts = pred (`elem` ts)
 
 ||| Recognise a character in a range. Also works in reverse!
 ||| /[`start`-`end`]/
 export %inline
-range : Ord t => (start : t) -> (end : t) -> Recognise True t
+range : (start : Char) -> (end : Char) -> Lexer
 range start end =
   let s := min start end
       e := max start end
@@ -106,7 +106,7 @@ range start end =
 --------------------------------------------------------------------------------
 
 export
-prefixBy : (fs : List (t -> Bool)) -> Recognise True t
+prefixBy : (fs : List (Char -> Bool)) -> Lexer
 prefixBy (f :: []) = pred f
 prefixBy (f :: fs) = pred f <+> prefixBy fs
 prefixBy []        = fail
@@ -155,13 +155,13 @@ controls = preds isControl
 
 ||| Recognises a non-empty sequence of the given items
 export %inline
-someOf : Eq t => List t -> Recognise True t
+someOf : List Char -> Lexer
 someOf ts = preds (`elem` ts)
 
 ||| Recognise some items in a range. Also works in reverse!
 ||| /[`start`-`end`]/
 export %inline
-ranges : Ord t => (start : t) -> (end : t) -> Recognise True t
+ranges : (start, end : Char) -> Lexer
 ranges start end =
   let s := min start end
       e := max start end
@@ -189,13 +189,13 @@ newline = Lift $ \sc,cs => case cs of
 ||| Reads characters until the next newline character is
 ||| encountered.
 export
-manyTillNewline : Recognise False Char
+manyTillNewline : Recognise False
 manyTillNewline = preds0 $ \case {'\n' => False; '\r' => False; _ => True}
 
 ||| Reads characters until the next linefeed character (`'\n'`) is
 ||| encountered.
 export
-manyTillLineFeed : Recognise False Char
+manyTillLineFeed : Recognise False
 manyTillLineFeed = preds0 $ \case {'\n' => False; _ => True}
 
 ||| Lexer for single line comments starting with the given prefix.
@@ -219,29 +219,25 @@ linefeedComment pre = pre <+> manyTillLineFeed
 --------------------------------------------------------------------------------
 
 export
-atLeast : (n : Nat) -> Recognise True t -> Recognise (isSucc n) t
+atLeast : (n : Nat) -> Lexer -> Recognise (isSucc n)
 atLeast 0     f = many f
 atLeast (S k) f = f <+> atLeast k f
 
 export
-exactly :
-     (n : Nat)
-  -> Recognise True t
-  -> {auto 0 _ : IsSucc n}
-  -> Recognise True t
+exactly : (n : Nat) -> Lexer -> {auto 0 _ : IsSucc n} -> Lexer
 exactly 1           f = f
 exactly (S k@(S _)) f = f <+> exactly k f
 
 export
-manyUntil : (stopBefore : Recognise c t) -> Recognise True t -> Recognise False t
+manyUntil : (stopBefore : Recognise c) -> Lexer -> Recognise False
 manyUntil sb l = many (reject sb <+> l)
 
 export
-someUntil : (stopBefore : Recognise c t) -> Recognise True t -> Recognise True t
+someUntil : (stopBefore : Recognise c) -> Lexer -> Lexer
 someUntil sb l = some (reject sb <+> l)
 
 export
-manyThen : (stopAfter : Recognise c t) -> (l : Recognise True t) -> Recognise c t
+manyThen : (stopAfter : Recognise c) -> (l : Lexer) -> Recognise c
 manyThen stopAfter l = manyUntil stopAfter l <+> stopAfter
 
 ||| Recognise zero or more occurrences of a sub-lexer between

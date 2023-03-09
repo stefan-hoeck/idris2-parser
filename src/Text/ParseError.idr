@@ -68,7 +68,7 @@ data ParseError : (token, err : Type) -> Type where
   EOI            : ParseError t e
 
   ||| Expected the given token but got something else.
-  Expected       : t -> ParseError t e
+  Expected       : Either String t -> ParseError t e
 
   ||| Expected the given type of character
   ExpectedChar   : CharClass -> ParseError t e
@@ -83,16 +83,16 @@ data ParseError : (token, err : Type) -> Type where
   InvalidEscape  : ParseError t e
 
   ||| Got a (usually numeric) value that was out of bounds
-  OutOfBounds    : t -> ParseError t e
+  OutOfBounds    : Either String t -> ParseError t e
 
   ||| An unclosed opening token
-  Unclosed       : t -> ParseError t e
+  Unclosed       : Either String t -> ParseError t e
 
   ||| Got an unexpected token
-  Unexpected     : t -> ParseError t e
+  Unexpected     : Either String t -> ParseError t e
 
   ||| Got an unknown or invalid token
-  Unknown        : t -> ParseError t e
+  Unknown        : Either String t -> ParseError t e
 
 %runElab derive "ParseError" [Show,Eq]
 
@@ -100,41 +100,49 @@ public export
 Bifunctor ParseError where
   bimap f g (Custom err)        = Custom $ g err
   bimap f g EOI                 = EOI
-  bimap f g (Expected x)        = Expected $ f x
+  bimap f g (Expected x)        = Expected $ map f x
   bimap f g (ExpectedChar x)    = ExpectedChar x
   bimap f g ExpectedEOI         = ExpectedEOI
   bimap f g (InvalidControl c1) = InvalidControl c1
   bimap f g InvalidEscape       = InvalidEscape
-  bimap f g (OutOfBounds x)     = OutOfBounds $ f x
-  bimap f g (Unclosed x)        = Unclosed $ f x
-  bimap f g (Unexpected x)      = Unexpected $ f x
-  bimap f g (Unknown x)         = Unknown $ f x
+  bimap f g (OutOfBounds x)     = OutOfBounds $ map f x
+  bimap f g (Unclosed x)        = Unclosed $ map f x
+  bimap f g (Unexpected x)      = Unexpected $ map f x
+  bimap f g (Unknown x)         = Unknown $ map f x
 
 public export
-fromVoid : ParseError t Void -> ParseError t e
+left : Either e Void -> Either e a
+left (Left x) = Left x
+
+public export
+fromVoid : ParseError Void Void -> ParseError t e
 fromVoid EOI                = EOI
-fromVoid (Expected x)       = Expected x
+fromVoid (Expected x)       = Expected $ left x
 fromVoid (ExpectedChar x)   = ExpectedChar x
 fromVoid ExpectedEOI        = ExpectedEOI
 fromVoid (InvalidControl c) = InvalidControl c
 fromVoid InvalidEscape      = InvalidEscape
-fromVoid (OutOfBounds x)    = OutOfBounds x
-fromVoid (Unclosed x)       = Unclosed x
-fromVoid (Unexpected x)     = Unexpected x
-fromVoid (Unknown x)        = Unknown x
+fromVoid (OutOfBounds x)    = OutOfBounds $ left x
+fromVoid (Unclosed x)       = Unclosed $ left x
+fromVoid (Unexpected x)     = Unexpected $ left x
+fromVoid (Unknown x)        = Unknown $ left x
+
+%inline
+interpEither : Interpolation t => Either String t -> String
+interpEither = either id interpolate
 
 export
 Interpolation t => Interpolation e => Interpolation (ParseError t e) where
   interpolate EOI                = "Unexpected end of input"
-  interpolate (Expected x)       = "Expected \{x}"
+  interpolate (Expected x)       = "Expected \{interpEither x}"
   interpolate (ExpectedChar x)   = "Expected \{x}"
   interpolate ExpectedEOI        = "Expected end of input"
   interpolate (InvalidControl c) = "Invalid control character: \{show c}"
   interpolate InvalidEscape      = "Invalid escape sequence"
-  interpolate (OutOfBounds x)    = "Value out of bounds: \{x}"
-  interpolate (Unclosed x)       = "Unclosed \{x}"
-  interpolate (Unexpected x)     = "Unexpected \{x}"
-  interpolate (Unknown x)        = "Unknown or invalid token: \{x}"
+  interpolate (OutOfBounds x)    = "Value out of bounds: \{interpEither x}"
+  interpolate (Unclosed x)       = "Unclosed \{interpEither x}"
+  interpolate (Unexpected x)     = "Unexpected \{interpEither x}"
+  interpolate (Unknown x)        = "Unknown or invalid token: \{interpEither x}"
   interpolate (Custom err)       = interpolate err
 
 --------------------------------------------------------------------------------
@@ -159,15 +167,15 @@ custom b = parseFail b . Custom
 
 public export %inline
 expected : FailParse m t e => Bounds -> t -> m a
-expected b = parseFail b . Expected
+expected b = parseFail b . Expected . Right
 
 public export %inline
 unclosed : FailParse m t e => Bounds -> t -> m a
-unclosed b = parseFail b . Unclosed
+unclosed b = parseFail b . Unclosed . Right
 
 public export %inline
 unexpected : FailParse m t e => Bounded t -> m a
-unexpected v = parseFail v.bounds (Unexpected v.val)
+unexpected v = parseFail v.bounds (Unexpected . Right $ v.val)
 
 public export %inline
 eoi : FailParse m t e => m a
@@ -180,10 +188,6 @@ expectedEOI b = parseFail b ExpectedEOI
 --------------------------------------------------------------------------------
 --          Pretty Printing Errors
 --------------------------------------------------------------------------------
-
-public export %inline
-[Both] Interpolation x => Interpolation y => Interpolation (Either x y) where
-  interpolate = either interpolate interpolate
 
 printPair :
      Interpolation a
@@ -259,4 +263,4 @@ result :
   -> Either (FileContext, ParseError t e) a
 result o (Fail0 err)           = Left $ fromBounded o err
 result _ (Succ0 res [])        = Right res
-result o (Succ0 res (x :: xs)) = Left $ fromBounded o (Unexpected <$> x)
+result o (Succ0 res (x :: xs)) = Left $ fromBounded o (Unexpected . Right <$> x)

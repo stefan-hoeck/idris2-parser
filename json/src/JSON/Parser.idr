@@ -148,7 +148,7 @@ ParseErr = ParseError JSToken JSErr
 strLit : SnocList Char -> JSToken
 strLit = Lit . JString . cast
 
-str : SnocList Char -> AutoTok Char JSToken
+str : SnocList Char -> AutoTok e JSToken
 str sc ('\\' :: c  :: xs) = case c of
   '"'  => str (sc :< '"') xs
   'n'  => str (sc :< '\n') xs
@@ -176,7 +176,7 @@ str sc (c    :: xs) =
   else str (sc :< c) xs
 str sc []           = eoiAt p
 
-term : Tok True Char JSToken
+term : Tok True e JSToken
 term (x :: xs) = case x of
   ',' => Succ ',' xs
   '"' => str [<] xs
@@ -214,7 +214,7 @@ go sx pos (x :: xs)    (SA rec) =
          let pos2 := addCol (toNat prf) pos
              bt   := bounded t pos pos2
           in go (sx :< bt) pos2 xs' rec
-       Fail start errEnd r => Left $ boundedErr pos start errEnd (Reason r)
+       Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
 go sx _ [] _ = Right (sx <>> [])
 
 export
@@ -266,5 +266,5 @@ parseJSON o str = case lexJSON str of
   Right ts => case value ts suffixAcc of
     Fail0 x         => Left (fromBounded o x)
     Succ0 v []      => Right v
-    Succ0 v (x::xs) => Left (fromBounded o $ Unexpected <$> x)
+    Succ0 v (x::xs) => Left (fromBounded o $ Unexpected . Right <$> x)
   Left err => Left (fromBounded o err)

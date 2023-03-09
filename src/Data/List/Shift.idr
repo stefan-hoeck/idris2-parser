@@ -51,6 +51,11 @@ data Shift :
     -> Shift b1 t sx (x :: xs) sy ys
     -> Shift b2 t (sx :< x) xs sy ys
 
+||| Strict alias for `SH`
+public export %inline
+shift : Shift b t sc (x::xs) giro orig -> Shift True t (sc :< x) xs giro orig
+shift = SH
+
 --------------------------------------------------------------------------------
 --          Conversions
 --------------------------------------------------------------------------------

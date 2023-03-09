@@ -8,27 +8,52 @@ import Text.FC
 %default total
 %language ElabReflection
 
---------------------------------------------------------------------------------
---          Lexing Errors
---------------------------------------------------------------------------------
-
 public export
-data StopReason : Type where
-  InvalidEscape  : StopReason
-  InvalidControl : Char -> StopReason
-  UnknownToken   : StopReason
-  EOI            : StopReason
-  ExpectedEOI    : StopReason
+data DigitType : Type where
+  Bin : DigitType
+  Oct : DigitType
+  Dec : DigitType
+  Hex : DigitType
+
+%runElab derive "DigitType" [Show,Eq,Ord]
 
 export
-Interpolation StopReason where
-  interpolate InvalidEscape      = "Invalid escape sequence"
-  interpolate (InvalidControl c) = "Invalid control character: \{show c}"
-  interpolate UnknownToken       = "Unknown or invalid token"
-  interpolate EOI                = "End of input"
-  interpolate ExpectedEOI        = "Expected end of input"
+Interpolation DigitType where
+  interpolate Bin = "a binary digit ('0' or '1')"
+  interpolate Oct = "an octal digit ('0' to '7')"
+  interpolate Dec = "a decimal digit ('0' to '9')"
+  interpolate Hex = "a hexadecimal digit ('0' to '9' or 'a' to 'f')"
 
-%runElab derive "StopReason" [Show,Eq]
+public export
+data CharClass : Type where
+  ||| A whitespace character
+  Space : CharClass
+
+  ||| A digit
+  Digit : DigitType -> CharClass
+
+  ||| An upper-case letter
+  Upper : CharClass
+
+  ||| A lower-case letter
+  Lower : CharClass
+
+  ||| An upper- or lower-case letter
+  Alpha : CharClass
+
+  ||| An upper- or lower-case letter or a decimal digit
+  AlphaNum : CharClass
+
+%runElab derive "CharClass" [Show,Eq,Ord]
+
+export
+Interpolation CharClass where
+  interpolate Space     = "a space character"
+  interpolate (Digit x) = interpolate x
+  interpolate Upper     = "an upper-case letter"
+  interpolate Lower     = "a lower-case letter"
+  interpolate Alpha     = "a letter ('a' to 'z' or 'A' to 'Z')"
+  interpolate AlphaNum  = "a letter or a digit"
 
 --------------------------------------------------------------------------------
 --          Parse Errors
@@ -36,29 +61,72 @@ Interpolation StopReason where
 
 public export
 data ParseError : (token, err : Type) -> Type where
-  Reason      : StopReason -> ParseError t e
-  Expected    : t -> ParseError t e
-  Unexpected  : t -> ParseError t e
-  Unclosed    : t -> ParseError t e
-  Custom      : (err : e) -> ParseError t e
+  ||| A custom error for the current parsing topic
+  Custom         : (err : e) -> ParseError t e
+
+  ||| Unexpected end of input
+  EOI            : ParseError t e
+
+  ||| Expected the given token but got something else.
+  Expected       : Either String t -> ParseError t e
+
+  ||| Expected the given type of character
+  ExpectedChar   : CharClass -> ParseError t e
+
+  ||| Got more input that we expected
+  ExpectedEOI    : ParseError t e
+
+  ||| Got an invalid control character
+  InvalidControl : Char -> ParseError t e
+
+  ||| Got an invalid character escape sequence
+  InvalidEscape  : ParseError t e
+
+  ||| Got a (usually numeric) value that was out of bounds
+  OutOfBounds    : Either String t -> ParseError t e
+
+  ||| An unclosed opening token
+  Unclosed       : Either String t -> ParseError t e
+
+  ||| Got an unexpected token
+  Unexpected     : Either String t -> ParseError t e
+
+  ||| Got an unknown or invalid token
+  Unknown        : Either String t -> ParseError t e
 
 %runElab derive "ParseError" [Show,Eq]
 
 public export
-fromVoid : ParseError t Void -> ParseError t e
-fromVoid (Reason x)     = Reason x
-fromVoid (Expected x)   = Expected x
-fromVoid (Unexpected x) = Unexpected x
-fromVoid (Unclosed x)   = Unclosed x
-fromVoid (Custom err) impossible
+Bifunctor ParseError where
+  bimap f g (Custom err)        = Custom $ g err
+  bimap f g EOI                 = EOI
+  bimap f g (Expected x)        = Expected $ map f x
+  bimap f g (ExpectedChar x)    = ExpectedChar x
+  bimap f g ExpectedEOI         = ExpectedEOI
+  bimap f g (InvalidControl c1) = InvalidControl c1
+  bimap f g InvalidEscape       = InvalidEscape
+  bimap f g (OutOfBounds x)     = OutOfBounds $ map f x
+  bimap f g (Unclosed x)        = Unclosed $ map f x
+  bimap f g (Unexpected x)      = Unexpected $ map f x
+  bimap f g (Unknown x)         = Unknown $ map f x
+
+%inline
+interpEither : Interpolation t => Either String t -> String
+interpEither = either id interpolate
 
 export
 Interpolation t => Interpolation e => Interpolation (ParseError t e) where
-  interpolate (Reason s)     = interpolate s
-  interpolate (Expected x)   = "Expected \{x}"
-  interpolate (Unexpected x) = "Unexpected \{x}"
-  interpolate (Unclosed x)   = "Unclosed \{x}"
-  interpolate (Custom err)   = interpolate err
+  interpolate EOI                = "Unexpected end of input"
+  interpolate (Expected x)       = "Expected \{interpEither x}"
+  interpolate (ExpectedChar x)   = "Expected \{x}"
+  interpolate ExpectedEOI        = "Expected end of input"
+  interpolate (InvalidControl c) = "Invalid control character: \{show c}"
+  interpolate InvalidEscape      = "Invalid escape sequence"
+  interpolate (OutOfBounds x)    = "Value out of bounds: \{interpEither x}"
+  interpolate (Unclosed x)       = "Unclosed \{interpEither x}"
+  interpolate (Unexpected x)     = "Unexpected \{interpEither x}"
+  interpolate (Unknown x)        = "Unknown or invalid token: \{interpEither x}"
+  interpolate (Custom err)       = interpolate err
 
 --------------------------------------------------------------------------------
 --          Interface
@@ -82,23 +150,23 @@ custom b = parseFail b . Custom
 
 public export %inline
 expected : FailParse m t e => Bounds -> t -> m a
-expected b = parseFail b . Expected
+expected b = parseFail b . Expected . Right
 
 public export %inline
 unclosed : FailParse m t e => Bounds -> t -> m a
-unclosed b = parseFail b . Unclosed
+unclosed b = parseFail b . Unclosed . Right
 
 public export %inline
 unexpected : FailParse m t e => Bounded t -> m a
-unexpected v = parseFail v.bounds (Unexpected v.val)
+unexpected v = parseFail v.bounds (Unexpected . Right $ v.val)
 
 public export %inline
 eoi : FailParse m t e => m a
-eoi = parseFail NoBounds (Reason EOI)
+eoi = parseFail NoBounds EOI
 
 public export %inline
 expectedEOI : FailParse m t e => Bounds -> m a
-expectedEOI b = parseFail b (Reason ExpectedEOI)
+expectedEOI b = parseFail b ExpectedEOI
 
 --------------------------------------------------------------------------------
 --          Pretty Printing Errors
@@ -160,10 +228,10 @@ failInParen :
   -> (tok : t)
   -> Result0 b1 (Bounded t) ts (Bounded $ ParseError t y) a
   -> Result0 b2 (Bounded t) ts (Bounded $ ParseError t y) x
-failInParen b tok (Fail0 (B (Reason EOI) _)) = unclosed b tok
-failInParen b tok (Fail0 err)                = Fail0 err
-failInParen b tok (Succ0 _ [])               = unclosed b tok
-failInParen b tok (Succ0 _ (x :: xs))        = unexpected x
+failInParen b tok (Fail0 (B EOI _))   = unclosed b tok
+failInParen b tok (Fail0 err)         = Fail0 err
+failInParen b tok (Succ0 _ [])        = unclosed b tok
+failInParen b tok (Succ0 _ (x :: xs)) = unexpected x
 
 ||| Catch-all error generator when no other rule applies.
 public export
@@ -178,4 +246,39 @@ result :
   -> Either (FileContext, ParseError t e) a
 result o (Fail0 err)           = Left $ fromBounded o err
 result _ (Succ0 res [])        = Right res
-result o (Succ0 res (x :: xs)) = Left $ fromBounded o (Unexpected <$> x)
+result o (Succ0 res (x :: xs)) = Left $ fromBounded o (Unexpected . Right <$> x)
+
+--------------------------------------------------------------------------------
+--          Identities
+--------------------------------------------------------------------------------
+
+public export
+left : Either e Void -> Either e a
+left (Left x) = Left x
+
+public export
+voidLeft : ParseError Void e -> ParseError t e
+voidLeft EOI                = EOI
+voidLeft (Expected x)       = Expected $ left x
+voidLeft (ExpectedChar x)   = ExpectedChar x
+voidLeft ExpectedEOI        = ExpectedEOI
+voidLeft (InvalidControl c) = InvalidControl c
+voidLeft InvalidEscape      = InvalidEscape
+voidLeft (OutOfBounds x)    = OutOfBounds $ left x
+voidLeft (Unclosed x)       = Unclosed $ left x
+voidLeft (Unexpected x)     = Unexpected $ left x
+voidLeft (Unknown x)        = Unknown $ left x
+voidLeft (Custom x)         = Custom x
+
+public export
+fromVoid : ParseError Void Void -> ParseError t e
+fromVoid EOI                = EOI
+fromVoid (Expected x)       = Expected $ left x
+fromVoid (ExpectedChar x)   = ExpectedChar x
+fromVoid ExpectedEOI        = ExpectedEOI
+fromVoid (InvalidControl c) = InvalidControl c
+fromVoid InvalidEscape      = InvalidEscape
+fromVoid (OutOfBounds x)    = OutOfBounds $ left x
+fromVoid (Unclosed x)       = Unclosed $ left x
+fromVoid (Unexpected x)     = Unexpected $ left x
+fromVoid (Unknown x)        = Unknown $ left x

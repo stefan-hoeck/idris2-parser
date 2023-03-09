@@ -138,7 +138,7 @@ tok st c (x :: xs) =
   if      isSymbol x then tok (st :< oneChar (fromChar x) c) (incCol c) xs
   else if isSpace x then tok st (next x c) xs
   else if isDigit x then lit st c (incCol c) (digit x) xs
-  else Left (oneChar (Reason UnknownToken) c)
+  else Left (oneChar (Unknown . Left $ show x) c)
 tok st c []        = Right $ st <>> []
 ```
 
@@ -340,7 +340,7 @@ of a string. We can use this to drastically simplify our lexer
 without suffering a penalty in performance.
 
 ```idris
-tok4 : (cs : List Char) -> LexRes True Char cs Token
+tok4 : (cs : List Char) -> LexRes True cs e Token
 tok4 ('(' :: xs) = Succ (TSym '(') xs
 tok4 (')' :: xs) = Succ (TSym ')') xs
 tok4 ('*' :: xs) = Succ (TOp M) xs
@@ -349,7 +349,7 @@ tok4 xs          = TLit <$> dec xs
 
 export
 toks4 : String -> Either (Bounded Err) (List $ Bounded Token)
-toks4 = mapFst (map Reason) . singleLineDropSpaces tok4
+toks4 = mapFst (map fromVoid) . singleLineDropSpaces tok4
 ```
 
 There are several functions for running tokenizers in module

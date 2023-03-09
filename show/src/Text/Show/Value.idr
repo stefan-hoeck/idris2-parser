@@ -178,7 +178,7 @@ isIdentTrailing '\'' = True
 isIdentTrailing '_'  = True
 isIdentTrailing x    = isAlphaNum x || x > chr 160
 
-ident : AutoShift False Char
+ident : AutoShift False
 ident ('.'::x::t) = if isIdentStart x then ident t else Succ ('.'::x::t)
 ident (x :: t)    = if isIdentTrailing x then ident t else Succ (x::t)
 ident []          = Succ []
@@ -195,31 +195,31 @@ toOp sc     = Op $ cast sc
 
 sfx :
      (SnocList Char -> Token)
-  -> ShiftRes True Char [<] ts
-  -> LexRes True Char ts Token
+  -> ShiftRes True [<] ts
+  -> LexRes True ts e Token
 sfx = suffix
 
 %inline nat,dbl :
-     ShiftRes  True Char [<] ts
-  -> LexRes True Char ts Token
+     ShiftRes  True [<] ts
+  -> LexRes True ts e Token
 nat = suffix (Lit . Natural . cast)
 
 dbl = suffix $ \sc =>
   if all isDigit sc then Lit (Natural $ cast sc) else Lit (Dbl $ cast sc)
 
-strLit : AutoShift True Char
+strLit : AutoShift True
 strLit ('\\' :: x :: xs) = strLit {b} xs
 strLit ('"' :: xs)       = Succ xs
 strLit (x :: xs)         = strLit {b} xs
-strLit []                = failEOI sh
+strLit []                = eoiAt sh
 
-charLit : AutoShift True Char
+charLit : AutoShift True
 charLit ('\\' :: x :: xs) = charLit {b} xs
 charLit ('\'' :: xs)      = Succ xs
 charLit (x :: xs)         = charLit {b} xs
-charLit []                = failEOI sh
+charLit []                = eoiAt sh
 
-tok : Tok True Char Token
+tok : Tok True e Token
 tok ('0' :: 'x' :: t) = nat $ takeWhile1 {b = True} isHexDigit t
 tok ('0' :: 'X' :: t) = nat $ takeWhile1 {b = True} isHexDigit t
 tok ('0' :: 'o' :: t) = nat $ takeWhile1 {b = True} isOctDigit t
@@ -265,7 +265,7 @@ go sx pos (x :: xs)    (SA r) =
        Succ t xs' @{prf} =>
          let pos2 := addCol (toNat prf) pos
           in go (sx :< bounded t pos pos2) pos2 xs' r
-       Fail start errEnd r => Left $ boundedErr pos start errEnd (Reason r)
+       Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
 go sx pos [] _ = Right (post [] sx)
 
 export
@@ -355,7 +355,7 @@ parseValueE str = case tokens str of
   Right ts => case value ts suffixAcc of
     Fail0 err           => Left $ fromBounded Virtual err
     Succ0 res []        => Right res
-    Succ0 res (x :: xs) => Left (fromBounded Virtual $ Unexpected <$> x)
+    Succ0 res (x :: xs) => Left (fromBounded Virtual $ Unexpected . Right <$> x)
 
 export
 parseValue : String -> Maybe Value

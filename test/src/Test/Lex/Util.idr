@@ -21,7 +21,7 @@ ITokenMap = Libraries.Text.Lexer.Core.TokenMap
 
 public export
 0 PTokenMap : Type -> Type
-PTokenMap = Text.Lex.Core.TokenMap Char
+PTokenMap = Text.Lex.Core.TokenMap
 
 public export
 0 IBounds : Type
@@ -71,7 +71,7 @@ testTokenLex :
   -> {auto 0 p : NonEmpty pmap}
   -> TestT m ()
 testTokenLex s pmap imap =
-  let res1 := Text.Lex.Tokenizer.lex (Direct $ first pmap) s
+  let res1 := Text.Lex.Tokenizer.lex (Direct {e = Void} $ first pmap) s
       res2 := Libraries.Text.Lexer.Core.lex imap s
    in toLexRes' res1 === toLexRes res2
 

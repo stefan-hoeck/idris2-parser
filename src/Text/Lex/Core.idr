@@ -24,68 +24,68 @@ import public Text.Lex.Shift
 infixl 8 <++>
 
 public export
-data Recognise : (strict : Bool) -> Type -> Type where
-  Lift      : Shifter b t -> Recognise b t
-  (<+>)     : Recognise b1 t -> Recognise b2 t -> Recognise (b1 || b2) t
-  (<++>)    : Recognise True t -> Inf (Recognise b t) -> Recognise True t
-  (<|>)     : Recognise b1 t -> Lazy (Recognise b2 t) -> Recognise (b1 && b2) t
+data Recognise : (strict : Bool) -> Type where
+  Lift      : Shifter b -> Recognise b
+  (<+>)     : Recognise b1 -> Recognise b2 -> Recognise (b1 || b2)
+  (<++>)    : Recognise True -> Inf (Recognise b) -> Recognise True
+  (<|>)     : Recognise b1 -> Lazy (Recognise b2) -> Recognise (b1 && b2)
 
 --------------------------------------------------------------------------------
 --          Conversions
 --------------------------------------------------------------------------------
 
 public export %inline
-swapOr : {0 x,y : _} -> Recognise (x || y) t -> Recognise (y || x) t
-swapOr = swapOr (\k => Recognise k t)
+swapOr : {0 x,y : _} -> Recognise (x || y) -> Recognise (y || x)
+swapOr = swapOr (\k => Recognise k)
 
 public export %inline
-orSame : {0 x : _} -> Recognise (x || x) t -> Recognise x t
-orSame = orSame (\k => Recognise k t)
+orSame : {0 x : _} -> Recognise (x || x) -> Recognise x
+orSame = orSame (\k => Recognise k)
 
 public export %inline
-orTrue : {0 x : _} -> Recognise (x || True) t -> Recognise True t
-orTrue = orTrue (\k => Recognise k t)
+orTrue : {0 x : _} -> Recognise (x || True) -> Recognise True
+orTrue = orTrue (\k => Recognise k)
 
 public export %inline
-orFalse : {0 x : _} -> Recognise (x || False) t -> Recognise x t
-orFalse = orFalse (\k => Recognise k t)
+orFalse : {0 x : _} -> Recognise (x || False) -> Recognise x
+orFalse = orFalse (\k => Recognise k)
 
 public export %inline
-swapAnd : {0 x,y : _} -> Recognise (x && y) t -> Recognise (y && x) t
-swapAnd = swapAnd (\k => Recognise k t)
+swapAnd : {0 x,y : _} -> Recognise (x && y) -> Recognise (y && x)
+swapAnd = swapAnd (\k => Recognise k)
 
 public export %inline
-andSame : {0 x : _} -> Recognise (x && x) t -> Recognise x t
-andSame = andSame (\k => Recognise k t)
+andSame : {0 x : _} -> Recognise (x && x) -> Recognise x
+andSame = andSame (\k => Recognise k)
 
 public export %inline
-andTrue : {0 x : _} -> Recognise (x && True) t -> Recognise x t
-andTrue = andTrue (\k => Recognise k t)
+andTrue : {0 x : _} -> Recognise (x && True) -> Recognise x
+andTrue = andTrue (\k => Recognise k)
 
 public export %inline
-andFalse : {0 x : _} -> Recognise (x && False) t -> Recognise False t
-andFalse = andFalse (\k => Recognise k t)
+andFalse : {0 x : _} -> Recognise (x && False) -> Recognise False
+andFalse = andFalse (\k => Recognise k)
 
 --------------------------------------------------------------------------------
 --          Core Lexers
 --------------------------------------------------------------------------------
 
 public export %inline
-autoLift : AutoShift b t -> Recognise b t
+autoLift : AutoShift b -> Recognise b
 autoLift f = Lift $ \st,ts => orFalse $ f ts @{Same}
 
 ||| Alias for `Recognise True Char`.
 public export
 0 Lexer : Type
-Lexer = Recognise True Char
+Lexer = Recognise True
 
 public export
 run :
-     Recognise b t
-  -> (st : SnocList t)
-  -> (ts : List t)
+     Recognise b
+  -> (st : SnocList Char)
+  -> (ts : List Char)
   -> (0 acc : SuffixAcc ts)
-  -> ShiftRes b t st ts
+  -> ShiftRes b st ts
 run (Lift f)  st ts _ = f st ts
 run (x <+> y) st ts a@(SA r) = case run x st ts a of
   Succ {pre} ts2 @{p} => case p of
@@ -101,51 +101,50 @@ run (x <++> y) st ts a@(SA r) = case run x st ts a of
   Stop start errEnd r        => Stop start errEnd r
 run (x <|> y) st ts a = run x st ts a <|> run y st ts a
 
-
 ||| Lexer succeeding always without consuming input
 public export %inline
-empty : Recognise False t
+empty : Recognise False
 empty = Lift $ \sc,cs => Succ cs
 
 ||| Renders the given lexer optional.
 public export %inline
-opt : Recognise True t -> Recognise False t
+opt : Recognise True -> Recognise False
 opt l = l <|> empty
 
 ||| Positive look-ahead. Does not consume any input.
 public export
-expect : Recognise b t -> Recognise False t
+expect : Recognise b -> Recognise False
 expect r = Lift $ \sc,cs => case run r sc cs suffixAcc of
   Succ _     => Succ cs
   Stop x y z => Stop x y z
 
 ||| Negative look-ahead. Does not consume any input.
 public export
-reject : Recognise b t -> Recognise False t
+reject : Recognise b -> Recognise False
 reject r = Lift $ \sc,cs => case run r sc cs suffixAcc of
   Stop {} => Succ cs
   Succ {} => weaken $ fail sc cs
 
 public export %inline
-seqSame : Recognise b t -> Recognise b t -> Recognise b t
+seqSame : Recognise b -> Recognise b -> Recognise b
 seqSame x y = orSame $ x <+> y
 
 public export %inline
-altSame : Recognise b t -> Recognise b t -> Recognise b t
+altSame : Recognise b -> Recognise b -> Recognise b
 altSame x y =  andSame $ x <|> y
 
 ||| The lexer which always fails.
 public export
-fail : Recognise True t
+fail : Recognise True
 fail = Lift fail
 
 ||| Runs the given lexer zero or more times.
 public export
-many : Recognise True t -> Recognise False t
+many : Recognise True -> Recognise False
 
 ||| Runs the given lexer several times, but at least once.
 public export
-some : Recognise True t -> Recognise True t
+some : Recognise True -> Recognise True
 
 many r = opt (some r)
 
@@ -153,36 +152,36 @@ some r = r <++> many r
 
 ||| Lexer consuming one item if it fulfills the given predicate.
 public export %inline
-pred : (t -> Bool) -> Recognise True t
+pred : (Char -> Bool) -> Recognise True
 pred f = autoLift $ one f
 
 ||| Lexer consuming items while they fulfill the given predicate.
 ||| This is an optimized version of `some . pred`.
 public export %inline
-preds : (t -> Bool) -> Recognise True t
+preds : (Char -> Bool) -> Recognise True
 preds f = autoLift $ takeWhile1 f
 
 ||| Recogniser consuming items while they fulfill the given predicate.
 ||| This is an optimized version of `many . pred`.
 public export %inline
-preds0 : (t -> Bool) -> Recognise False t
+preds0 : (Char -> Bool) -> Recognise False
 preds0 = opt . preds
 
 public export
 concatMap :
-     (a -> Recognise c t)
+     (a -> Recognise c)
   -> (xs : List a)
   -> {auto 0 prf : NonEmpty xs}
-  -> Recognise c t
+  -> Recognise c
 concatMap f (x :: [])          = f x
 concatMap f (x :: xs@(_ :: _)) = seqSame (f x) (concatMap f xs)
 
 public export %inline
-choiceMap : Foldable t => (a -> Recognise True b) -> t a -> Recognise True b
+choiceMap : Foldable t => (a -> Recognise True) -> t a -> Recognise True
 choiceMap f = foldl (\v,e => altSame v $ f e) fail
 
 public export %inline
-choice : Foldable t => t (Recognise True b) -> Recognise True b
+choice : Foldable t => t (Recognise True) -> Recognise True
 choice = choiceMap id
 
 --------------------------------------------------------------------------------
@@ -190,14 +189,14 @@ choice = choiceMap id
 --------------------------------------------------------------------------------
 
 public export
-0 TokenMap : (charType, tokenType : Type) -> Type
-TokenMap ct tt = List (Recognise True ct, SnocList ct -> tt)
+0 TokenMap : (tokenType : Type) -> Type
+TokenMap tt = List (Recognise True, SnocList Char -> tt)
 
 public export %inline
-step : Recognise True t -> (SnocList t -> a) -> Tok True t a
+step : Recognise True -> (SnocList Char -> a) -> Tok True e a
 step x f cs = suffix f $ run x [<] cs suffixAcc
 
 public export
-first : (ps : TokenMap t a) -> {auto 0 prf : NonEmpty ps} -> Tok True t a
+first : (ps : TokenMap a) -> {auto 0 prf : NonEmpty ps} -> Tok True e a
 first ((f,g) :: [])         cs = step f g cs
 first ((f,g) :: t@(_ :: _)) cs = step f g cs <|> first t cs

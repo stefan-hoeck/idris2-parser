@@ -82,7 +82,7 @@ following function for lexing a string literal:
 strLit : SnocList Char -> JSToken
 strLit = Lit . JString . cast
 
-str : SnocList Char -> AutoTok Char JSToken
+str : SnocList Char -> AutoTok e JSToken
 str sc ('\\' :: c  :: xs) = case c of
   '"'  => str (sc :< '"') xs
   'n'  => str (sc :< '\n') xs
@@ -111,13 +111,13 @@ str sc (c    :: xs) =
 str sc []           = eoiAt p
 ```
 
-The most important new thing here is the `AutoTok Char JSToken`
+The most important new thing here is the `AutoTok e JSToken`
 type. This `AutoTok` is an alias for the following function type:
 
 ```repl
 Combinators> :printdef AutoTok
-0 Text.SuffixRes.AutoTok : Type -> Type -> Type
-AutoTok t a = (xs : List t) -> Suffix True xs orig => SuffixRes t orig a
+0 Text.Lex.Manual : Type -> Type -> Type
+AutoTok e a = (xs : List Char) -> Suffix True xs orig => LexRes True orig e a
 ```
 
 We use this to automatically keep track of the number of
@@ -149,22 +149,22 @@ the lexer combinators in `Text.Lex.Core`.
 
 ```idris
 -- A shifter that moves digits.
-digs : AutoShift False Char
+digs : AutoShift False
 digs (x :: xs) = if isDigit x then digs xs else Succ (x::xs)
 digs []        = Succ []
 
 -- A strict version of `digs`.
-digs1 : AutoShift True Char
+digs1 : AutoShift True
 digs1 (x :: xs) = if isDigit x then digs xs else unknownRange sh xs
-digs1 []        = failEOI sh
+digs1 []        = eoiAt sh
 
 -- A shifter that moves an integer prefix
-integer : AutoShift True Char
+integer : AutoShift True
 integer ('-' :: xs) = digs1 {b} xs
 integer ('+' :: xs) = digs1 {b} xs
 integer xs          = digs1 {b} xs
 
-dot,rest,digs0,exp : AutoShift False Char
+dot,rest,digs0,exp : AutoShift False
 exp ('e' :: xs) = weakens $ integer {b} xs
 exp ('E' :: xs) = weakens $ integer {b} xs
 exp xs          = Succ xs
@@ -172,22 +172,23 @@ exp xs          = Succ xs
 dot (x :: xs) = if isDigit x then dot xs else exp (x::xs)
 dot []        = Succ []
 
-rest ('.'::x::xs) = if isDigit x then dot xs else unknown xs
-rest ('.'::[])    = unknown []
+rest ('.'::x::xs) = if isDigit x then dot xs else failDigit Dec (shift sh)
+rest ('.'::[])    = eoiAt (shift sh)
 rest xs           = exp xs
 
 digs0 (x :: xs) = if isDigit x then digs0 xs else rest (x::xs)
 digs0 []        = Succ []
 
 -- A shifter for recognizing JSON numbers
-num : Shifter True Char
+num : Shifter True
 num sc ('-' :: '0' :: xs) = rest xs
-num sc ('-' :: x   :: xs) = if isDigit x then digs0 xs else unknown xs
+num sc ('-' :: x   :: xs) =
+  if isDigit x then digs0 xs else failDigit Dec (shift Same)
 num sc ('0'        :: xs) = rest xs
-num sc (x          :: xs) = if isDigit x then digs0 xs else unknown xs
-num sc []                 = failEmpty
+num sc (x          :: xs) = if isDigit x then digs0 xs else failDigit Dec Same
+num sc []                 = eoiAt Same
 
-dbl : Tok True Char JSToken
+dbl : Tok True e JSToken
 dbl cs = suffix (Lit . JNumber . cast . cast {to = String}) $ num [<] cs
 ```
 
@@ -197,7 +198,7 @@ a library of combinators makes the code much nicer.
 Compared to this, the rest is very simple:
 
 ```idris
-tok : Tok True Char JSToken
+tok : Tok True e JSToken
 tok (','::xs)                    = Succ ',' xs
 tok ('"'::xs)                    = str [<] xs
 tok (':'::xs)                    = Succ ':' xs
@@ -210,7 +211,9 @@ tok ('t'::'r'::'u'::'e'::t)      = Succ (Lit $ JBool True) t
 tok ('f'::'a'::'l'::'s'::'e'::t) = Succ (Lit $ JBool False) t
 tok xs                           = dbl xs
 
-tokJSON : String -> Either (Bounded StopReason) (List $ Bounded JSToken)
+tokJSON :
+     String
+  -> Either (Bounded $ ParseError Void Void) (List $ Bounded JSToken)
 tokJSON = singleLineDropSpaces tok
 ```
 
@@ -245,7 +248,7 @@ where lexers are paired with functions for converting the
 corresponding lexemes to values of type `JSToken`:
 
 ```idris
-jsonTokenMap : TokenMap Char JSToken
+jsonTokenMap : TokenMap JSToken
 jsonTokenMap =
   [ (spaces, const Space)
   , (is ',', const ',')
@@ -261,7 +264,9 @@ jsonTokenMap =
   , (jsstring, Lit . JString . cast)
   ]
 
-tokJSON2 : String -> Either (Bounded StopReason) (List $ Bounded JSToken)
+tokJSON2 :
+     String
+  -> Either (Bounded $ ParseError Void Void) (List $ Bounded JSToken)
 tokJSON2 = lexManual (first jsonTokenMap)
 ```
 
@@ -437,17 +442,18 @@ the hand-written case.
 ```idris
 parse1 : String -> Either (FileContext,JSParseErr) JsonTree
 parse1 s = case tokJSON s of
-  Left x  => Left (fromBounded Virtual $ Reason <$> x)
+  Left x  => Left (fromBounded Virtual $ map fromVoid x)
   Right x => result Virtual $ value x suffixAcc
 
 covering
 parse2 : String -> Either (List1 (FileContext,JSParseErr)) JsonTree
 parse2 s = case tokJSON2 s of
-  Left x  => Left (singleton $ fromBounded Virtual $ Reason <$> x)
+  Left x  => Left (singleton $ fromBounded Virtual $ map fromVoid x)
   Right x => case parse value2 () x of
     Left es                => Left (fromBounded Virtual <$> es)
     Right ((),res,[])      => Right res
-    Right ((),res,(x::xs)) => Left (singleton $ fromBounded Virtual $ Unexpected <$> x)
+    Right ((),res,(x::xs)) =>
+      Left (singleton $ fromBounded Virtual $ Unexpected . Right <$> x)
 
 testParse1 : String -> IO ()
 testParse1 s = putStrLn $ either (uncurry $ printParseError s) show (parse1 s)

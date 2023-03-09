@@ -210,7 +210,7 @@ items sx []             _      = Right $ sx <>> []
 items sx (B NL _ :: xs) (SA r) = items sx xs r
 items sx xs             (SA r) = case item xs of
   Succ0 i (B NL _ :: xs) => items (sx :< i) xs r
-  Succ0 i (x::xs)        => Left (Unexpected <$> x)
+  Succ0 i (x::xs)        => Left (Unexpected . Right <$> x)
   Succ0 i []             => Right (sx <>> [i])
   Fail0 err              => Left err
 

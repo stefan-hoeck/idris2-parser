@@ -217,12 +217,12 @@ public export %inline
 terminal : (t -> Maybe a) -> Grammar True s t e a
 terminal f = readHead $ \h => case f h of
   Just a  => Right a
-  Nothing => Left (Unexpected h)
+  Nothing => Left (Unexpected $ Right h)
 
 ||| Look at the next token in the input
 public export
 is : Eq t => t -> Grammar True s t e ()
-is x = readHead $ \h => if x == h then Right () else Left (Expected x)
+is x = readHead $ \h => if x == h then Right () else Left (Expected $ Right x)
 
 ||| Optionally parse a thing, with a default value if the grammar doesn't
 ||| match. May match the empty input.
@@ -451,19 +451,19 @@ filterOnto xs f [<]       = xs
 export
 lexFull :
      Origin
-  -> Tokenizer Char t
+  -> Tokenizer e t
   -> (keep : t -> Bool)
   -> (s : String)
   -> Either (Bounded $ ParseError t e) (List $ Bounded t)
 lexFull orig tm keep s = case lex tm s of
   TR pos toks Nothing    _ _ => Right $ filterOnto [] keep toks
-  TR _ _      (Just err) _ _ => Left $ map fromVoid err
+  TR _ _      (Just err) _ _ => Left err
 
 export
 lexAndParse :
      {0 state,t,e,a : Type}
   -> Origin
-  -> Tokenizer Char t
+  -> Tokenizer e t
   -> (keep : t -> Bool)
   -> Grammar b state t e a
   -> state
@@ -471,7 +471,7 @@ lexAndParse :
   -> Either (List1 (FileContext, ParseError t e)) (state, a)
 lexAndParse orig tm keep gr s str =
   let Right ts := lexFull orig tm keep str
-        | Left err => Left $ singleton (fromBounded orig $ map fromVoid err)
+        | Left err => Left $ singleton (fromBounded orig err)
    in case parse gr s ts of
         Left x         => Left $ fromBounded orig <$> x
         Right (s2,a,_) => Right (s2,a)

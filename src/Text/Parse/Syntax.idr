@@ -161,4 +161,4 @@ sepByExact1 :
   => (sep : t)
   -> Grammar True t e a
   -> Grammar True t e (List1 a)
-sepByExact1 sep = sepByF1 (/= Expected sep) (exact sep)
+sepByExact1 sep = sepByF1 (/= Expected (Right sep)) (exact sep)

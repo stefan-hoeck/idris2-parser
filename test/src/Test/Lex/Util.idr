@@ -21,7 +21,7 @@ ITokenMap = Libraries.Text.Lexer.Core.TokenMap
 
 public export
 0 PTokenMap : Type -> Type
-PTokenMap = Text.Lex.Core.TokenMap Char
+PTokenMap = Text.Lex.Core.TokenMap
 
 public export
 0 IBounds : Type

@@ -63,7 +63,7 @@ tokenise :
   -> (toks    : SnocList (Bounded a))
   -> (cs      : List Char)
   -> (0 acc   : SuffixAcc cs)
-  -> TokRes False cs (Bounded $ ParseError String e) a
+  -> TokRes False cs (Bounded $ ParseError a e) a
 tokenise x pos toks [] _ = TR pos toks Nothing [] Same
 tokenise x pos toks cs acc@(SA r) = case next x cs acc of
   Right (TR pos2 toks2 Nothing cs2 su) =>
@@ -74,16 +74,16 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
          Tokenizer e a
       -> (cs    : List Char)
       -> (0 acc : SuffixAcc cs)
-      -> Either (Bounded $ ParseError String e) (TokRes True cs Void a)
+      -> Either (Bounded $ ParseError a e) (TokRes True cs Void a)
     next (Direct f) cs _ = case f cs of
       Succ val xs     @{p} =>
         let pos2 := endPos pos p
          in Right (TR pos2 (toks :< bounded val pos pos2) Nothing xs p)
       Fail start errEnd r =>
-        Left $ boundedErr pos start errEnd r
+        Left $ boundedErr pos start errEnd (voidLeft r)
     next (Compose beg midFn endFn) cs acc@(SA r) = case beg cs of
       Fail start errEnd r =>
-        Left $ boundedErr pos start errEnd r
+        Left $ boundedErr pos start errEnd (voidLeft r)
       Succ (st,tg) cs2 @{p2} =>
         let pos2   := endPos pos p2
             middle := midFn tg
@@ -98,19 +98,19 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
                       toks4  := toks3 :< bounded val pos3 pos4
                    in Right (TR pos4 toks4 Nothing cs4 $ trans p4 (trans p3 p2))
                 Fail start errEnd y => case y of
-                  EOI => Left $ boundedErr pos start errEnd (Unclosed st)
-                  r    => Left $ boundedErr pos start errEnd r
+                  EOI => Left $ boundedErr pos start errEnd (Unclosed $ Right st)
+                  r    => Left $ boundedErr pos start errEnd (voidLeft r)
     next (x <|> y) cs acc = case next x cs acc of
       Right res                  => Right res
       Left  r@(B (Unclosed _) _) => Left r
       Left  _                    => next y cs acc
--- 
--- ||| Given a tokenizer and an input string, return a list of recognised tokens,
--- ||| and the line, column, and remainder of the input at the first point in the string
--- ||| where there are no recognised tokens.
--- export %inline
--- lex :
---      Tokenizer Char a
---   -> (s : String)
---   -> TokRes False (unpack s) (Bounded $ ParseError a Void) a
--- lex x s = tokenise x begin [<] (unpack s) suffixAcc
+
+||| Given a tokenizer and an input string, return a list of recognised tokens,
+||| and the line, column, and remainder of the input at the first point in the string
+||| where there are no recognised tokens.
+export %inline
+lex :
+     Tokenizer e a
+  -> (s : String)
+  -> TokRes False (unpack s) (Bounded $ ParseError a e) a
+lex x s = tokenise x begin [<] (unpack s) suffixAcc

@@ -110,23 +110,6 @@ Bifunctor ParseError where
   bimap f g (Unexpected x)      = Unexpected $ map f x
   bimap f g (Unknown x)         = Unknown $ map f x
 
-public export
-left : Either e Void -> Either e a
-left (Left x) = Left x
-
-public export
-fromVoid : ParseError Void Void -> ParseError t e
-fromVoid EOI                = EOI
-fromVoid (Expected x)       = Expected $ left x
-fromVoid (ExpectedChar x)   = ExpectedChar x
-fromVoid ExpectedEOI        = ExpectedEOI
-fromVoid (InvalidControl c) = InvalidControl c
-fromVoid InvalidEscape      = InvalidEscape
-fromVoid (OutOfBounds x)    = OutOfBounds $ left x
-fromVoid (Unclosed x)       = Unclosed $ left x
-fromVoid (Unexpected x)     = Unexpected $ left x
-fromVoid (Unknown x)        = Unknown $ left x
-
 %inline
 interpEither : Interpolation t => Either String t -> String
 interpEither = either id interpolate
@@ -264,3 +247,38 @@ result :
 result o (Fail0 err)           = Left $ fromBounded o err
 result _ (Succ0 res [])        = Right res
 result o (Succ0 res (x :: xs)) = Left $ fromBounded o (Unexpected . Right <$> x)
+
+--------------------------------------------------------------------------------
+--          Identities
+--------------------------------------------------------------------------------
+
+public export
+left : Either e Void -> Either e a
+left (Left x) = Left x
+
+public export
+voidLeft : ParseError Void e -> ParseError t e
+voidLeft EOI                = EOI
+voidLeft (Expected x)       = Expected $ left x
+voidLeft (ExpectedChar x)   = ExpectedChar x
+voidLeft ExpectedEOI        = ExpectedEOI
+voidLeft (InvalidControl c) = InvalidControl c
+voidLeft InvalidEscape      = InvalidEscape
+voidLeft (OutOfBounds x)    = OutOfBounds $ left x
+voidLeft (Unclosed x)       = Unclosed $ left x
+voidLeft (Unexpected x)     = Unexpected $ left x
+voidLeft (Unknown x)        = Unknown $ left x
+voidLeft (Custom x)         = Custom x
+
+public export
+fromVoid : ParseError Void Void -> ParseError t e
+fromVoid EOI                = EOI
+fromVoid (Expected x)       = Expected $ left x
+fromVoid (ExpectedChar x)   = ExpectedChar x
+fromVoid ExpectedEOI        = ExpectedEOI
+fromVoid (InvalidControl c) = InvalidControl c
+fromVoid InvalidEscape      = InvalidEscape
+fromVoid (OutOfBounds x)    = OutOfBounds $ left x
+fromVoid (Unclosed x)       = Unclosed $ left x
+fromVoid (Unexpected x)     = Unexpected $ left x
+fromVoid (Unknown x)        = Unknown $ left x

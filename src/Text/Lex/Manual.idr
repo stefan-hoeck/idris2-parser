@@ -344,7 +344,7 @@ hex1 n []        = succ n p
 ||| Tries to read a hexadecimal natural number.
 ||| Fails, if this does not contain at least one digit.
 public export
-hex : StrictTok Char Nat
+hex : StrictTok e Nat
 hex (x::xs) = if isHexDigit x then hex1 (hexDigit x) xs else failDigit Hex p
 hex []      = eoiAt p
 
@@ -372,13 +372,13 @@ hexSep []      = eoiAt p
 
 ||| A shifter that takes moves an integer prefix
 public export
-int : StrictTok Char Integer
+int : StrictTok e Integer
 int ('-' :: xs) = negate . cast <$> dec xs
 int xs          = cast <$> dec xs
 
 ||| Like `int` but also allows an optional leading `'+'` character.
 public export
-intPlus : StrictTok Char Integer
+intPlus : StrictTok e Integer
 intPlus ('+'::xs) = cast <$> dec xs
 intPlus xs        = int xs
 
@@ -454,14 +454,14 @@ public export
 multiLineDropSpaces :
      Tok True e a
   -> String
-  -> Either (Bounded $ ParseError String e) (List $ Bounded a)
+  -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
 multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
   where
     go : Position
       -> SnocList (Bounded a)
       -> (ts : List Char)
       -> (0 acc : SuffixAcc ts)
-      -> Either (Bounded $ ParseError String e) (List $ Bounded a)
+      -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
     go p1 sx []       _        = Right $ sx <>> []
     go p1 sx ('\n'::cs) (SA r) = go (incLine p1) sx cs r
     go p1 sx (c::cs)    (SA r) =
@@ -482,14 +482,14 @@ public export
 lexManual :
      Tok True e a
   -> String
-  -> Either (Bounded $ ParseError String e) (List $ Bounded a)
+  -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
 lexManual f s = go begin [<] (unpack s) suffixAcc
   where
     go : Position
       -> SnocList (Bounded a)
       -> (ts : List Char)
       -> (0 acc : SuffixAcc ts)
-      -> Either (Bounded $ ParseError String e) (List $ Bounded a)
+      -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
     go p1 sx [] _      = Right $ sx <>> []
     go p1 sx cs (SA r) = case f cs of
       Succ v xs2 @{p}     =>

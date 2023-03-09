@@ -40,7 +40,7 @@ data ShiftRes :
     -> (start       : Shift False Char se errStart st ts)
     -> (0 errEnd    : List Char)
     -> {auto end    : Shift False Char ee errEnd se errStart}
-    -> ParseError String Void
+    -> ParseError Void Void
     -> ShiftRes b st ts
 
 public export %inline
@@ -154,7 +154,7 @@ range :
      {0 b1,b2 : Bool}
   -> {0 giro,ruc,tser : SnocList Char}
   -> {orig,cur   : List Char}
-  -> (err        : ParseError String Void)
+  -> (err        : ParseError Void Void)
   -> (shiftCur   : Shift b1 Char ruc cur giro orig)
   -> (0 rest     : List Char)
   -> {auto sr    : Shift False Char tser rest ruc cur}
@@ -181,7 +181,7 @@ unknownRange :
   -> (0 rest     : List Char)
   -> {auto sr    : Shift False Char tser rest ruc cur}
   -> ShiftRes b2 giro orig
-unknownRange sc ee = range (Unknown $ packPrefix $ suffix sr) sc ee
+unknownRange sc ee = range (Unknown . Left . packPrefix $ suffix sr) sc ee
 
 public export %inline
 single :
@@ -189,7 +189,7 @@ single :
   -> {0 giro,ruc    : SnocList Char}
   -> {c             : Char}
   -> {orig,errEnd   : List Char}
-  -> (err           : ParseError String Void)
+  -> (err           : ParseError Void Void)
   -> (shiftCur      : Shift b Char ruc (c::errEnd) giro orig)
   -> ShiftRes bres giro orig
 single r p = range r p errEnd
@@ -354,7 +354,7 @@ exact (v :: vs) (x :: xs) = case v == x of
   True => case vs of
     []        => Succ xs
     ws@(_::_) => exact {b} ws xs
-  False => single (Expected $ show v) sh
+  False => single (Expected . Left $ show v) sh
 exact (v :: vs) []        = eoiAt sh
 
 str : AutoShift True
@@ -366,5 +366,5 @@ str []                = eoiAt sh
 public export
 string : Shifter True
 string sc ('"' :: xs) = str {b = True} xs
-string sc (h   :: t)  = single (Expected $ show '"') Same
+string sc (h   :: t)  = single (Expected . Left $ show '"') Same
 string sc []          = eoiAt Same

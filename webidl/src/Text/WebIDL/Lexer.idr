@@ -15,24 +15,24 @@ keep Comment = False
 keep Space   = False
 keep _       = True
 
-spaces : AutoTok Char IdlToken
+spaces : AutoTok e IdlToken
 spaces ('\n' :: xs) = spaces xs
 spaces ('\r' :: xs) = spaces xs
 spaces ('\t' :: xs) = spaces xs
 spaces (' ' :: xs)  = spaces xs
 spaces xs           = Succ Space xs
 
-comment : AutoTok Char IdlToken
+comment : AutoTok e IdlToken
 comment ('\n' :: xs) = Succ Comment ('\n' :: xs)
 comment (x :: xs)    = comment xs
 comment []           = Succ Comment []
 
-mlComment : AutoTok Char IdlToken
+mlComment : AutoTok e IdlToken
 mlComment ('*' :: '/' :: xs) = Succ Comment xs
 mlComment (x :: xs)          = mlComment xs
 mlComment []                 = eoiAt p
 
-string : SnocList Char -> AutoTok Char IdlToken
+string : SnocList Char -> AutoTok e IdlToken
 string sc ('"' :: xs) = Succ (SLit $ MkStrLit $ cast sc) xs
 string sc (x :: xs)   = string (sc :< x)  xs
 string _  []          = eoiAt p
@@ -45,7 +45,7 @@ toIdent "-Infinity" = FLit NegativeInfinity
 toIdent "NaN"       = FLit NaN
 toIdent s           = maybe (Ident $ MkIdent s) Key (refineKeyword s)
 
-ident : SnocList Char -> AutoTok Char IdlToken
+ident : SnocList Char -> AutoTok e IdlToken
 ident sc ('-' :: xs) = ident (sc :< '-') xs
 ident sc ('_' :: xs) = ident (sc :< '_') xs
 ident sc (x   :: xs) =
@@ -65,23 +65,23 @@ toNum i Nothing Nothing   = ILit $ I i
 toNum i mn      (Just ex) = FLit $ Exp i mn ex
 toNum i (Just ad) Nothing = FLit $ NoExp i ad
 
-exp : Integer -> Maybe Nat -> AutoTok Char IdlToken
+exp : Integer -> Maybe Nat -> AutoTok e IdlToken
 exp i mn (x :: xs) =
   if toLower x == 'e' then toNum i mn . Just <$> autoTok intPlus xs
   else Succ (toNum i mn Nothing) (x::xs)
 exp i mn []        = Succ (toNum i mn Nothing) []
 
-dot : Integer -> Nat -> AutoTok Char IdlToken
+dot : Integer -> Nat -> AutoTok e IdlToken
 dot i n (x :: xs) =
   if isDigit x then dot i (10*n + digit x) xs else exp i (Just n) (x::xs)
 dot i n []        = Succ (toNum i (Just n) Nothing) []
 
-rest : Integer -> AutoTok Char IdlToken
+rest : Integer -> AutoTok e IdlToken
 rest i ('.'::x::xs) = if isDigit x then dot i (digit x) xs else unknownRange p xs
 rest i ('.'::[])    = unknown p
 rest i xs           = exp i Nothing xs
 
-num : Signum -> Nat -> AutoTok Char IdlToken
+num : Signum -> Nat -> AutoTok e IdlToken
 num s n (x :: xs) =
   if isDigit x then num s (n*10 + digit x) xs else rest (toInt s n) (x::xs)
 num s n []        = Succ (ILit $ I $ toInt s n) []
@@ -96,7 +96,7 @@ isFloat ('e' :: _) = True
 isFloat ('E' :: _) = True
 isFloat _          = False
 
-term : Tok True Char IdlToken
+term : Tok True e IdlToken
 term ('"':: xs) = string [<] xs
 term ('/'::'/':: xs) = comment xs
 term ('/'::'*':: xs) = mlComment xs
@@ -135,7 +135,7 @@ go sx pos xs (SA r) = case term xs of
     let pos2 := endPos pos prf
         sx'  := if keep t then (sx :< bounded t pos pos2) else sx
      in go sx' pos2 xs' r
-  Fail start errEnd r => Left $ boundedErr pos start errEnd (Reason r)
+  Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
 
 ||| Generates a list of IdlTokens
 ||| from an input string, removing unnecessary tokens by

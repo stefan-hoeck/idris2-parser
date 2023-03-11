@@ -40,16 +40,15 @@ escape sc '\t' = sc :< '\\' :< 't'
 escape sc '\\' = sc :< '\\' :< '\\'
 escape sc '/'  = sc :< '\\' :< '/'
 escape sc c =
-  let x := the Integer $ cast c
-   in
-     if x >= 0x20
-       then sc :< c
-       else
-         let d1 := hexChar $ x `div` 0x1000
-             d2 := hexChar $ (x `mod` 0x1000) `div` 0x100
-             d3 := hexChar $ (x `mod` 0x100)  `div` 0x10
-             d4 := hexChar $ x `mod` 0x10
-          in sc :< '\\' :< 'u' :< d1 :< d2 :< d3 :< d4
+  if isControl c
+    then
+      let x  := the Integer $ cast c 
+          d1 := hexChar $ x `div` 0x1000
+          d2 := hexChar $ (x `mod` 0x1000) `div` 0x100
+          d3 := hexChar $ (x `mod` 0x100)  `div` 0x10
+          d4 := hexChar $ x `mod` 0x10
+       in sc :< '\\' :< 'u' :< d1 :< d2 :< d3 :< d4
+    else sc :< c
 
 public export
 encode : String -> String

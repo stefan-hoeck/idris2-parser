@@ -1,0 +1,10 @@
+package parser-show-test
+version = 0.1.0
+authors = "stefan-hoeck"
+
+depends = parser-show
+        , hedgehog
+
+main = Main
+executable = "parser-show-test"
+sourcedir = "src"

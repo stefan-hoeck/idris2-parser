@@ -147,3 +147,20 @@ nextEquals : Eq t => t -> Grammar False t e t
 nextEquals v (x::xs) =
   if v == x.val then Succ0 x.val (x::xs) else expected x.bounds v
 nextEquals v []      = expected NoBounds v
+
+--------------------------------------------------------------------------------
+--          Testing Parsers
+--------------------------------------------------------------------------------
+
+||| Utility for testing a parses and the error messages it produces
+||| at the REPL.
+export
+testParse :
+     Show a
+  => Interpolation e
+  => (Origin -> String -> Either (FileContext,e) a)
+  -> String
+  -> IO ()
+testParse f s = case f Virtual s of
+  Right res     => putStrLn "Success: \{show res}"
+  Left (fc,err) => putStrLn $ printParseError s fc err

@@ -23,7 +23,7 @@ Cast (SnocList Char) VName where
 %runElab derive "VName" [Show,Eq,Ord,FromString,Semigroup,Monoid]
 
 public export
-Interpolation VName where interpolate (MkName n) = interpolate n
+Interpolation VName where interpolate (MkName n) = n
 
 public export
 Pretty VName where
@@ -145,21 +145,35 @@ data Token : Type where
   Id     : VName -> Token
   Op     : VName -> Token
   Symbol : Char -> Token
+  EOI    : Token
 
 %runElab derive "Token" [Show,Eq]
 
 export
 Interpolation Token where
-  interpolate (Lit x)    = show x
-  interpolate (Id str)   = show str
-  interpolate (Op str)   = show str
+  interpolate (Lit x)    = case x of
+    Con y []    => interpolate y
+    Rec y []    => interpolate y
+    Lst []      => "[]"
+    Natural str => str
+    Dbl str     => str
+    Chr str     => str
+    Str str     => str
+    x           => show x
+  interpolate (Id str)   = interpolate str
+  interpolate (Op str)   = interpolate str
   interpolate (Symbol c) = show c
+  interpolate EOI        = "end of input"
 
 public export
 data Err : Type where
   ExpectedId : Err
 
 %runElab derive "Err" [Show,Eq]
+
+export
+Interpolation Err where
+  interpolate ExpectedId = "Expected an identifier"
 
 public export
 0 PSErr : Type
@@ -266,7 +280,7 @@ go sx pos (x :: xs)    (SA r) =
          let pos2 := addCol (toNat prf) pos
           in go (sx :< bounded t pos pos2) pos2 xs' r
        Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
-go sx pos [] _ = Right (post [] sx)
+go sx pos [] _ = Right (post [B EOI $ oneChar pos] sx)
 
 export
 tokens : String -> Either (Bounded PSErr) (List (Bounded Token))
@@ -355,6 +369,7 @@ parseValueE str = case tokens str of
   Right ts => case value ts suffixAcc of
     Fail0 err           => Left $ fromBounded Virtual err
     Succ0 res []        => Right res
+    Succ0 res [B EOI _] => Right res
     Succ0 res (x :: xs) => Left (fromBounded Virtual $ Unexpected . Right <$> x)
 
 export

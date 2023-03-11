@@ -172,39 +172,24 @@ expectedEOI b = parseFail b ExpectedEOI
 --          Pretty Printing Errors
 --------------------------------------------------------------------------------
 
-printPair :
-     Interpolation a
-  => List String
-  -> (FileContext,a)
-  -> List String
+printPair : Interpolation a => List String -> (FileContext,a) -> List String
 printPair ls (fc,x) = "Error: \{x}" :: printFC fc ls
 
 export
-printVirtual :
-     Interpolation a
-  => String
-  -> Bounded a
-  -> String
+printVirtual : Interpolation a => String -> Bounded a -> String
 printVirtual s x = unlines $ printPair (lines s) (fromBounded Virtual x)
 
 export
-printParseError :
-     Interpolation t
-  => Interpolation e
-  => String
-  -> FileContext
-  -> ParseError t e
-  -> String
+printParseError : Interpolation a => String -> FileContext -> a -> String
 printParseError str fc err =
    unlines $ printPair (lines str) (fc,err)
 
 export
 printParseErrors :
      Foldable m
-  => Interpolation t
-  => Interpolation e
+  => Interpolation a
   => String
-  -> m (FileContext, ParseError t e)
+  -> m (FileContext, a)
   -> String
 printParseErrors str errs =
   let ls := lines str

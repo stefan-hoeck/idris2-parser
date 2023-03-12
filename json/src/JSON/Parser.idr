@@ -116,6 +116,7 @@ public export
 data JSToken : Type where
   Symbol   : Char -> JSToken
   Lit      : JSON -> JSToken
+  EOI      : JSToken
 
 %inline
 fromChar : Char -> JSToken
@@ -127,6 +128,7 @@ export
 Interpolation JSToken where
   interpolate (Symbol c) = show c
   interpolate (Lit x)  = "'\{show x}'"
+  interpolate EOI      = "end of input"
 
 public export
 data JSErr : Type where
@@ -175,6 +177,10 @@ str sc (c    :: xs) =
   else str (sc :< c) xs
 str sc []           = eoiAt p
 
+invalidKey : StrictTok e JSToken
+invalidKey (x::xs) = if isAlpha x then invalidKey xs else unknownRange Same (x::xs)
+invalidKey []      = unknownRange Same []
+
 term : Tok True e JSToken
 term (x :: xs) = case x of
   ',' => Succ ',' xs
@@ -186,13 +192,13 @@ term (x :: xs) = case x of
   '}' => Succ '}' xs
   'n' => case xs of
     'u' :: 'l' :: 'l' :: t => Succ (Lit JNull) t
-    _                      => unknown Same
+    _                      => invalidKey ('n'::xs)
   't' => case xs of
     'r' :: 'u' :: 'e' :: t => Succ (Lit $ JBool True) t
-    _                      => unknown Same
+    _                      => invalidKey ('t'::xs)
   'f' => case xs of
     'a' :: 'l' :: 's' :: 'e' :: t => Succ (Lit $ JBool False) t
-    _                             => unknown Same
+    _                             => invalidKey ('f'::xs)
   d   => suffix (Lit . JNumber . cast . cast {to = String}) $
          number [<] (d :: xs)
 
@@ -214,7 +220,7 @@ go sx pos (x :: xs)    (SA rec) =
              bt   := bounded t pos pos2
           in go (sx :< bt) pos2 xs' rec
        Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
-go sx _ [] _ = Right (sx <>> [])
+go sx pos [] _ = Right (sx <>> [B EOI $ oneChar pos])
 
 export
 lexJSON : String -> Either (Bounded ParseErr) (List (Bounded JSToken))
@@ -245,13 +251,13 @@ value xs                         _      = fail xs
 array b sv xs sa@(SA r) = case value xs sa of
   Succ0 v (B ',' _ :: ys) => succT $ array b (sv :< v) ys r
   Succ0 v (B ']' _ :: ys) => Succ0 (JArray $ sv <>> [v]) ys
-  res                     => failInParen b '[' res
+  res                     => failInParenEOI b '[' (EOI ==) res
 
 object b sv (B (Lit $ JString l) _ :: B ':' _ :: xs) (SA r) =
   case succT $ value xs r of
     Succ0 v (B ',' _ :: ys) => succT $ object b (sv :< (l,v)) ys r
     Succ0 v (B '}' _ :: ys) => Succ0 (JObject $ sv <>> [(l,v)]) ys
-    res                     => failInParen b '[' res
+    res                     => failInParenEOI b '{' (EOI ==) res
 object b sv (B (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds ':'
 object b sv (x :: xs)                          _ = custom x.bounds ExpectedString
 object b sv []                                 _ = eoi
@@ -263,7 +269,8 @@ parseJSON :
   -> Either (FileContext, ParseErr) JSON
 parseJSON o str = case lexJSON str of
   Right ts => case value ts suffixAcc of
-    Fail0 x         => Left (fromBounded o x)
-    Succ0 v []      => Right v
-    Succ0 v (x::xs) => Left (fromBounded o $ Unexpected . Right <$> x)
+    Fail0 x           => Left (fromBounded o x)
+    Succ0 v [B EOI _] => Right v
+    Succ0 v []        => Right v
+    Succ0 v (x::xs)   => Left (fromBounded o $ Unexpected . Right <$> x)
   Left err => Left (fromBounded o err)

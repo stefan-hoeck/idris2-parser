@@ -218,6 +218,26 @@ failInParen b tok (Fail0 err)         = Fail0 err
 failInParen b tok (Succ0 _ [])        = unclosed b tok
 failInParen b tok (Succ0 _ (x :: xs)) = unexpected x
 
+||| Like `failInParen`, but with the ability to specify custom
+||| "end-of-input" tokens.
+|||
+||| @ b   : Bounds of the opening paren or token
+||| @ tok : Opening paren or token
+||| @ eoi : Returns `True` if the given token signals the end of input
+||| @ res : Current parsing result
+public export
+failInParenEOI :
+     (b : Bounds)
+  -> (tok : t)
+  -> (eoi : t -> Bool)
+  -> Result0 b1 (Bounded t) ts (Bounded $ ParseError t y) a
+  -> Result0 b2 (Bounded t) ts (Bounded $ ParseError t y) x
+failInParenEOI b tok f res@(Fail0 (B (Unexpected $ Right t) bs)) =
+  if f t then unclosed b tok else failInParen b tok res
+failInParenEOI b tok f res@(Succ0 _ (B t _ :: xs)) =
+  if f t then unclosed b tok else failInParen b tok res
+failInParenEOI b tok f res = failInParen b tok res
+
 ||| Catch-all error generator when no other rule applies.
 public export
 fail : List (Bounded t) -> Result0 b (Bounded t) ts (Bounded $ ParseError t y) a

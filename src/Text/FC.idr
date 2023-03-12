@@ -59,8 +59,8 @@ printFC fc ls = case fc.bounds of
          head   := "\{fc}"
      in case sr == er of
        False =>
-         lineNumbers [<"",head] nsize sr (range sr (min er $ sr+5) ls) <>> [""]
+         lineNumbers [<"",head] nsize sr (range sr (min er $ sr+5) ls) <>> []
        True  =>
          let emph := indent (nsize + sc + 4) (replicate (ec `minus` sc) '^')
              fr   := er `minus` 4 -- first row
-          in lineNumbers [<"",head] nsize fr (range fr er ls) <>> [emph,""]
+          in lineNumbers [<"",head] nsize fr (range fr er ls) <>> [emph]

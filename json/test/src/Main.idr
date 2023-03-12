@@ -41,6 +41,75 @@ prop_roundTrip = property $ do
 
   parseJSON Virtual str === Right v
 
+--------------------------------------------------------------------------------
+--          Errors
+--------------------------------------------------------------------------------
+
+testErr : String -> String
+testErr s = case parseJSON Virtual s of
+  Left (fc,e) => printParseError s fc e
+  Right v     => show v
+
+prop_err1 : Property
+prop_err1 = withTests 1 $ property $
+  testErr #"{"foo?" : nlul}"# ===
+    """
+    Error: Unknown or invalid token: nlul
+
+    virtual: 1:11--1:15
+     1 | {"foo?" : nlul}
+                   ^^^^
+
+    """
+
+prop_err2 : Property
+prop_err2 = withTests 1 $ property $
+  testErr #"{"foo?" : }"# ===
+    """
+    Error: Unexpected '}'
+
+    virtual: 1:11--1:12
+     1 | {"foo?" : }
+                   ^
+
+    """
+
+prop_err3 : Property
+prop_err3 = withTests 1 $ property $
+  testErr #"{"foo?" : 12"# ===
+    """
+    Error: Unclosed '{'
+
+    virtual: 1:1--1:2
+     1 | {"foo?" : 12
+         ^
+
+    """
+
+prop_err4 : Property
+prop_err4 = withTests 1 $ property $
+  testErr #"[true,false,"# ===
+    """
+    Error: Unclosed '['
+
+    virtual: 1:1--1:2
+     1 | [true,false,
+         ^
+
+    """
+
+--------------------------------------------------------------------------------
+--          main Function
+--------------------------------------------------------------------------------
+
+properties : Group
+properties = MkGroup "JSON.Parser"
+  [ ("prop_roundTrip", prop_roundTrip)
+  , ("prop_err1", prop_err1)
+  , ("prop_err2", prop_err2)
+  , ("prop_err3", prop_err3)
+  , ("prop_err4", prop_err4)
+  ]
 
 main : IO ()
-main = test [ MkGroup "JSON.Parser" [("prop_roundTrip", prop_roundTrip)] ]
+main = test [ properties ]

@@ -330,7 +330,7 @@ number : Shifter True
 number sc ('-' :: '0' :: xs) = rest xs
 number sc ('-' :: x   :: xs) =
   if isDigit x then digs xs else failDigit Dec (shift Same)
-number sc (x          :: xs) = if isDigit x then digs xs else failDigit Dec Same
+number sc (x          :: xs) = if isDigit x then digs xs else unknown Same
 number sc []                 = eoiAt Same
 
 public export

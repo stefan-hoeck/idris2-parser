@@ -45,58 +45,89 @@ prop_roundTrip = property $ do
 --          Errors
 --------------------------------------------------------------------------------
 
-testErr : String -> String
-testErr s = case parseJSON Virtual s of
-  Left (fc,e) => printParseError s fc e
-  Right v     => show v
+testErr : String -> String -> Property
+testErr s exp =
+  let res := case parseJSON Virtual s of
+        Left (fc,e) => printParseError s fc e
+        Right v     => show v
+   in withTests 1 $ property $ res === exp
 
 prop_err1 : Property
-prop_err1 = withTests 1 $ property $
-  testErr #"{"foo?" : nlul}"# ===
-    """
-    Error: Unknown or invalid token: nlul
+prop_err1 = testErr #"{"foo?" : nlul}"#
+  """
+  Error: Unknown or invalid token: nlul
 
-    virtual: 1:11--1:15
-     1 | {"foo?" : nlul}
-                   ^^^^
+  virtual: 1:11--1:15
+   1 | {"foo?" : nlul}
+                 ^^^^
 
-    """
+  """
 
 prop_err2 : Property
-prop_err2 = withTests 1 $ property $
-  testErr #"{"foo?" : }"# ===
-    """
-    Error: Unexpected '}'
+prop_err2 = testErr #"{"foo?" : }"#
+  """
+  Error: Unexpected '}'
 
-    virtual: 1:11--1:12
-     1 | {"foo?" : }
-                   ^
+  virtual: 1:11--1:12
+   1 | {"foo?" : }
+                 ^
 
-    """
+  """
 
 prop_err3 : Property
-prop_err3 = withTests 1 $ property $
-  testErr #"{"foo?" : 12"# ===
-    """
-    Error: Unclosed '{'
+prop_err3 = testErr #"{"foo?" : 12"#
+  """
+  Error: Unclosed '{'
 
-    virtual: 1:1--1:2
-     1 | {"foo?" : 12
-         ^
+  virtual: 1:1--1:2
+   1 | {"foo?" : 12
+       ^
 
-    """
+  """
 
 prop_err4 : Property
-prop_err4 = withTests 1 $ property $
-  testErr #"[true,false,"# ===
-    """
-    Error: Unclosed '['
+prop_err4 = testErr "[true,false,"
+  """
+  Error: Unclosed '['
 
-    virtual: 1:1--1:2
-     1 | [true,false,
+  virtual: 1:1--1:2
+   1 | [true,false,
+       ^
+
+  """
+
+prop_err5 : Property
+prop_err5 = testErr "[true,false, ?"
+  """
+  Error: Unknown or invalid token: ?
+
+  virtual: 1:14--1:15
+   1 | [true,false, ?
+                    ^
+
+  """
+
+prop_err6 : Property
+prop_err6 = testErr "1.false"
+  """
+  Error: Expected a decimal digit ('0' to '9')
+
+  virtual: 1:3--1:4
+   1 | 1.false
          ^
 
-    """
+  """
+
+prop_err7 : Property
+prop_err7 = testErr "1."
+  """
+  Error: Unexpected end of input
+
+  virtual: 1:3--1:3
+   1 | 1.
+         ^
+
+  """
 
 --------------------------------------------------------------------------------
 --          main Function
@@ -109,6 +140,9 @@ properties = MkGroup "JSON.Parser"
   , ("prop_err2", prop_err2)
   , ("prop_err3", prop_err3)
   , ("prop_err4", prop_err4)
+  , ("prop_err5", prop_err5)
+  , ("prop_err6", prop_err6)
+  , ("prop_err7", prop_err7)
   ]
 
 main : IO ()

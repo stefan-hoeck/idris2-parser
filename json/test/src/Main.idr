@@ -129,6 +129,29 @@ prop_err7 = testErr "1."
 
   """
 
+prop_err8 : Property
+prop_err8 = testErr "0012"
+  """
+  Error: Unknown or invalid token: 00
+
+  virtual: 1:1--1:3
+   1 | 0012
+       ^^
+
+  """
+
+ 
+prop_err9 : Property
+prop_err9 = testErr "-0012"
+  """
+  Error: Unknown or invalid token: -00
+
+  virtual: 1:1--1:4
+   1 | -0012
+       ^^^
+
+  """
+
 --------------------------------------------------------------------------------
 --          main Function
 --------------------------------------------------------------------------------
@@ -143,6 +166,8 @@ properties = MkGroup "JSON.Parser"
   , ("prop_err5", prop_err5)
   , ("prop_err6", prop_err6)
   , ("prop_err7", prop_err7)
+  , ("prop_err8", prop_err8)
+  , ("prop_err9", prop_err9)
   ]
 
 main : IO ()

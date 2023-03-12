@@ -34,10 +34,15 @@ key sc []        = Succ (cast sc) []
 --          String literals
 --------------------------------------------------------------------------------
 
+MaxChar,LowerInvalid,UpperInvalid : Nat
+MaxChar      = 0x10FFFF
+LowerInvalid = 0xD800
+UpperInvalid = 0xDFFF
+
 -- try to read a sequence of hexadecimal digits
 tryHex : Nat -> List Char -> Maybe Char
 tryHex k []        =
-  if k <= 0x10FFFF && (k < 0xD800 || k > 0xDFFF) then Just $ cast k
+  if k <= MaxChar && (k < LowerInvalid || k > UpperInvalid) then Just $ cast k
   else Nothing
 tryHex k (x :: xs) = case isHexDigit x of
   True  => tryHex (k*16 + hexDigit x) xs

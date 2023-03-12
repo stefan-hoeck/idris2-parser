@@ -311,7 +311,9 @@ intPlus xs          = int {b} xs
 dot,rest,digs,exp : AutoShift False
 exp ('e' :: xs) = weakens $ intPlus {b} xs
 exp ('E' :: xs) = weakens $ intPlus {b} xs
-exp xs          = Succ xs
+exp (x   :: xs) =
+  if isDigit x then unknownRange Same xs else Succ (x::xs)
+exp []          = Succ []
 
 dot (x :: xs) = if isDigit x then dot xs else exp (x::xs)
 dot []        = Succ []
@@ -330,7 +332,8 @@ number : Shifter True
 number sc ('-' :: '0' :: xs) = rest xs
 number sc ('-' :: x   :: xs) =
   if isDigit x then digs xs else failDigit Dec (shift Same)
-number sc (x          :: xs) = if isDigit x then digs xs else failDigit Dec Same
+number sc ('0' :: xs)        = rest xs
+number sc (x          :: xs) = if isDigit x then digs xs else unknown Same
 number sc []                 = eoiAt Same
 
 public export

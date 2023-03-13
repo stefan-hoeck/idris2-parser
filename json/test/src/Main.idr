@@ -50,7 +50,7 @@ testErr s exp =
   let res := case parseJSON Virtual s of
         Left (fc,e) => printParseError s fc e
         Right v     => show v
-   in withTests 1 $ property $ res === exp
+   in property1 $ res === exp
 
 prop_err1 : Property
 prop_err1 = testErr #"{"foo?" : nlul}"#

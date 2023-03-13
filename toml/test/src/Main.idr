@@ -1,6 +1,11 @@
 module Main
 
-import Parser
+import Hedgehog
+import Props.Bool
+import Props.Time
 
 main : IO ()
-main = test $ pure properties
+main = test
+  [ Bool.props
+  , Time.props
+  ]

@@ -77,6 +77,10 @@ localTime (h1::h2::':'::m1::m2::':'::s1::s2::t) =
       Just mm := readMinute [m1,m2] | Nothing => unknownRange p t
       Just ss := readSecond [s1,s2] | Nothing => unknownRange p t
    in prec hh mm ss t
+localTime (h1::h2::':'::m1::m2::t) =
+  let Just hh := readHour   [h1,h2] | Nothing => unknownRange p t
+      Just mm := readMinute [m1,m2] | Nothing => unknownRange p t
+   in prec hh mm 0 t
 localTime xs = fail p
 
 --------------------------------------------------------------------------------

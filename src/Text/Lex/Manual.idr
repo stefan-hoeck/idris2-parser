@@ -497,24 +497,3 @@ lexManual f s = go begin [<] (unpack s) suffixAcc
         let p2 := endPos p1 p
          in go p2 (sx :< bounded v p1 p2) xs2 r
       Fail s e r => Left $ boundedErr p1 s e r
-
---------------------------------------------------------------------------------
---          Sequencing Lexers
------------------------------------------------------------------------------
-
-public export
-data Toks : (bs : List Bool) -> Type -> (ts : List Type) -> Type where
-  Nil  : Toks [] e []
-  (::) : Tok b e a -> Toks bs e as -> Toks (b::bs) e (a::as)
-
-public export
-Or : List Bool -> Bool
-Or []        = False
-Or (x :: xs) = x || Or xs
-
-public export
-toks : Toks bs e as -> Tok (Or bs) e (All Prelude.id as)
-toks []        cs = Succ [] cs
-toks (f :: fs) cs =
-  let Succ v cs1 @{p1} := f cs | Fail x y z => Fail x y z
-   in (v ::) <$> swapOr (trans (toks fs cs1) p1)

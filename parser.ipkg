@@ -18,6 +18,7 @@ modules = Data.Bool.Rewrite
         , Text.Lex
         , Text.Lex.Core
         , Text.Lex.Manual
+        , Text.Lex.Manual.Syntax
         , Text.Lex.Shift
         , Text.Lex.Tokenizer
         , Text.Lex.Util

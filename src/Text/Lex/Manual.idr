@@ -1,5 +1,6 @@
 module Text.Lex.Manual
 
+import Data.List.Quantifiers
 import Text.Bounds
 import public Text.ParseError
 import public Data.List.Suffix

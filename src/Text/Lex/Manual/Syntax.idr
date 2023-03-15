@@ -10,6 +10,18 @@ namespace Tok
   pure v cs = Succ v cs
 
   public export
+  (>>=) : Tok b1 e a -> (a -> Tok b2 e b) -> Tok (b1 || b2) e b
+  (>>=) f g cs =
+    let Succ x cs1 @{q} := f cs    | Fail x y z => Fail x y z
+     in swapOr $ trans (g x cs1) q
+
+  public export
+  (>>) : Tok b1 e () -> Tok b2 e a -> Tok (b1 || b2) e a
+  (>>) f g cs =
+    let Succ _ cs1 @{q} := f cs | Fail x y z => Fail x y z
+     in swapOr $ trans (g cs1) q
+
+  public export
   (<*>) : Tok b1 e (a -> b) -> Tok b2 e a -> Tok (b1 || b2) e b
   (<*>) t1 t2 cs =
     let Succ fun cs1 @{q} := t1 cs  | Fail x y z => Fail x y z
@@ -28,3 +40,15 @@ namespace AutoTok
     let Succ fun cs1 := t1 cs  | Fail x y z => Fail x y z
         Succ val cs2 := t2 cs1 | Fail x y z => Fail x y z
      in Succ (fun val) cs2
+
+  public export
+  (>>=) : AutoTok e a -> (a -> AutoTok e b) -> AutoTok e b
+  (>>=) f g cs =
+    let Succ x cs1 := f cs | Fail x y z => Fail x y z
+     in g x cs1
+
+  public export
+  (>>) : AutoTok e () -> AutoTok e a -> AutoTok e a
+  (>>) f g cs =
+    let Succ _ cs1 := f cs | Fail x y z => Fail x y z
+     in g cs1

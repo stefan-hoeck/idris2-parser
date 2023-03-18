@@ -1,6 +1,7 @@
 module Main
 
 import Derive.TSV
+import Hedgehog
 
 %default total
 %language ElabReflection
@@ -28,11 +29,40 @@ record User where
 
 %runElab derive "User" [Show, Eq, TSVEncoder, TSVDecoder]
 
-users : List User
-users =
-  [ U 1 "Stefan" Male 1000.13 (A "my street" 8000 "Zurich" "Switzerland")
-  , U 2 "Sarah" Female 2000.13 (A "her street" 3000 "Bern" "Switzerland")
-  ]
+--------------------------------------------------------------------------------
+--          Generators
+--------------------------------------------------------------------------------
+
+genders : Gen Gender
+genders = element [Male, Female, Other]
+
+text : Gen String
+text = string (linear 0 30) printableUnicode
+
+smallNats : Gen Nat
+smallNats = nat $ exponential 0 10000
+
+addresses : Gen Address
+addresses = [| A text smallNats text text |]
+
+salaries : Gen Double
+salaries = double $ exponentialDouble 0.0 1.0e6
+
+users : Gen User
+users = [| U smallNats text genders salaries addresses |]
+
+--------------------------------------------------------------------------------
+--          Properties
+--------------------------------------------------------------------------------
+
+roundTrip : Show a => Eq a => TSVEncoder a => TSVDecoder a => Gen a -> Property
+roundTrip values = property $ do
+  vs <- forAll (list (linear 0 30) values)
+  readTable {a} {e = Void} Virtual (toTable vs) === Right vs
 
 main : IO ()
-main = putStrLn $ toTable users
+main = test [ MkGroup "Text.TSV"
+  [ ("prop_gender", roundTrip genders)
+  , ("prop_address", roundTrip addresses)
+  , ("prop_user", roundTrip users)
+  ] ]

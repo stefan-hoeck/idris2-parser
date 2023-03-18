@@ -7,6 +7,10 @@ depends   = parser
 
 brief     = "Efficient parser and marshallers for tab-separated values"
 
-modules   = Text.TSV.Encoder
+modules   = Text.TSV
           , Text.TSV.Decoder
+          , Text.TSV.Encoder
+
           , Derive.TSV
+          , Derive.TSV.Decoder
+          , Derive.TSV.Encoder

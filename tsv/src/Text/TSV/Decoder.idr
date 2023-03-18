@@ -123,6 +123,25 @@ TSVDecoder Bool where
     "false" => Just False
     _       => Nothing
 
+--------------------------------------------------------------------------------
+--          Derived Decoders
+--------------------------------------------------------------------------------
+
+export
+TSVDecoder a => TSVDecoder (Maybe a) where
+  decodeFrom [] = Succ Nothing []
+  decodeFrom (x :: xs) =
+    if isControl x then Succ Nothing (x::xs)
+    else Just <$> decodeFrom (x::xs)
+
+export
+TSVDecoder a => TSVDecoder b => TSVDecoder (a,b) where
+  decodeFrom = Tok.[| MkPair decodeFrom decodeFrom |]
+
+--------------------------------------------------------------------------------
+--          HList and HVect
+--------------------------------------------------------------------------------
+
 export
 tab : Tok False e ()
 tab ('\t' :: xs) = Succ () xs
@@ -154,6 +173,10 @@ All (TSVDecoder . f) ks => TSVDecoder (LQ.All.All f ks) where
 export %inline
 All (TSVDecoder . f) ks => TSVDecoder (VQ.All.All f ks) where
   decodeFrom = decAllV
+
+--------------------------------------------------------------------------------
+--          Decoding Tables
+--------------------------------------------------------------------------------
 
 readTable' :
      TSVDecoder a

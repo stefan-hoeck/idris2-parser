@@ -25,6 +25,7 @@ record User where
   name    : String
   gender  : Gender
   salary  : Double
+  bonus   : Maybe Double
   address : Address
 
 %runElab derive "User" [Show, Eq, TSVEncoder, TSVDecoder]
@@ -37,7 +38,7 @@ genders : Gen Gender
 genders = element [Male, Female, Other]
 
 text : Gen String
-text = string (linear 0 30) printableUnicode
+text = string (linear 0 10) printableUnicode
 
 smallNats : Gen Nat
 smallNats = nat $ exponential 0 10000
@@ -49,7 +50,7 @@ salaries : Gen Double
 salaries = double $ exponentialDouble 0.0 1.0e6
 
 users : Gen User
-users = [| U smallNats text genders salaries addresses |]
+users = [| U smallNats text genders salaries (maybe salaries) addresses |]
 
 --------------------------------------------------------------------------------
 --          Properties

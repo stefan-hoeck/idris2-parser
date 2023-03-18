@@ -5,6 +5,10 @@ import Derive.TSV
 %default total
 %language ElabReflection
 
+data Gender = Male | Female | Other
+
+%runElab derive "Gender" [Show, Eq, TSVEncoder, TSVDecoder]
+
 record Address where
   constructor A
   street : String
@@ -18,6 +22,7 @@ record User where
   constructor U
   id      : Nat
   name    : String
+  gender  : Gender
   salary  : Double
   address : Address
 
@@ -25,8 +30,8 @@ record User where
 
 users : List User
 users =
-  [ U 1 "Stefan" 1000.13 (A "my street" 8000 "Zurich" "Switzerland")
-  , U 2 "Sarah" 2000.13 (A "her street" 3000 "Bern" "Switzerland")
+  [ U 1 "Stefan" Male 1000.13 (A "my street" 8000 "Zurich" "Switzerland")
+  , U 2 "Sarah" Female 2000.13 (A "her street" 3000 "Bern" "Switzerland")
   ]
 
 main : IO ()

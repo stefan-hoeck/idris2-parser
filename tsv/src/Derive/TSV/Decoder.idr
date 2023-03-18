@@ -45,9 +45,17 @@ decClause f c =
   let sx := boundArgs explicit c.args []
    in patClause (var f) (appArgs `(Tok.pure ~(c.nameVar)) $ sx <>> [])
 
-export
 decDef : Name -> Con n vs -> Decl
 decDef f c = def f [decClause f c]
+
+enumClause : Con n vs -> Clause
+enumClause c = patClause (c.namePrim) `(Just ~(c.nameVar))
+
+enumDef : Name -> ParamTypeInfo -> Decl
+enumDef f p =
+  let catchAll := patClause implicitTrue `(Nothing)
+      cls      := map enumClause p.info.cons ++ [catchAll]
+   in def f [patClause (var f) `(refine str $ \x => ~(iCase `(x) implicitFalse cls))]
 
 --------------------------------------------------------------------------------
 --          Deriving
@@ -56,14 +64,23 @@ decDef f c = def f [decClause f c]
 ||| Generate declarations and implementations for `Semigroup` for a given data type.
 export
 TSVDecoderVis : Visibility -> List Name -> ParamTypeInfo -> Res (List TopLevel)
-TSVDecoderVis vis nms p = case p.info.cons of
-  [c] =>
-    let fun  := funName p "decodeFrom"
-        impl := implName p "TSVDecoder"
-     in Right [ TL (decClaim vis fun p) (decDef fun c)
-              , TL (decoderImplClaim vis impl p) (decoderImplDef fun impl)
-              ]
-  _   => failRecord "TSVDecoder"
+TSVDecoderVis vis nms p =
+  let fun  := funName p "decodeFrom"
+      impl := implName p "TSVDecoder"
+   in case p.info.cons of
+        [c] =>
+          Right
+            [ TL (decClaim vis fun p) (decDef fun c)
+            , TL (decoderImplClaim vis impl p) (decoderImplDef fun impl)
+            ]
+        _   =>
+          case isEnum p.info of
+            False => failRecord "TSVDecoder"
+            True  =>
+              Right
+                [ TL (decClaim vis fun p) (enumDef fun p)
+                , TL (decoderImplClaim vis impl p) (decoderImplDef fun impl)
+            ]
 
 ||| Alias for `SemigroupVis Public`
 export %inline

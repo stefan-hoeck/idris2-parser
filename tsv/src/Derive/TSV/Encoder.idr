@@ -43,9 +43,16 @@ encClause f c =
       sx := boundArgs explicit c.args [xs]
    in patClause `(~(var f) sc ~(cx)) (appArgs `(sc) $ sx <>> [])
 
+enumClause : Name -> Con n vs -> Clause
+enumClause f c = patClause `(~(var f) sc ~(c.nameVar)) `(sc :< ~(c.namePrim))
+
 export
 encDef : Name -> Con n vs -> Decl
 encDef f c = def f [encClause f c]
+
+export
+enumDef : Name -> ParamTypeInfo -> Decl
+enumDef f c = def f (map (enumClause f) c.info.cons)
 
 --------------------------------------------------------------------------------
 --          Deriving
@@ -54,14 +61,23 @@ encDef f c = def f [encClause f c]
 ||| Generate declarations and implementations for `Semigroup` for a given data type.
 export
 TSVEncoderVis : Visibility -> List Name -> ParamTypeInfo -> Res (List TopLevel)
-TSVEncoderVis vis nms p = case p.info.cons of
-  [c] =>
-    let fun  := funName p "encodeOnto"
-        impl := implName p "TSVEncoder"
-     in Right [ TL (encClaim vis fun p) (encDef fun c)
-              , TL (encoderImplClaim vis impl p) (encoderImplDef fun impl)
-              ]
-  _   => failRecord "TSVEncoder"
+TSVEncoderVis vis nms p =
+  let fun  := funName p "encodeOnto"
+      impl := implName p "TSVEncoder"
+   in case p.info.cons of
+        [c] =>
+           Right
+             [ TL (encClaim vis fun p) (encDef fun c)
+             , TL (encoderImplClaim vis impl p) (encoderImplDef fun impl)
+             ]
+        _   =>
+          case isEnum p.info of
+            False => failRecord "TSVEncoder"
+            True  =>
+              Right
+                [ TL (encClaim vis fun p) (enumDef fun p)
+                , TL (encoderImplClaim vis impl p) (encoderImplDef fun impl)
+                ]
 
 ||| Alias for `SemigroupVis Public`
 export %inline

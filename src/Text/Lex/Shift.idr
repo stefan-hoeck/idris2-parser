@@ -337,7 +337,7 @@ number sc (x          :: xs) = if isDigit x then digs xs else unknown Same
 number sc []                 = eoiAt Same
 
 public export
-double : Tok True Char Double
+double : Tok True e Double
 double cs = suffix (cast . cast {to = String}) $ number [<] cs
 
 public export

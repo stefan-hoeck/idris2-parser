@@ -12,7 +12,7 @@ record Address where
   city   : String
   state  : String
 
-%runElab derive "Address" [Show, Eq, TSVEncoder]
+%runElab derive "Address" [Show, Eq, TSVEncoder, TSVDecoder]
 
 record User where
   constructor U
@@ -21,7 +21,7 @@ record User where
   salary  : Double
   address : Address
 
-%runElab derive "User" [Show, Eq, TSVEncoder]
+%runElab derive "User" [Show, Eq, TSVEncoder, TSVDecoder]
 
 users : List User
 users =

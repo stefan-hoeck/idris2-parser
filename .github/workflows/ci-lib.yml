@@ -49,3 +49,7 @@ jobs:
         run: pack typecheck parser-show
       - name: Test parser-show
         run: pack test parser-show -n 1000
+      - name: Build parser-tsv
+        run: pack typecheck parser-tsv
+      - name: Test parser-tsv
+        run: pack test parser-tsv -n 1000

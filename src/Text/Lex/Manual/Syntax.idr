@@ -22,6 +22,19 @@ namespace Tok
      in swapOr $ trans (g cs1) q
 
   public export
+  (*>) : Tok b1 e a -> Tok b2 e b -> Tok (b1 || b2) e b
+  (*>) f g cs =
+    let Succ _ cs1 @{q} := f cs | Fail x y z => Fail x y z
+     in swapOr $ trans (g cs1) q
+
+  public export
+  (<*) : Tok b1 e a -> Tok b2 e b -> Tok (b1 || b2) e a
+  (<*) f g cs =
+    let Succ v cs1 @{q1} := f cs  | Fail x y z => Fail x y z
+        Succ _ cs2 @{q2} := g cs1 | Fail x y z => Fail (weaken $ trans x q1) y z
+     in Succ v cs2 @{swapOr $ trans q2 q1}
+
+  public export
   (<*>) : Tok b1 e (a -> b) -> Tok b2 e a -> Tok (b1 || b2) e b
   (<*>) t1 t2 cs =
     let Succ fun cs1 @{q} := t1 cs  | Fail x y z => Fail x y z
@@ -42,6 +55,13 @@ namespace AutoTok
      in Succ (fun val) cs2
 
   public export
+  (<*) : AutoTok e a -> AutoTok e b -> AutoTok e a
+  (<*) t1 t2 cs =
+    let Succ val cs1 := t1 cs  | Fail x y z => Fail x y z
+        Succ _   cs2 := t2 cs1 | Fail x y z => Fail x y z
+     in Succ val cs2
+
+  public export
   (>>=) : AutoTok e a -> (a -> AutoTok e b) -> AutoTok e b
   (>>=) f g cs =
     let Succ x cs1 := f cs | Fail x y z => Fail x y z
@@ -50,5 +70,11 @@ namespace AutoTok
   public export
   (>>) : AutoTok e () -> AutoTok e a -> AutoTok e a
   (>>) f g cs =
+    let Succ _ cs1 := f cs | Fail x y z => Fail x y z
+     in g cs1
+
+  public export
+  (*>) : AutoTok e a -> AutoTok e b -> AutoTok e b
+  (*>) f g cs =
     let Succ _ cs1 := f cs | Fail x y z => Fail x y z
      in g cs1

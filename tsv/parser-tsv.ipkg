@@ -1,0 +1,16 @@
+package parser-tsv
+version   = 0.1.0
+authors   = "stefan-hoeck"
+sourcedir = "src"
+depends   = parser
+          , elab-util
+
+brief     = "Efficient parser and marshallers for tab-separated values"
+
+modules   = Text.TSV
+          , Text.TSV.Decoder
+          , Text.TSV.Encoder
+
+          , Derive.TSV
+          , Derive.TSV.Decoder
+          , Derive.TSV.Encoder

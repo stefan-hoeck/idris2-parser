@@ -1,0 +1,10 @@
+package parser-tsv-test
+version = 0.1.0
+authors = "stefan-hoeck"
+
+depends = parser-tsv
+        , hedgehog
+
+main = Main
+executable = "parser-tsv-test"
+sourcedir = "src"

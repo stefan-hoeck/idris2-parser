@@ -41,6 +41,17 @@ type = "local"
 path = "json/test"
 ipkg = "test.ipkg"
 
+[custom.all.parser-tsv]
+type = "local"
+path = "tsv"
+ipkg = "parser-tsv.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.parser-tsv-test]
+type = "local"
+path = "tsv/test"
+ipkg = "test.ipkg"
+
 [custom.all.parser-webidl]
 type = "local"
 path = "webidl"

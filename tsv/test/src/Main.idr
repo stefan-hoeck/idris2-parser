@@ -52,6 +52,9 @@ salaries = double $ exponentialDouble 0.0 1.0e6
 users : Gen User
 users = [| U smallNats text genders salaries (maybe salaries) addresses |]
 
+strings : Gen String
+strings = string (linear 0 10) printableUnicode
+
 --------------------------------------------------------------------------------
 --          Properties
 --------------------------------------------------------------------------------
@@ -66,4 +69,5 @@ main = test [ MkGroup "Text.TSV"
   [ ("prop_gender", roundTrip genders)
   , ("prop_address", roundTrip addresses)
   , ("prop_user", roundTrip users)
+  , ("prop_string", roundTrip strings)
   ] ]

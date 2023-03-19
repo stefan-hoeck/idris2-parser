@@ -186,8 +186,6 @@ readTable' :
   -> (0 acc : SuffixAcc cs)
   -> Either (Bounded $ ParseError Void e) (List a)
 readTable' sx pos []              _      = Right (sx <>> [])
-readTable' sx pos ('\n'      ::t) (SA r) = readTable' sx (incLine pos) t r
-readTable' sx pos ('\r'::'\n'::t) (SA r) = readTable' sx (incLine pos) t r
 readTable' sx pos xs              (SA r) = case decodeFrom {a} xs of
   Succ v xs2 @{p} => case xs2 of
     []               => Right (sx <>> [v])

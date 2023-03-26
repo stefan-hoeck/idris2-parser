@@ -11,12 +11,8 @@ import public Text.ParseError
 
 public export
 data Ix : (m,n : Nat) -> Type where
-  IZ : Ix Z (S k)
-  IS : Ix m n -> Ix (S m) (S n)
-
-weaken : Ix m n -> Ix m (S n)
-weaken IZ     = IZ
-weaken (IS x) = IS $ weaken x
+  IZ : Ix k (S k)
+  IS : Ix (S k) m -> Ix k m
 
 -- ||| Result of running a (strict) tokenizer.
 -- public export

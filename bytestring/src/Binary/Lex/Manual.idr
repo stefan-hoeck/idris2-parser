@@ -1,0 +1,325 @@
+module Binary.Lex.Manual
+
+import Data.Bits
+import Data.Fin
+import public Data.ByteVect
+import public Data.Nat.LEQ
+import public Data.Nat.LEQ.Result
+import public Text.ParseError
+
+%default total
+
+public export
+data Ix : (m,n : Nat) -> Type where
+  IZ : Ix Z (S k)
+  IS : Ix m n -> Ix (S m) (S n)
+
+weaken : Ix m n -> Ix m (S n)
+weaken IZ     = IZ
+weaken (IS x) = IS $ weaken x
+
+-- ||| Result of running a (strict) tokenizer.
+-- public export
+-- 0 LexRes : (b : Bool) -> Nat -> (e,a : Type) -> Type
+-- LexRes b n e a = Result b n (ParseError () e) a
+-- 
+-- --------------------------------------------------------------------------------
+-- --          Combinators
+-- --------------------------------------------------------------------------------
+-- 
+-- public export
+-- (<|>) :
+--      Result b n r a
+--   -> Lazy (Result b n r a)
+--   -> Result b n r a
+-- s@(Succ {}) <|> _ = s
+-- _           <|> r = r
+-- 
+-- --------------------------------------------------------------------------------
+-- --         Character Utilities
+-- --------------------------------------------------------------------------------
+-- 
+-- ||| Returns true if the character is a space (`' '`) character.
+-- public export %inline
+-- isSpaceChar : Bits8 -> Bool
+-- isSpaceChar 32 = True
+-- isSpaceChar _  = False
+-- 
+-- ||| Returns true if the character is a line feed (`'\n'`) character.
+-- public export %inline
+-- isLineFeed : Bits8 -> Bool
+-- isLineFeed 10 = True
+-- isLineFeed _  = False
+-- 
+-- ||| Converts a character byte to a digit. This works under the
+-- ||| assumption that the character has already been verified to be
+-- ||| a decimal digit.
+-- public export
+-- digit : Bits8 -> Nat
+-- digit n = cast $ n - 48
+-- 
+-- ||| Converts a character byte to a hexadecimal digit. This works under the
+-- ||| assumption that the character has already been verified to be
+-- ||| a hexadecimal digit.
+-- public export
+-- hexDigit : Bits8 -> Nat
+-- hexDigit c =
+--   if c <= 57 then digit c -- decimal digit
+--   else if c >= 97 then cast $ c - 97 -- lower-case letter
+--   else    cast $ c - 65 -- upper-case letter
+-- 
+-- ||| True if the given character byte is a binary digit.
+-- public export
+-- isBinDigit : Bits8 -> Bool
+-- isBinDigit 48 = True
+-- isBinDigit 49 = True
+-- isBinDigit _  = False
+-- 
+-- --------------------------------------------------------------------------------
+-- --          Tokenizers
+-- --------------------------------------------------------------------------------
+-- 
+-- ||| A tokenizing function, which will consume a
+-- ||| prefix of the input byte vector or fail with a stop reason.
+-- public export
+-- 0 Tok : (b : Bool) -> (e,a : Type) -> Type
+-- Tok b e a = (n : Nat) -> ByteVect n -> LexRes b n e a
+-- 
+-- ||| A tokenizing function, which will consume additional bytes
+-- ||| from the input. This can only be used if already some
+-- ||| have been consumed.
+-- public export
+-- 0 AutoTok : (e,a : Type) -> Type
+-- AutoTok e a =
+--      {orig     : Nat}
+--   -> (m        : Nat)
+--   -> (bv       : ByteVect m)
+--   -> {auto 0 p : LEQ True m orig}
+--   -> LexRes True orig e a
+-- 
+-- ||| A tokenizing function that cannot fail.
+-- public export
+-- 0 SafeTok : (a : Type) -> Type
+-- SafeTok a =
+--      {0 e      : Type}
+--   -> {orig     : Nat}
+--   -> (m        : Nat)
+--   -> (bv       : ByteVect m)
+--   -> {auto 0 p : LEQ True m orig}
+--   -> LexRes True orig e a
+-- 
+-- ||| A tokenizing function, which will consume additional bytes
+-- ||| from the input.
+-- public export
+-- 0 StrictTok : (e,a : Type) -> Type
+-- StrictTok e a =
+--      {orig     : Nat}
+--   -> (m        : Nat)
+--   -> (bv       : ByteVect m)
+--   -> {auto 0 p : LEQ False m orig}
+--   -> LexRes True orig e a
+-- 
+-- public export %inline
+-- tok : StrictTok e a -> Tok True e a
+-- tok f n ts = f n ts
+-- 
+-- public export %inline
+-- autoTok : StrictTok e a -> AutoTok e a
+-- autoTok f n ts @{p} = weakens $ f n ts @{weaken p}
+-- 
+-- public export %inline
+-- safeTok : SafeTok a -> AutoTok e a
+-- safeTok f n ts = f n ts
+-- 
+-- --------------------------------------------------------------------------------
+-- --          Errors
+-- --------------------------------------------------------------------------------
+-- 
+-- hexChar : Bits8 -> Char
+-- hexChar n =
+--   -- '0' is 48
+--   -- 'a' is 97, so n + 87 is n - 10 + 97
+--   if n < 10 then cast (n + 48) else cast (n + 87)
+-- 
+-- hexEncode : Bits8 -> List Char
+-- hexEncode n = [hexChar $ shiftL n 4, hexChar $ n .&. 0xf]
+-- 
+-- public export %inline
+-- range :
+--      {0 b, bres : Bool}
+--   -> {orig,errBegin : Nat}
+--   -> (err       : ParseError () e)
+--   -> (0 leqCur    : LEQ b errBegin orig)
+--   -> (errEnd    : Nat)
+--   -> {auto 0 sr : LEQ False errEnd errBegin}
+--   -> LexRes bres orig e a
+-- range err sc errEnd = Fail (weaken sc) errEnd err
+-- 
+-- public export %inline
+-- unknownRange :
+--      {0 b, bres : Bool}
+--   -> {orig, errBegin : Nat}
+--   -> (0 leqCur       : LEQ b errBegin orig)
+--   -> (errEnd         : Nat)
+--   -> {auto 0 sr      : LEQ False errEnd errBegin}
+--   -> LexRes bres orig e a
+-- unknownRange sc ee = range (Unknown $ Right ()) sc ee
+-- 
+-- public export %inline
+-- single :
+--      {0 bres        : Bool}
+--   -> {orig,errEnd   : Nat}
+--   -> (err           : ParseError () e)
+--   -> (0 leqCur      : LEQ b (S errEnd) orig)
+--   -> LexRes bres orig e a
+-- single r p = range r p errEnd
+-- 
+-- public export %inline
+-- unknown :
+--      {0 bres        : Bool}
+--   -> {orig,errEnd   : Nat }
+--   -> (0  leqCur     : LEQ b (S errEnd) orig)
+--   -> LexRes bres orig e a
+-- unknown sc = unknownRange sc errEnd
+-- 
+-- public export %inline
+-- eoiAt :
+--      {0 b, bres  : Bool}
+--   -> {orig       : Nat }
+--   -> (0 leqCur   : LEQ b 0 orig)
+--   -> LexRes bres orig e a
+-- eoiAt sc = range EOI sc 0
+-- 
+-- public export %inline
+-- failCharClass :
+--      {0 bres        : Bool}
+--   -> {orig,errEnd   : Nat}
+--   -> (class         : CharClass)
+--   -> (0 leqCur      : LEQ b (S errEnd) orig)
+--   -> LexRes bres orig e a
+-- failCharClass cc = single (ExpectedChar cc)
+-- 
+-- public export %inline
+-- failDigit :
+--      {0 bres        : Bool}
+--   -> {orig,errEnd   : Nat}
+--   -> (tpe           : DigitType)
+--   -> (0 leqCur      : LEQ b (S errEnd) orig)
+--   -> LexRes bres orig e a
+-- failDigit = failCharClass . Digit
+-- 
+-- public export %inline
+-- fail :
+--      {0 b, bres : Bool}
+--   -> {errBegin  : Nat}
+--   -> {orig      : Nat}
+--   -> (0 leqCur  : LEQ b errBegin orig)
+--   -> LexRes bres orig e a
+-- fail {errBegin = S _} p = unknown p
+-- fail {errBegin = 0}   p = eoiAt p
+-- 
+-- --------------------------------------------------------------------------------
+-- --          Natural Numbers
+-- --------------------------------------------------------------------------------
+-- 
+-- ||| Tries to read additional decimal digits onto a growing natural number.
+-- public export
+-- dec1 : (n : Nat) -> SafeTok Nat
+-- dec1 n (S k) bv =
+--   let x := head bv
+--    in if isDigit x then dec1 (n*10 + digit x) k (tail bv) else Succ n bv
+-- dec1 n 0 bv     = Succ n bv
+-- 
+-- ||| Tries to read a natural number. Fails, if this does not contain at least
+-- ||| one digit.
+-- public export
+-- dec : StrictTok e Nat
+-- dec (S k) bv =
+--   let x := head bv
+--    in if isDigit x then dec1 (digit x) k (tail bv) else failDigit Dec p
+-- dec 0 bv     = eoiAt p
+-- 
+-- --------------------------------------------------------------------------------
+-- --          Integers
+-- --------------------------------------------------------------------------------
+-- 
+-- ||| Parses an arbitrary precision integer
+-- public export
+-- int : StrictTok e Integer
+-- int (S k) bv = case head bv of
+--   45 => negate . cast <$> dec k (tail bv)
+--   _  => cast <$> dec (S k) bv
+-- int  0 bv = eoiAt p
+-- 
+-- ||| Like `int` but also allows an optional leading `'+'` character.
+-- public export
+-- intPlus : StrictTok e Integer
+-- intPlus (S k) bv = case head bv of
+--   43 => cast <$> dec k (tail bv)
+--   _  => int (S k) bv
+-- intPlus 0 bv = eoiAt p
+-- 
+-- --------------------------------------------------------------------------------
+-- --          Floating-point numbers
+-- --------------------------------------------------------------------------------
+-- 
+-- %inline
+-- dbl : SnocList Char -> Double
+-- dbl = cast . pack . (<>> [])
+-- 
+-- shDec1 : SnocList Char -> AutoTok e Double
+-- shDec1 sc (S k) bv =
+--   let x := head bv
+--    in if isDigit x then shDec1 (sc :< cast x) k (tail bv) else Succ (dbl sc) bv
+-- shDec1 sc 0 bv     = Succ (dbl sc) bv
+-- 
+-- shDec : SnocList Char -> AutoTok e Double
+-- shDec sc (S k) bv =
+--   let x := head bv
+--    in if isDigit x then shDec1 (sc :< cast x) k (tail bv) else failDigit Dec p
+-- shDec sc 0 bv = eoiAt p
+-- 
+-- shIntPlus : SnocList Char -> AutoTok e Double
+-- shIntPlus sc (S k) bv = case head bv of
+--   45 => shDec (sc :< '-') k (tail bv)
+--   43 => shDec (sc :< '+') k (tail bv)
+--   x  => if isDigit x then shDec1 (sc :< cast x) k (tail bv) else failDigit Dec p
+-- shIntPlus _ 0 _ = eoiAt p
+-- 
+-- dot,rest,exp : SnocList Char -> AutoTok e Double
+-- 
+-- exp sc (S k) bv = case head bv of
+--   101 => shIntPlus (sc :< 'e') k (tail bv) -- 'e'
+--   69  => shIntPlus (sc :< 'e') k (tail bv) -- 'E'
+--   x   => if isDigit x then unknownRange Same k else Succ (dbl sc) bv
+-- exp sc 0 bv     = Succ (dbl sc) bv
+-- 
+-- dot sc (S k) bv =
+--   let x := head bv
+--    in if isDigit x then dot (sc :< cast x) k (tail bv) else exp sc (S k) bv
+-- dot sc 0 bv     = Succ (dbl sc) bv
+-- 
+-- rest sc (S $ S k) bv =
+--   let x  := getByte 0 bv | _ => exp sc (S $ S k) bv
+--       x2 := getByte 1 bv
+--    in if isDigit x2 then dot (sc :< '.' :< cast x2) k (tail $ tail bv) else failDigit Dec (lt p)
+-- rest sc n bv = exp sc n bv
+-- 
+-- digs sc (S k) bv =
+--   let x := head bv
+--    in if isDigit x then digs (sc :< cast x) k (tail bv) else rest (x::xs)
+-- digs []        = Succ []
+-- 
+-- ||| A shifter for recognizing JSON numbers
+-- public export
+-- number : Shifter True
+-- number sc ('-' :: '0' :: xs) = rest xs
+-- number sc ('-' :: x   :: xs) =
+--   if isDigit x then digs xs else failDigit Dec (shift Same)
+-- number sc ('0' :: xs)        = rest xs
+-- number sc (x          :: xs) = if isDigit x then digs xs else unknown Same
+-- number sc []                 = eoiAt Same
+-- 
+-- public export
+-- double : Tok True e Double
+-- double cs = suffix (cast . cast {to = String}) $ number [<] cs

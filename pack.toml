@@ -19,6 +19,11 @@ type = "local"
 path = "profile"
 ipkg = "profile.ipkg"
 
+[custom.all.parser-bytestring]
+type = "local"
+path = "bytestring"
+ipkg = "parser-bytestring.ipkg"
+
 [custom.all.parser-toml]
 type = "local"
 path = "toml"
@@ -73,3 +78,9 @@ test = "test/test.ipkg"
 type = "local"
 path = "show/test"
 ipkg = "test.ipkg"
+
+[custom.all.bytestring]
+type   = "git"
+url    = "git@github.com:stefan-hoeck/idris2-bytestring"
+commit = "latest:main"
+ipkg   = "bytestring.ipkg"

@@ -1,0 +1,12 @@
+package parser-bytestring
+version   = 0.1.0
+authors   = "stefan-hoeck"
+sourcedir = "src"
+depends   = parser
+          , bytestring
+
+brief     = "Utilities for writing total parser and lexers consuming byte vectors"
+
+modules = Binary.Lex.Manual
+        , Data.Nat.LEQ
+        , Data.Nat.LEQ.Result

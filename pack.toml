@@ -85,3 +85,9 @@ type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-refined"
 commit = "latest:main"
 ipkg   = "refined.ipkg"
+
+[custom.all.profiler]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-profiler"
+commit = "latest:main"
+ipkg   = "profiler.ipkg"

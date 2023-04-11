@@ -1,7 +1,7 @@
 module Data.Time.Date
 
 import Data.String
-import Decidable.HDec.Integer
+import Data.Refined.Integer
 import Derive.Prelude
 import Derive.Refined
 

@@ -3,7 +3,7 @@ module Data.Time.Time
 import public Data.Nat
 import public Data.Refined
 import public Data.Time.Date
-import public Decidable.HDec.Integer
+import public Data.Refined.Integer
 import Data.String
 import Derive.Prelude
 import Derive.Refined

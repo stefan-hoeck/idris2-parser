@@ -41,6 +41,19 @@ prop_roundTrip = property $ do
 
   parseJSON Virtual str === Right v
 
+
+reverseRoundTrip : Show a => Gen a -> Property
+reverseRoundTrip g = property $ do
+  n <- forAll g
+  let enc = show n
+  (map show $ parseJSON Virtual enc) === Right enc
+
+prop_integerReverseRoundTrip : Property
+prop_integerReverseRoundTrip = reverseRoundTrip $ integer $ exponentialFrom 0 (-0x100000000000000000000000000000000) 0x100000000000000000000000000000000
+
+prop_doubleReverseRoundTrip : Property
+prop_doubleReverseRoundTrip = reverseRoundTrip $ double $ exponentialDouble 0 1.0e50
+
 --------------------------------------------------------------------------------
 --          Errors
 --------------------------------------------------------------------------------
@@ -159,6 +172,8 @@ prop_err9 = testErr "-0012"
 properties : Group
 properties = MkGroup "JSON.Parser"
   [ ("prop_roundTrip", prop_roundTrip)
+  , ("prop_integerReverseRoundTrip", prop_integerReverseRoundTrip)
+  , ("prop_doubleReverseRoundTrip", prop_doubleReverseRoundTrip)
   , ("prop_err1", prop_err1)
   , ("prop_err2", prop_err2)
   , ("prop_err3", prop_err3)

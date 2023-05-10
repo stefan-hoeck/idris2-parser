@@ -61,7 +61,8 @@ encode s = pack (foldl escape [<'"'] (unpack s) <>> ['"'])
 public export
 data JSON : Type where
   JNull   : JSON
-  JNumber : Double -> JSON
+  JInteger : Integer -> JSON
+  JDouble : Double -> JSON
   JBool   : Bool   -> JSON
   JString : String -> JSON
   JArray  : List JSON -> JSON
@@ -78,7 +79,8 @@ showArray : SnocList String -> List JSON -> SnocList String
 showObject : SnocList String -> List (String,JSON) -> SnocList String
 
 showValue ss JNull              = ss :< "null"
-showValue ss (JNumber dbl)      = ss :< show dbl
+showValue ss (JInteger ntgr)      = ss :< show ntgr
+showValue ss (JDouble dbl)      = ss :< show dbl
 showValue ss (JBool True)       = ss :< "true"
 showValue ss (JBool False)      = ss :< "false"
 showValue ss (JString str)      = ss :< encode str
@@ -181,6 +183,14 @@ invalidKey : StrictTok e JSToken
 invalidKey (x::xs) = if isAlpha x then invalidKey xs else unknownRange Same (x::xs)
 invalidKey []      = unknownRange Same []
 
+toToken : Cast String a => (a -> JSON) -> SnocList Char -> JSToken
+toToken toJSON = (Lit . toJSON . cast . cast {to = String})
+
+numberToken : SnocList Char -> JSToken
+numberToken l = case find (== '.') l of
+  Just _  => toToken JDouble l
+  Nothing => toToken JInteger l
+
 term : Tok True e JSToken
 term (x :: xs) = case x of
   ',' => Succ ',' xs
@@ -199,7 +209,7 @@ term (x :: xs) = case x of
   'f' => case xs of
     'a' :: 'l' :: 's' :: 'e' :: t => Succ (Lit $ JBool False) t
     _                             => invalidKey ('f'::xs)
-  d   => suffix (Lit . JNumber . cast . cast {to = String}) $
+  d   => suffix numberToken $
          number [<] (d :: xs)
 
 term []        = eoiAt Same

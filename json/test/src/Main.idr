@@ -12,7 +12,8 @@ key = string (linear 1 10) printableAscii
 prim : Gen JSON
 prim = frequency
   [ (1, element [JNull, JBool True, JBool False])
-  , (5, JNumber <$> double (exponentialDouble 0 1.0e50))
+  , (5, JDouble <$> double (exponentialDouble 0 1.0e50))
+  , (5, JInteger <$> integer (exponentialFrom 0 (-0x100000000000000000000000000000000) 0x100000000000000000000000000000000))
   , (5, JString <$> string (linear 0 10) unicode)
   ]
 

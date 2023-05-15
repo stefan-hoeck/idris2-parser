@@ -102,7 +102,7 @@ showObject ss (h :: t) =
   let ss' = showPair (ss :< ",") h in showObject ss' t
 
 showImpl : JSON -> String
-showImpl v = concat $ showValue Lin v <>> Nil
+showImpl v = fastConcat $ showValue Lin v <>> Nil
 
 export %inline
 Show JSON where

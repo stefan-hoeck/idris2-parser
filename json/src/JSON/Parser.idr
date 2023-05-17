@@ -187,7 +187,7 @@ toToken : Cast String a => (a -> JSON) -> SnocList Char -> JSToken
 toToken toJSON = (Lit . toJSON . cast . cast {to = String})
 
 numberToken : SnocList Char -> JSToken
-numberToken l = case find (== '.') l of
+numberToken l = case find (\c =>  c == '.' || c == 'e' || c == 'E') l of
   Just _  => toToken JDouble l
   Nothing => toToken JInteger l
 

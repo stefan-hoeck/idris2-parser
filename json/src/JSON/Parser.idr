@@ -110,6 +110,23 @@ export %inline
 Show JSON where
   show = showImpl
 
+||| Recursively drops `Null` entries from JSON objects.
+export
+dropNull : JSON -> JSON
+
+dropNulls : SnocList JSON -> List JSON -> JSON
+dropNulls sx []        = JArray $ sx <>> []
+dropNulls sx (x :: xs) = dropNulls (sx :< dropNull x) xs
+
+dropNullsP : SnocList (String,JSON) -> List (String,JSON) -> JSON
+dropNullsP sx []                = JObject $ sx <>> []
+dropNullsP sx ((_,JNull) :: xs) = dropNullsP sx xs
+dropNullsP sx ((s,j)     :: xs) = dropNullsP (sx :< (s, dropNull j)) xs
+
+dropNull (JArray xs)  = dropNulls [<] xs
+dropNull (JObject xs) = dropNullsP [<] xs
+dropNull x            = x
+
 --------------------------------------------------------------------------------
 --          Lexer
 --------------------------------------------------------------------------------

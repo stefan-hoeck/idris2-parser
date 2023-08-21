@@ -62,10 +62,10 @@ toLexRes' (TR pos res reason rem prf) = (res, pos, rem)
 
 export
 testTokenLex :
-     Monad m
-  => Eq a
-  => Show a
-  => (s    : String)
+     {auto _ : Monad m}
+  -> {auto _ : Eq a}
+  -> {auto _ : Show a}
+  -> (s    : String)
   -> (pmap : PTokenMap a)
   -> (imap : ITokenMap a)
   -> {auto 0 p : NonEmpty pmap}
@@ -77,8 +77,8 @@ testTokenLex s pmap imap =
 
 export %inline
 testLex :
-     Monad m
-  => (s     : String)
+     {auto _ : Monad m}
+  -> (s     : String)
   -> (lex   : Text.Lex.Core.Lexer)
   -> (lexer : Libraries.Text.Lexer.Core.Lexer)
   -> TestT m ()

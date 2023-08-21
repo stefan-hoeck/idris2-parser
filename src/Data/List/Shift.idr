@@ -73,7 +73,10 @@ public export %inline
 Cast (Shift b t sx xs sy ys) Nat where cast = toNat
 
 public export
-swapOr : {0 x,y : _} -> Shift (x || y) t sx xs sy ys -> Shift (y || x) t sx xs sy ys
+swapOr :
+     {0 x,y : _}
+  -> Shift (x || y) t sx xs sy ys
+  -> Shift (y || x) t sx xs sy ys
 swapOr = swapOr (\k => Shift k t sx xs sy ys)
 
 public export %inline
@@ -81,27 +84,45 @@ orSame : {0 x : _} -> Shift (x || x) t sx xs sy ys -> Shift x t sx xs sy ys
 orSame = orSame (\k => Shift k t sx xs sy ys)
 
 public export %inline
-orTrue : {0 x : _} -> Shift (x || True) t sx xs sy ys -> Shift True t sx xs sy ys
+orTrue :
+     {0 x : _}
+  -> Shift (x || True) t sx xs sy ys
+  -> Shift True t sx xs sy ys
 orTrue = orTrue (\k => Shift k t sx xs sy ys)
 
 public export %inline
-orFalse : {0 x : _} -> Shift (x || False) t sx xs sy ys -> Shift x t sx xs sy ys
+orFalse :
+     {0 x : _}
+  -> Shift (x || False) t sx xs sy ys
+  -> Shift x t sx xs sy ys
 orFalse = orFalse (\k => Shift k t sx xs sy ys)
 
 public export %inline
-swapAnd : {0 x,y : _} -> Shift (x && y) t sx xs sy ys -> Shift (y && x) t sx xs sy ys
+swapAnd :
+     {0 x,y : _}
+  -> Shift (x && y) t sx xs sy ys
+  -> Shift (y && x) t sx xs sy ys
 swapAnd = swapAnd (\k => Shift k t sx xs sy ys)
 
 public export %inline
-andSame : {0 x : _} -> Shift (x && x) t sx xs sy ys -> Shift x t sx xs sy ys
+andSame :
+     {0 x : _}
+  -> Shift (x && x) t sx xs sy ys
+  -> Shift x t sx xs sy ys
 andSame = andSame (\k => Shift k t sx xs sy ys)
 
 public export %inline
-andTrue : {0 x : _} -> Shift (x && True) t sx xs sy ys -> Shift x t sx xs sy ys
+andTrue :
+     {0 x : _}
+  -> Shift (x && True) t sx xs sy ys
+  -> Shift x t sx xs sy ys
 andTrue = andTrue (\k => Shift k t sx xs sy ys)
 
 public export %inline
-andFalse : {0 x : _} -> Shift (x && False) t sx xs sy ys -> Shift False t sx xs sy ys
+andFalse :
+     {0 x : _}
+  -> Shift (x && False) t sx xs sy ys
+  -> Shift False t sx xs sy ys
 andFalse = andFalse (\k => Shift k t sx xs sy ys)
 
 ||| Every `Shift` can be converted to a non-strict one.

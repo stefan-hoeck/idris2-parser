@@ -39,16 +39,17 @@ Pretty VName where
 |||
 ||| `1 :+: (2 :*: 3)` is represented with `InfixCons 1 [(":+:",InfixCons 2 [(":*:",3)])]`.
 public export
-data Value = Con VName (List Value)
-           | InfixCons Value (List (VName,Value))
-           | Rec VName (List (VName,Value))
-           | Tuple Value Value (List Value) -- At least two values
-           | Lst (List Value)
-           | Neg Value
-           | Natural String
-           | Dbl String
-           | Chr String
-           | Str String
+data Value : Type where
+  Con       : VName -> List Value -> Value
+  InfixCons : Value -> List (VName,Value) -> Value
+  Rec       : VName -> List (VName,Value) -> Value
+  Tuple     : Value -> Value -> List Value -> Value
+  Lst       : List Value -> Value
+  Neg       : Value -> Value
+  Natural   : String -> Value
+  Dbl       : String -> Value
+  Chr       : String -> Value
+  Str       : String -> Value
 
 %runElab derive "Value" [Show, Eq]
 
@@ -59,10 +60,11 @@ public export
 binOp : VName -> Value -> Value -> Value
 binOp op pvx pvy =
    case pvy of
-        InfixCons pv1 pairs@((op2, pv2) :: xs) =>
-          if op2 == op then InfixCons pvx ((op,pvy) :: pairs)
-                       else InfixCons pvx [(op,pvy)]
-        _ => InfixCons pvx [(op,pvy)]
+     InfixCons pv1 pairs@((op2, pv2) :: xs) =>
+       if op2 == op
+          then InfixCons pvx ((op,pvy) :: pairs)
+          else InfixCons pvx [(op,pvy)]
+     _ => InfixCons pvx [(op,pvy)]
 
 hidden : (Bool,Value)
 hidden = (True, Con "_" [])

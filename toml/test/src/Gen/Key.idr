@@ -18,6 +18,7 @@ singleKey = bareKey
 export
 key : Gen (Encoded Key)
 key = [| acc (spaced singleKey) (linList 2 $ spaced singleKey) |]
+
   where
     acc : Encoded String -> List (Encoded String) -> Encoded Key
     acc k ks =

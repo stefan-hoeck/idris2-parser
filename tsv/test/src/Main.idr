@@ -65,9 +65,13 @@ roundTrip values = property $ do
   readTable {a} {e = Void} Virtual (toTable vs) === Right vs
 
 main : IO ()
-main = test [ MkGroup "Text.TSV"
-  [ ("prop_gender", roundTrip genders)
-  , ("prop_address", roundTrip addresses)
-  , ("prop_user", roundTrip users)
-  , ("prop_string", roundTrip strings)
-  ] ]
+main =
+  test
+    [ MkGroup
+        "Text.TSV"
+        [ ("prop_gender", roundTrip genders)
+        , ("prop_address", roundTrip addresses)
+        , ("prop_user", roundTrip users)
+        , ("prop_string", roundTrip strings)
+        ]
+    ]

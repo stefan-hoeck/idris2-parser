@@ -179,8 +179,8 @@ All (TSVDecoder . f) ks => TSVDecoder (VQ.All.All f ks) where
 --------------------------------------------------------------------------------
 
 readTable' :
-     TSVDecoder a
-  => SnocList a
+     {auto _ : TSVDecoder a}
+  -> SnocList a
   -> Position
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
@@ -199,8 +199,8 @@ readTable' sx pos xs              (SA r) = case decodeFrom {a} xs of
 
 export
 readTable :
-     TSVDecoder a
-  => Origin
+     {auto _ : TSVDecoder a}
+  -> Origin
   -> String
   -> Either (FileContext,ParseError Void e) (List a)
 readTable o s =

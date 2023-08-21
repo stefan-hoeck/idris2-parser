@@ -410,10 +410,6 @@ takeJust1 f (x::xs) = case f x of
 takeJust1 _ [] = eoiAt p
 
 --------------------------------------------------------------------------------
---          Refining Tokenizers
---------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
 --          Running Tokenizers
 -----------------------------------------------------------------------------
 
@@ -434,6 +430,7 @@ singleLineDropSpaces :
   -> String
   -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
 singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
+
   where
     go : Position
       -> SnocList (Bounded a)
@@ -461,6 +458,7 @@ multiLineDropSpaces :
   -> String
   -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
 multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
+
   where
     go : Position
       -> SnocList (Bounded a)
@@ -489,6 +487,7 @@ lexManual :
   -> String
   -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
 lexManual f s = go begin [<] (unpack s) suffixAcc
+
   where
     go : Position
       -> SnocList (Bounded a)

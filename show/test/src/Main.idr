@@ -188,23 +188,25 @@ prop_quadruple = property $ do
 
 
 properties : Group
-properties = MkGroup "Text.Show.Value"
-  [ ("prop_decnat", prop_decnat)
-  , ("prop_binnat", prop_binnat)
-  , ("prop_octnat", prop_octnat)
-  , ("prop_hexnat", prop_hexnat)
-  , ("prop_char", prop_char)
-  , ("prop_string", prop_string)
-  , ("prop_double", prop_double)
-  , ("prop_gender", prop_gender)
-  , ("prop_address", prop_address)
-  , ("prop_user", prop_user)
-  , ("prop_asum", prop_asum)
-  , ("prop_pair", prop_pair)
-  , ("prop_triple", prop_triple)
-  , ("prop_quadruple", prop_quadruple)
-  , ("prop_unit", prop_unit)
-  ]
+properties =
+  MkGroup
+    "Text.Show.Value"
+    [ ("prop_decnat", prop_decnat)
+    , ("prop_binnat", prop_binnat)
+    , ("prop_octnat", prop_octnat)
+    , ("prop_hexnat", prop_hexnat)
+    , ("prop_char", prop_char)
+    , ("prop_string", prop_string)
+    , ("prop_double", prop_double)
+    , ("prop_gender", prop_gender)
+    , ("prop_address", prop_address)
+    , ("prop_user", prop_user)
+    , ("prop_asum", prop_asum)
+    , ("prop_pair", prop_pair)
+    , ("prop_triple", prop_triple)
+    , ("prop_quadruple", prop_quadruple)
+    , ("prop_unit", prop_unit)
+    ]
 
 main : IO ()
 main = test [ properties ]

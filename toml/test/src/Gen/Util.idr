@@ -61,8 +61,10 @@ isCommentControl c =
 export
 comment : Gen String
 comment = ("#" ++) <$> linString 10 (map toCommentChar unicode)
-  where toCommentChar : Char -> Char
-        toCommentChar c = if isCommentControl c then ' ' else c
+
+  where
+    toCommentChar : Char -> Char
+    toCommentChar c = if isCommentControl c then ' ' else c
 
 --------------------------------------------------------------------------------
 --          Space
@@ -81,6 +83,7 @@ anySpace = linString 3 (element [' ', '\t', '\n'])
 export
 spaced : Gen (Encoded a) -> Gen (Encoded a)
 spaced g = [| adj lineSpace g lineSpace |]
+
   where
     adj : String -> Encoded a -> String -> Encoded a
     adj s1 (Enc c v) s2 = Enc (s1 ++ c ++ s2) v
@@ -92,6 +95,7 @@ spaced g = [| adj lineSpace g lineSpace |]
 export
 spacedNL : Gen (Encoded a) -> Gen (Encoded a)
 spacedNL g = [| adj lineSpace g anySpace (maybe comment) anySpace |]
+
   where
     adj : String -> Encoded a -> String -> Maybe String -> String -> Encoded a
     adj s1 (Enc c v) s2 mc s3 = Enc (s1 ++ c ++ maybe s2 (++ "\n") mc ++ s3) v

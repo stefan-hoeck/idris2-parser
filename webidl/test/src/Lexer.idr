@@ -38,12 +38,14 @@ prop_other = lexProp symbol (pure . Other)
 
 export
 props : Group
-props = MkGroup "Lexer Properties"
-  [ ("prop_identifier", prop_identifier)
-  , ("prop_space", prop_space)
-  , ("prop_stringLit", prop_stringLit)
-  , ("prop_intLit", prop_intLit)
-  , ("prop_floatLit", prop_floatLit)
-  , ("prop_comment", prop_comment)
-  , ("prop_other", prop_other)
-  ]
+props =
+  MkGroup
+    "Lexer Properties"
+    [ ("prop_identifier", prop_identifier)
+    , ("prop_space", prop_space)
+    , ("prop_stringLit", prop_stringLit)
+    , ("prop_intLit", prop_intLit)
+    , ("prop_floatLit", prop_floatLit)
+    , ("prop_comment", prop_comment)
+    , ("prop_other", prop_other)
+    ]

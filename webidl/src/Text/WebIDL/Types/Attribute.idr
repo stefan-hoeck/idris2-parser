@@ -258,13 +258,15 @@ parameters (nms : List Name)
   export
   attrClauses : (fun : Name) -> TypeInfo -> List Clause
   attrClauses fun ti = map clause ti.cons
-    where clause : Con ti.arty ti.args -> Clause
-          clause c =
-            let ns  := freshNames "x" c.arty
-                bc  := bindCon c ns
-                lhs := var fun `app` bc
-                st  := ttimp <$> boundArgs regular c.args [ns]
-             in patClause lhs (rsh st)
+
+    where
+      clause : Con ti.arty ti.args -> Clause
+      clause c =
+        let ns  := freshNames "x" c.arty
+            bc  := bindCon c ns
+            lhs := var fun `app` bc
+            st  := ttimp <$> boundArgs regular c.args [ns]
+         in patClause lhs (rsh st)
 
   export
   attrDef : Name -> TypeInfo -> Decl
@@ -283,9 +285,10 @@ namespace Derive
   HasAttributes nms p =
     let fun  := funName p "attributes"
         impl := implName p "HasAttributes"
-     in Right [ TL (attrClaim fun p) (attrDef nms fun p.info)
-              , TL (attrImplClaim impl p) (attrImplDef fun impl)
-              ]
+     in Right
+          [ TL (attrClaim fun p) (attrDef nms fun p.info)
+          , TL (attrImplClaim impl p) (attrImplDef fun impl)
+          ]
 
 --------------------------------------------------------------------------------
 --          Tests and Proofs

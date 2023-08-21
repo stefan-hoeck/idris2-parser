@@ -156,9 +156,9 @@ nextEquals v []      = expected NoBounds v
 ||| at the REPL.
 export
 testParse :
-     Show a
-  => Interpolation e
-  => (Origin -> String -> Either (FileContext,e) a)
+     {auto _ : Show a}
+  -> {auto _ : Interpolation e}
+  -> (Origin -> String -> Either (FileContext,e) a)
   -> String
   -> IO ()
 testParse f s = case f Virtual s of

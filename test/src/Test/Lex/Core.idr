@@ -42,16 +42,21 @@ prop_digits = property $ do
 prop_someOf : Property
 prop_someOf = property $ do
   str <- forAll asciiStr
-  testLex str (someOf $ unpack "abcdefghijklmnop") (some $ oneOf "abcdefghijklmnop")
+  testLex
+    str
+    (someOf $ unpack "abcdefghijklmnop")
+    (some $ oneOf "abcdefghijklmnop")
 
 
 export
 props : Group
-props = MkGroup "Lex.Core" [
-    ("prop_is", prop_is)
-  , ("prop_exact", prop_exact)
-  , ("prop_approx", prop_approx)
-  , ("prop_newline", prop_newline)
-  , ("prop_digits", prop_digits)
-  , ("prop_someOf", prop_someOf)
-  ]
+props =
+  MkGroup
+    "Lex.Core"
+    [ ("prop_is", prop_is)
+    , ("prop_exact", prop_exact)
+    , ("prop_approx", prop_approx)
+    , ("prop_newline", prop_newline)
+    , ("prop_digits", prop_digits)
+    , ("prop_someOf", prop_someOf)
+    ]

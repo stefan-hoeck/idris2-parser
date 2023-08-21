@@ -120,6 +120,7 @@ exact s =
 export
 approx : String -> Lexer
 approx = prefixBy . map check . unpack
+
   where
     check : Char -> Char -> Bool
     check c d = toLower c == toLower d
@@ -347,14 +348,16 @@ charLit = let q = '\'' in
     lexStr (t :: ts) = exact t <|> lexStr ts
 
     control : Lexer
-    control = lexStr ["NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",
-                      "BS",  "HT",  "LF",  "VT",  "FF",  "CR",  "SO",  "SI",
-                      "DLE", "DC1", "DC2", "DC3", "DC4", "NAK", "SYN", "ETB",
-                      "CAN", "EM",  "SUB", "ESC", "FS",  "GS",  "RS",  "US",
-                      "SP",  "DEL"]
-                <|> (is 'x' <+> hexDigits)
-                <|> (is 'o' <+> octDigits)
-                <|> digits
+    control =
+      lexStr
+        ["NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",
+        "BS",  "HT",  "LF",  "VT",  "FF",  "CR",  "SO",  "SI",
+        "DLE", "DC1", "DC2", "DC3", "DC4", "NAK", "SYN", "ETB",
+        "CAN", "EM",  "SUB", "ESC", "FS",  "GS",  "RS",  "US",
+        "SP",  "DEL"]
+        <|> (is 'x' <+> hexDigits)
+        <|> (is 'o' <+> octDigits)
+        <|> digits
 
 export
 doubleLit : Lexer

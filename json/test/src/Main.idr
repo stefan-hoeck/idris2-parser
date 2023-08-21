@@ -13,7 +13,15 @@ prim : Gen JSON
 prim = frequency
   [ (1, element [JNull, JBool True, JBool False])
   , (5, JDouble <$> double (exponentialDouble 0 1.0e50))
-  , (5, JInteger <$> integer (exponentialFrom 0 (-0x100000000000000000000000000000000) 0x100000000000000000000000000000000))
+  , ( 5
+    , JInteger <$>
+        integer (
+          exponentialFrom
+            0
+            (-0x100000000000000000000000000000000)
+            0x100000000000000000000000000000000
+          )
+    )
   , (5, JString <$> string (linear 0 10) unicode)
   ]
 
@@ -50,19 +58,28 @@ reverseRoundTrip g = property $ do
   (map show $ parseJSON Virtual enc) === Right enc
 
 prop_integerReverseRoundTrip : Property
-prop_integerReverseRoundTrip = reverseRoundTrip $ integer $ exponentialFrom 0 (-0x100000000000000000000000000000000) 0x100000000000000000000000000000000
+prop_integerReverseRoundTrip =
+  reverseRoundTrip $ integer $
+    exponentialFrom
+      0
+      (-0x100000000000000000000000000000000)
+      0x100000000000000000000000000000000
 
 prop_doubleReverseRoundTrip : Property
-prop_doubleReverseRoundTrip = reverseRoundTrip $ double $ exponentialDouble 0 1.0e50
+prop_doubleReverseRoundTrip =
+  reverseRoundTrip $ double $ exponentialDouble 0 1.0e50
 
 prop_exponentialNotationInteger : Property
-prop_exponentialNotationInteger = property $ parseJSON Virtual "1e3" === Right (JDouble 1000.0)
+prop_exponentialNotationInteger =
+  property $ parseJSON Virtual "1e3" === Right (JDouble 1000.0)
 
 prop_exponentialNotationInteger1 : Property
-prop_exponentialNotationInteger1 = property $ parseJSON Virtual "1e+3" === Right (JDouble 1000.0)
+prop_exponentialNotationInteger1 =
+  property $ parseJSON Virtual "1e+3" === Right (JDouble 1000.0)
 
 prop_exponentialNotationDouble : Property
-prop_exponentialNotationDouble = property $ parseJSON Virtual "1e-3" === Right (JDouble 0.001)
+prop_exponentialNotationDouble =
+  property $ parseJSON Virtual "1e-3" === Right (JDouble 0.001)
 
 --------------------------------------------------------------------------------
 --          Errors
@@ -180,23 +197,25 @@ prop_err9 = testErr "-0012"
 --------------------------------------------------------------------------------
 
 properties : Group
-properties = MkGroup "JSON.Parser"
-  [ ("prop_roundTrip", prop_roundTrip)
-  , ("prop_integerReverseRoundTrip", prop_integerReverseRoundTrip)
-  , ("prop_doubleReverseRoundTrip", prop_doubleReverseRoundTrip)
-  , ("prop_err1", prop_err1)
-  , ("prop_err2", prop_err2)
-  , ("prop_err3", prop_err3)
-  , ("prop_err4", prop_err4)
-  , ("prop_err5", prop_err5)
-  , ("prop_err6", prop_err6)
-  , ("prop_err7", prop_err7)
-  , ("prop_err8", prop_err8)
-  , ("prop_err9", prop_err9)
-  , ("prop_exponentialNotationInteger", prop_exponentialNotationInteger)
-  , ("prop_exponentialNotationInteger1", prop_exponentialNotationInteger1)
-  , ("prop_exponentialNotationDouble", prop_exponentialNotationDouble)
-  ]
+properties =
+  MkGroup
+    "JSON.Parser"
+    [ ("prop_roundTrip", prop_roundTrip)
+    , ("prop_integerReverseRoundTrip", prop_integerReverseRoundTrip)
+    , ("prop_doubleReverseRoundTrip", prop_doubleReverseRoundTrip)
+    , ("prop_err1", prop_err1)
+    , ("prop_err2", prop_err2)
+    , ("prop_err3", prop_err3)
+    , ("prop_err4", prop_err4)
+    , ("prop_err5", prop_err5)
+    , ("prop_err6", prop_err6)
+    , ("prop_err7", prop_err7)
+    , ("prop_err8", prop_err8)
+    , ("prop_err9", prop_err9)
+    , ("prop_exponentialNotationInteger", prop_exponentialNotationInteger)
+    , ("prop_exponentialNotationInteger1", prop_exponentialNotationInteger1)
+    , ("prop_exponentialNotationDouble", prop_exponentialNotationDouble)
+    ]
 
 main : IO ()
 main = test [ properties ]

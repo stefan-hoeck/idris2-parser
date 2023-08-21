@@ -32,6 +32,7 @@ month = fromMaybe JAN . intToMonth <$> integer (linear 1 12)
 export
 date : Gen Date
 date = [| toDate year month (integer $ linear 1 31) |]
+
   where
     toDate : Year -> Month -> Integer -> Date
     toDate y m i = case refineDay {m} i of
@@ -130,8 +131,9 @@ offsetDateTime0 = ATOffsetDateTime <$> [| ODT date offsetTime0 |]
 
 export
 anyTime0 : Gen (Encoded AnyTime)
-anyTime0 = allEncodings noSecsAT $ choice
-  [ map ATLocalTime localTime0
-  , localDateTime0
-  , offsetDateTime0
-  ]
+anyTime0 = allEncodings noSecsAT $
+  choice
+    [ map ATLocalTime localTime0
+    , localDateTime0
+    , offsetDateTime0
+    ]

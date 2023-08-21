@@ -183,6 +183,7 @@ run :
   -> ((ts : List t) -> Result0 True t ts e a)
   -> List t -> Either e (List a)
 run f cs = go [<] cs suffixAcc
+
   where
     go : SnocList a
       -> (ts : List t)
@@ -206,6 +207,7 @@ runDropWhitespace :
   -> ((cs : List Char) -> Result0 True Char cs e a)
   -> List Char -> Either e (List a)
 runDropWhitespace f cs = go [<] cs suffixAcc
+
   where
     go : SnocList a
       -> (cs : List Char)

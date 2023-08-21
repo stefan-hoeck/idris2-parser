@@ -174,16 +174,17 @@ record PNamespace where
 
 public export
 DefTypes : List Type
-DefTypes = [ Callback
-           , CallbackInterface
-           , Dictionary
-           , Enum
-           , Includes
-           , Interface
-           , Mixin
-           , Namespace
-           , Typedef
-           ]
+DefTypes =
+  [ Callback
+  , CallbackInterface
+  , Dictionary
+  , Enum
+  , Includes
+  , Interface
+  , Mixin
+  , Namespace
+  , Typedef
+  ]
 
 public export
 PartTypes : List Type
@@ -252,8 +253,10 @@ mergeDict d = { members $= (++ d.members) }
 
 mergeIface : PInterface -> Interface -> Interface
 mergeIface i = { members $= (++ map to i.members) }
-  where to : (a,b) -> (a, NS I [c,b])
-        to (x, y) = (x, inject y)
+
+  where
+    to : (a,b) -> (a, NS I [c,b])
+    to (x, y) = (x, inject y)
 
 mergeMixin : PMixin -> Mixin -> Mixin
 mergeMixin m = { members $= (++ m.members) }
@@ -294,5 +297,6 @@ toDomains ps =
       prts = concatMap (\(_,pad) => get Part pad) ps
    in map (\d => foldl applyPart d prts) defs
 
-  where fromNP : String -> Definitions -> Domain
-        fromNP s [c,ci,d,e,ic,it,m,n,t] = MkDomain s c ci d e ic it m n t
+  where
+    fromNP : String -> Definitions -> Domain
+    fromNP s [c,ci,d,e,ic,it,m,n,t] = MkDomain s c ci d e ic it m n t

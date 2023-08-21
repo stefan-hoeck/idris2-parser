@@ -35,12 +35,13 @@ data ConstValue = B Bool | F FloatLit | I IntLit
 |||     { }
 |||     null
 public export
-data Default = None
-             | EmptyList
-             | EmptySet
-             | Null
-             | S StringLit
-             | C ConstValue
+data Default =
+    None
+  | EmptyList
+  | EmptySet
+  | Null
+  | S StringLit
+  | C ConstValue
 
 %runElab derive "Default" [Eq,Show,HasAttributes]
 
@@ -173,7 +174,10 @@ mutual
     bitraverse f g (VarArg as a) =
       [| VarArg (traverse (bitraverse f g) as) (bitraverse f g a) |]
     bitraverse f g (NoVarArg as os) =
-      [| NoVarArg (traverse (bitraverse f g) as) (traverse (bitraverse f g) os) |]
+      [| NoVarArg
+          (traverse (bitraverse f g) as)
+          (traverse (bitraverse f g) os)
+      |]
 
   export
   Functor (ArgumentListF a) where map = bimap id

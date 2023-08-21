@@ -182,10 +182,12 @@ str sc ('\\' :: c  :: xs) = case c of
     w :: x :: y :: z :: t' =>
       if isHexDigit w && isHexDigit x && isHexDigit y && isHexDigit z
         then
-          let c := cast $ hexDigit w * 0x1000 +
-                          hexDigit x * 0x100 +
-                          hexDigit y * 0x10 +
-                          hexDigit z
+          let c :=
+                cast $
+                  hexDigit w * 0x1000 +
+                  hexDigit x * 0x100 +
+                  hexDigit y * 0x10 +
+                  hexDigit z
            in str (sc :< c) t'
         else invalidEscape p t'
     _    => invalidEscape p xs
@@ -197,7 +199,8 @@ str sc (c    :: xs) =
 str sc []           = eoiAt p
 
 invalidKey : StrictTok e JSToken
-invalidKey (x::xs) = if isAlpha x then invalidKey xs else unknownRange Same (x::xs)
+invalidKey (x::xs) =
+  if isAlpha x then invalidKey xs else unknownRange Same (x::xs)
 invalidKey []      = unknownRange Same []
 
 toToken : Cast String a => (a -> JSON) -> SnocList Char -> JSToken
@@ -286,8 +289,8 @@ object b sv (B (Lit $ JString l) _ :: B ':' _ :: xs) (SA r) =
     Succ0 v (B '}' _ :: ys) => Succ0 (JObject $ sv <>> [(l,v)]) ys
     res                     => failInParenEOI b '{' (EOI ==) res
 object b sv (B (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds ':'
-object b sv (x :: xs)                          _ = custom x.bounds ExpectedString
-object b sv []                                 _ = eoi
+object b sv (x :: xs) _ = custom x.bounds ExpectedString
+object b sv [] _ = eoi
 
 export
 parseJSON :

@@ -43,6 +43,7 @@ ellipsis xs                           = Succ0 False xs
 export
 arg : ExtAttributeList -> Rule True (Bool,Arg)
 arg as = [| toArg idlType ellipsis argName |]
+
   where
     toArg : IdlType -> Bool -> ArgumentName -> (Bool,Arg)
     toArg t b a = (b, MkArg as t a)

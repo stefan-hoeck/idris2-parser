@@ -54,6 +54,7 @@ nat = map fromInteger posInt
 export
 identifier : Gen Identifier
 identifier = map ident [| concIdent (maybe line) alpha rest |]
+
   where
     line : Gen Char
     line = element ['-','_']
@@ -78,6 +79,7 @@ maybeSpace = frequency [(1, pure ""), (4, space)]
 export
 stringLit : Gen StringLit
 stringLit = strLit <$> linList 15 unicode
+
   where
     escape : Char -> List Char
     escape '"'  = []
@@ -89,6 +91,7 @@ stringLit = strLit <$> linList 15 unicode
 export
 intLit : Gen IntLit
 intLit = choice [map int anyInt, map Hex nat, map Oct nat]
+
   where
     int : Integer -> IntLit
     int 0 = Oct 0
@@ -112,6 +115,7 @@ floatLit = frequency
 export
 comment : Gen String
 comment = choice [line, multiline]
+
   where
     noControl : Gen Char
     noControl = map (\c => if isControl c then ' ' else c) unicode
@@ -132,6 +136,7 @@ symbol = frequency
   [ (10, map Symb latinSymbol)
   , (1, pure Ellipsis)
   ]
+
   where
     latinSymbol : Gen Char
     latinSymbol = choice
@@ -145,6 +150,7 @@ symbol = frequency
 
 symbolUnless : Char -> (Char -> Bool) -> Gen Symbol
 symbolUnless x f = map replace symbol
+
   where
     replace : Symbol -> Symbol
     replace (Symb c) = if f c then Symb x else Symb c
@@ -206,42 +212,44 @@ attributed ga = [| (,) attributes ga |]
 --------------------------------------------------------------------------------
 
 bufferRelated : Gen BufferRelatedType
-bufferRelated = element
-  [ ArrayBuffer
-  , DataView
-  , Int8Array
-  , Int16Array
-  , Int32Array
-  , Uint8Array
-  , Uint16Array
-  , Uint32Array
-  , Uint8ClampedArray
-  , Float32Array
-  , Float64Array
-  ]
+bufferRelated =
+  element
+    [ ArrayBuffer
+    , DataView
+    , Int8Array
+    , Int16Array
+    , Int32Array
+    , Uint8Array
+    , Uint16Array
+    , Uint32Array
+    , Uint8ClampedArray
+    , Float32Array
+    , Float64Array
+    ]
 
 stringType : Gen StringType
 stringType = element [ByteString, DOMString, USVString]
 
 export
 primitive : Gen PrimitiveType
-primitive = element
-  [ Undefined
-  , Boolean
-  , Octet
-  , Byte
-  , BigInt
-  , Restricted Dbl
-  , Restricted Float
-  , Signed Short
-  , Signed Long
-  , Signed LongLong
-  , Unsigned Short
-  , Unsigned Long
-  , Unsigned LongLong
-  , Unrestricted Dbl
-  , Unrestricted Float
-  ]
+primitive =
+  element
+    [ Undefined
+    , Boolean
+    , Octet
+    , Byte
+    , BigInt
+    , Restricted Dbl
+    , Restricted Float
+    , Signed Short
+    , Signed Long
+    , Signed LongLong
+    , Unsigned Short
+    , Unsigned Long
+    , Unsigned LongLong
+    , Unrestricted Dbl
+    , Unrestricted Float
+    ]
 
 
 nullable : Gen a -> Gen (Nullable a)
@@ -351,9 +359,10 @@ optArg = [| MkOptArg attributes attributes idlType' argName defaultVal |]
 
 argumentList : Gen ArgumentList
 argumentList =
-  choice [ [| VarArg (linList 5 arg) arg |]
-         , [| NoVarArg (linList 5 arg) (linList 5 optArg) |]
-         ]
+  choice
+    [ [| VarArg (linList 5 arg) arg |]
+    , [| NoVarArg (linList 5 arg) (linList 5 optArg) |]
+    ]
 
 constType : Gen ConstType
 constType = choice [map CP primitive, map CI identifier]
@@ -449,10 +458,11 @@ setlike : Gen Setlike
 setlike = [| MkSetlike attributedType |]
 
 namespaceMember : Gen NamespaceMember
-namespaceMember = choice
-  [ inj regularOperation
-  , inj $ readonly attribute
-  ]
+namespaceMember =
+  choice
+    [ inj regularOperation
+    , inj $ readonly attribute
+    ]
 
 namespaceMembers : Gen NamespaceMembers
 namespaceMembers = linList memberSize (attributed namespaceMember)
@@ -461,30 +471,32 @@ constructor_ : Gen Constructor
 constructor_ = map MkConstructor argumentList
 
 partialInterfaceMember : Gen PartialInterfaceMember
-partialInterfaceMember = choice
-  [ map IConst const
-  , map IOp operation
-  , map IAttr attribute
-  , map IAttrRO (readonly attribute)
-  , map IAttrInh (inherit attribute)
-  , map IMap maplike
-  , map IMapRO (readonly maplike)
-  , map ISet setlike
-  , map ISetRO (readonly setlike)
-  , map IStr stringifier
-  , map IStatic static
-  , [| IIterable attributedType optionalType |]
-  , [| IAsync attributedType optionalType argumentList |]
-  ]
+partialInterfaceMember =
+  choice
+    [ map IConst const
+    , map IOp operation
+    , map IAttr attribute
+    , map IAttrRO (readonly attribute)
+    , map IAttrInh (inherit attribute)
+    , map IMap maplike
+    , map IMapRO (readonly maplike)
+    , map ISet setlike
+    , map ISetRO (readonly setlike)
+    , map IStr stringifier
+    , map IStatic static
+    , [| IIterable attributedType optionalType |]
+    , [| IAsync attributedType optionalType argumentList |]
+    ]
 
 mixinMember : Gen MixinMember
-mixinMember = choice
-  [ map MConst const
-  , map MOp regularOperation
-  , map MAttr attribute
-  , map MAttrRO (readonly attribute)
-  , map MStr stringifier
-  ]
+mixinMember =
+  choice
+    [ map MConst const
+    , map MOp regularOperation
+    , map MAttr attribute
+    , map MAttrRO (readonly attribute)
+    , map MStr stringifier
+    ]
 
 mixinMembers : Gen MixinMembers
 mixinMembers = linList memberSize (attributed mixinMember)

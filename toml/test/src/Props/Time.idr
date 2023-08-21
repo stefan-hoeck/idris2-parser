@@ -7,7 +7,8 @@ import Props.Util
 
 prop_localTime : Property
 prop_localTime =
-  parseProp (keyValTbl $ (\t => Enc "\{t}" (TTime $ ATLocalTime t)) <$> localTime)
+  parseProp
+    (keyValTbl $ (\t => Enc "\{t}" (TTime $ ATLocalTime t)) <$> localTime)
 
 prop_localDate : Property
 prop_localDate =
@@ -29,11 +30,13 @@ prop_anyTime0 = parseProp (keyValTbl $ map TTime <$> anyTime0)
 
 export
 props : Group
-props = MkGroup "Text.TOML.Parser time"
-  [ ("prop_localTime", prop_localTime)
-  , ("prop_localDate", prop_localDate)
-  , ("prop_localDateTime", prop_localDateTime)
-  , ("prop_offsetDateTime", prop_offsetDateTime)
-  , ("prop_anyTime", prop_anyTime)
-  , ("prop_anyTime0", prop_anyTime0)
-  ]
+props =
+  MkGroup
+    "Text.TOML.Parser time"
+    [ ("prop_localTime", prop_localTime)
+    , ("prop_localDate", prop_localDate)
+    , ("prop_localDateTime", prop_localDateTime)
+    , ("prop_offsetDateTime", prop_offsetDateTime)
+    , ("prop_anyTime", prop_anyTime)
+    , ("prop_anyTime0", prop_anyTime0)
+    ]

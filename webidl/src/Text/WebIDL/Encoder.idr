@@ -52,7 +52,15 @@ spaced = concat . intersperse " "
 export
 other : Encoder Other
 other = collapseNS
-      . hliftA2 runEnc [interpolate,interpolate,interpolate,interpolate,interpolate,interpolate]
+      . hliftA2
+          runEnc
+          [ interpolate
+          , interpolate
+          , interpolate
+          , interpolate
+          , interpolate
+          , interpolate
+          ]
 
 export
 eaInner : Encoder EAInner
@@ -182,12 +190,14 @@ vararg : Encoder Arg
 vararg (MkArg as t n) = spaced [attributes as, idlType t ++ "...", n.value]
 
 optArg : Encoder OptArg
-optArg (MkOptArg as tas t n d) = spaced [ attributes as
-                                        , "optional"
-                                        , attributed idlType (tas,t)
-                                        , n.value
-                                        , defaultV d
-                                        ]
+optArg (MkOptArg as tas t n d) =
+  spaced
+    [ attributes as
+    , "optional"
+    , attributed idlType (tas,t)
+    , n.value
+    , defaultV d
+    ]
 
 export
 argumentList : Encoder ArgumentList
@@ -265,14 +275,16 @@ attribute (MkAttribute as t n) =
   member "attribute" [attributes as, idlType t, n.value]
 
 stringifier : Encoder Stringifier
-stringifier = ("stringifier " ++)
-            . collapseNS
-            . hliftA2 runEnc [attribute,readonly attribute,regularOperation,const ";"]
+stringifier =
+    ("stringifier " ++)
+  . collapseNS
+  . hliftA2 runEnc [attribute,readonly attribute,regularOperation,const ";"]
 
 static : Encoder StaticMember
-static = ("static " ++)
-       . collapseNS
-       . hliftA2 runEnc [attribute,readonly attribute,regularOperation]
+static =
+    ("static " ++)
+  . collapseNS
+  . hliftA2 runEnc [attribute,readonly attribute,regularOperation]
 
 maplike : Encoder Maplike
 maplike (MkMaplike l r) =
@@ -282,8 +294,8 @@ setlike : Encoder Setlike
 setlike (MkSetlike p) = member "setlike" ["<",attributed idlType p,">"]
 
 namespaceMember : Encoder NamespaceMember
-namespaceMember = collapseNS
-                . hliftA2 runEnc [regularOperation,readonly attribute]
+namespaceMember =
+  collapseNS . hliftA2 runEnc [regularOperation,readonly attribute]
 
 namespaceMembers : Encoder NamespaceMembers
 namespaceMembers = sepList " " $ attributed namespaceMember
@@ -325,8 +337,8 @@ mixinMembers = sepList " " $ attributed mixinMember
 
 export
 interfaceMember : Encoder InterfaceMember
-interfaceMember = collapseNS
-                . hliftA2 runEnc [constructor_,partialInterfaceMember]
+interfaceMember =
+  collapseNS . hliftA2 runEnc [constructor_,partialInterfaceMember]
 
 interfaceMembers : Encoder InterfaceMembers
 interfaceMembers = sepList " " $ attributed interfaceMember
@@ -394,17 +406,20 @@ typedef (MkTypedef as tas t n) =
 
 export
 definition : Encoder Definition
-definition = collapseNS
-           . hliftA2 runEnc [ callback
-                            , callbackInterface
-                            , dictionary
-                            , enum
-                            , includes
-                            , iface
-                            , mixin
-                            , nspace
-                            , typedef
-                            ]
+definition =
+    collapseNS
+  . hliftA2
+      runEnc
+      [ callback
+      , callbackInterface
+      , dictionary
+      , enum
+      , includes
+      , iface
+      , mixin
+      , nspace
+      , typedef
+      ]
 
 export
 part : Encoder Part

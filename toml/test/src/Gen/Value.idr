@@ -26,6 +26,7 @@ value 0 = primVal
 value (S k) = frequency [(1, primVal), (3, array k)]
 
 array n = arr <$> linList 10 (spacedNL $ value n)
+
   where
     arr : List (Encoded TomlValue) -> Encoded TomlValue
     arr evs =
@@ -36,6 +37,7 @@ array n = arr <$> linList 10 (spacedNL $ value n)
 export
 keyVal : Gen (Encoded a) -> Gen (Encoded (Key, a))
 keyVal val = [| acc (spaced key) (spaced val) |]
+
   where
     acc : Encoded Key -> Encoded a -> Encoded (Key,a)
     acc k v = Enc (k.code ++ "=" ++ v.code) (k.value,v.value)
@@ -43,9 +45,11 @@ keyVal val = [| acc (spaced key) (spaced val) |]
 export
 keyValTbl : Gen (Encoded TomlValue) -> Gen (Encoded TomlValue)
 keyValTbl val = map toTable <$> keyVal val
+
   where
     toTable : (Key,TomlValue) -> TomlValue
     toTable (k,v) = TTbl Table $ singleton k.head (go k.tail)
+
       where
         go : List String -> TomlValue
         go []        = v

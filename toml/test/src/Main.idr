@@ -5,7 +5,8 @@ import Props.Bool
 import Props.Time
 
 main : IO ()
-main = test
-  [ Bool.props
-  , Time.props
-  ]
+main =
+  test
+    [ Bool.props
+    , Time.props
+    ]

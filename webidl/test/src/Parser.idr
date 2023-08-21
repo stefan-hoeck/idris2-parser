@@ -39,9 +39,11 @@ prop_partOrDef = prp partOrDef partOrDef partOrDef
 
 export
 props : Group
-props = MkGroup "Parser Properties"
-  [ ("prop_extAttributes", prop_extAttributes)
-  , ("prop_primitiveType", prop_primitiveType)
-  , ("prop_idlType", prop_idlType)
-  , ("prop_part", prop_partOrDef)
-  ]
+props =
+  MkGroup
+    "Parser Properties"
+    [ ("prop_extAttributes", prop_extAttributes)
+    , ("prop_primitiveType", prop_primitiveType)
+    , ("prop_idlType", prop_idlType)
+    , ("prop_part", prop_partOrDef)
+    ]

@@ -83,16 +83,16 @@ data FloatType = Float | Dbl
 |||     long
 |||     ε
 public export
-data PrimitiveType =
-    Unsigned     IntType
-  | Signed       IntType
-  | Unrestricted FloatType
-  | Restricted   FloatType
-  | Undefined
-  | Boolean
-  | Byte
-  | Octet
-  | BigInt
+data PrimitiveType : Type where
+  Unsigned     : IntType -> PrimitiveType
+  Signed       : IntType -> PrimitiveType
+  Unrestricted : FloatType -> PrimitiveType
+  Restricted   : FloatType -> PrimitiveType
+  Undefined    : PrimitiveType
+  Boolean      : PrimitiveType
+  Byte         : PrimitiveType
+  Octet        : PrimitiveType
+  BigInt       : PrimitiveType
 
 %runElab derive "PrimitiveType" [Eq,Show,HasAttributes]
 

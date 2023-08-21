@@ -88,8 +88,8 @@ TSVEncoder a => TSVEncoder b => TSVEncoder (a,b) where
 
 encAll :
      {0 ks : List k}
-  -> All (TSVEncoder . f) ks
-  => SnocList String
+  -> {auto _ : All (TSVEncoder . f) ks}
+  -> SnocList String
   -> All f ks
   -> SnocList String
 encAll           ss []      = ss
@@ -97,8 +97,8 @@ encAll @{_ :: _} ss (v::vs) = encAll (encodeOnto ss v) vs
 
 encAllV :
      {0 ks : Vect n k}
-  -> All (TSVEncoder . f) ks
-  => SnocList String
+  -> {auto _ : All (TSVEncoder . f) ks}
+  -> SnocList String
   -> All f ks
   -> SnocList String
 encAllV           ss []      = ss

@@ -206,7 +206,7 @@ num' sc ('_'::x::xs) = if isDigit x then num' (sc:<x) xs else unknownRange p xs
 num' sc (x::xs)      = if isDigit x then num' (sc:<x) xs else rest sc (x::xs)
 num' sc []           = Succ (intLit sc 0 1) []
 
-num : Tok True e TomlToken
+num : Tok e TomlToken
 num ('-'::'0'::t) = rest [<'-','0'] t
 num ('+'::'0'::t) = rest [<'0'] t
 num ('-'::d::t)   = if isDigit d then num' [<'-',d] t else unknownRange Same t
@@ -254,7 +254,7 @@ isNum (d::_)   = isDigit d
 isNum []       = False
 
 -- general lexemes that can occur in key and value contexts
-other : Tok True e TomlToken
+other : Tok e TomlToken
 other ('.'  :: xs) = Succ "." xs
 other (','  :: xs) = Succ "," xs
 other ('='  :: xs) = Succ "=" xs
@@ -266,17 +266,13 @@ other ('\r'::'\n'::xs) = space xs
 other (x   :: xs)  = if validSpace x then space xs else unknown Same
 other []           = eoiAt Same
 
-toKey :
-     Position
-  -> KeyType
-  -> LexRes True cs e String
-  -> LexRes True cs e TomlToken
+toKey : Position -> KeyType -> LexRes cs e String -> LexRes cs e TomlToken
 toKey x t (Succ v xs @{p}) = Succ (key1 $ KT v t $ BS x (move x p)) xs
 toKey _ _ (Fail x y z)     = Fail x y z
 
 -- lexes a key or sequence of dot-separated keys
 -- this includes double brackets for table arrays
-anyKey : Position -> Tok True e TomlToken
+anyKey : Position -> Tok e TomlToken
 anyKey pos ('"'  :: xs) = toKey pos Quoted $ str [<] xs
 anyKey pos ('\'' :: xs) = toKey pos Literal $ literal [<] xs
 anyKey pos ('['::'[':: xs) = Succ "[[" xs
@@ -286,7 +282,7 @@ anyKey pos (x :: xs)    =
 anyKey _   xs           = other xs
 
 -- lexes a value or related symbol
-val : Tok True e TomlToken
+val : Tok e TomlToken
 val ('{' :: xs)                   = Succ "{" xs
 val ('"' :: '"' :: '"' :: xs)     = case xs of
   '\n'::t         => TVal . TStr <$> strML False [<] t
@@ -349,7 +345,7 @@ adjState t     _   st              = (t ** st)
 -- decides on the lexer to run depending on the current
 -- context
 %inline
-anyTok : Position -> Ctxt -> Tok True e TomlToken
+anyTok : Position -> Ctxt -> Tok e TomlToken
 anyTok pos Key   = anyKey pos
 anyTok _   Value = val
 
@@ -408,12 +404,13 @@ lex :
   -> Either (Bounded TomlErr) (List $ Bounded TomlToken)
 lex st pos sx [] _      = Right $ postProcess [] sx
 lex st pos sx xs (SA r) = case anyTok pos t xs of
-  Succ val ys @{p} =>
+  Succ val ys @{p@(Uncons _)} =>
     let pos2        := endPos pos p
         Just v      := adjSpace st (pos2.line > pos.line) val
           | Nothing => lex st pos2 sx ys r
         (t2 ** st2) := adjState t v st
      in lex st2 pos2 (sx :< bounded v pos pos2) ys r
+  Succ _ _ => Left $ oneChar NoConsumption pos
   Fail start errEnd y => Left $ boundedErr pos start errEnd (voidLeft y)
 
 export %inline

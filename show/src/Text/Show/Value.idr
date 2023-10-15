@@ -209,15 +209,10 @@ toOp : SnocList Char -> Token
 toOp [<'='] = '='
 toOp sc     = Op $ cast sc
 
-sfx :
-     (SnocList Char -> Token)
-  -> ShiftRes True [<] ts
-  -> LexRes True ts e Token
+sfx : (SnocList Char -> Token) -> ShiftRes True [<] ts -> LexRes ts e Token
 sfx = suffix
 
-%inline nat,dbl :
-     ShiftRes  True [<] ts
-  -> LexRes True ts e Token
+%inline nat,dbl : ShiftRes  True [<] ts -> LexRes ts e Token
 nat = suffix (Lit . Natural . cast)
 
 dbl = suffix $ \sc =>
@@ -235,7 +230,7 @@ charLit ('\'' :: xs)      = Succ xs
 charLit (x :: xs)         = charLit {b} xs
 charLit []                = eoiAt sh
 
-tok : Tok True e Token
+tok : Tok e Token
 tok ('0' :: 'x' :: t) = nat $ takeWhile1 {b = True} isHexDigit t
 tok ('0' :: 'X' :: t) = nat $ takeWhile1 {b = True} isHexDigit t
 tok ('0' :: 'o' :: t) = nat $ takeWhile1 {b = True} isOctDigit t
@@ -278,9 +273,10 @@ go sx pos (x :: xs)    (SA r) =
   if isSpace x
      then go sx (incCol pos) xs r
      else case tok (x::xs) of
-       Succ t xs' @{prf} =>
+       Succ t xs' @{prf@(Uncons _)} =>
          let pos2 := addCol (toNat prf) pos
           in go (sx :< bounded t pos pos2) pos2 xs' r
+       Succ _ _ => Left $ oneChar NoConsumption pos
        Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
 go sx pos [] _ = Right (post [B EOI $ oneChar pos] sx)
 

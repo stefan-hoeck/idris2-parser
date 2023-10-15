@@ -94,6 +94,9 @@ data ParseError : (token, err : Type) -> Type where
   ||| Got an unknown or invalid token
   Unknown        : Either String t -> ParseError t e
 
+  ||| The lexer or parser did not consume any input
+  NoConsumption  : ParseError t e
+
 %runElab derive "ParseError" [Show,Eq]
 
 public export
@@ -109,6 +112,7 @@ Bifunctor ParseError where
   bimap f g (Unclosed x)        = Unclosed $ map f x
   bimap f g (Unexpected x)      = Unexpected $ map f x
   bimap f g (Unknown x)         = Unknown $ map f x
+  bimap f g NoConsumption       = NoConsumption
 
 %inline
 interpEither : Interpolation t => Either String t -> String
@@ -127,6 +131,7 @@ Interpolation t => Interpolation e => Interpolation (ParseError t e) where
   interpolate (Unexpected x)     = "Unexpected \{interpEither x}"
   interpolate (Unknown x)        = "Unknown or invalid token: \{interpEither x}"
   interpolate (Custom err)       = interpolate err
+  interpolate NoConsumption      = "Failed to consume any input"
 
 --------------------------------------------------------------------------------
 --          Interface
@@ -274,6 +279,7 @@ voidLeft (Unclosed x)       = Unclosed $ left x
 voidLeft (Unexpected x)     = Unexpected $ left x
 voidLeft (Unknown x)        = Unknown $ left x
 voidLeft (Custom x)         = Custom x
+voidLeft NoConsumption      = NoConsumption
 
 public export
 fromVoid : ParseError Void Void -> ParseError t e
@@ -287,3 +293,4 @@ fromVoid (OutOfBounds x)    = OutOfBounds $ left x
 fromVoid (Unclosed x)       = Unclosed $ left x
 fromVoid (Unexpected x)     = Unexpected $ left x
 fromVoid (Unknown x)        = Unknown $ left x
+fromVoid NoConsumption      = NoConsumption

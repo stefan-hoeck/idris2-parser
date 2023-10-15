@@ -198,7 +198,7 @@ str sc (c    :: xs) =
   else str (sc :< c) xs
 str sc []           = eoiAt p
 
-invalidKey : StrictTok e JSToken
+invalidKey : AutoTok e JSToken
 invalidKey (x::xs) =
   if isAlpha x then invalidKey xs else unknownRange Same (x::xs)
 invalidKey []      = unknownRange Same []
@@ -211,7 +211,7 @@ numberToken l = case find (\c =>  c == '.' || c == 'e' || c == 'E') l of
   Just _  => toToken JDouble l
   Nothing => toToken JInteger l
 
-term : Tok True e JSToken
+term : Tok e JSToken
 term (x :: xs) = case x of
   ',' => Succ ',' xs
   '"' => str [<] xs
@@ -245,10 +245,11 @@ go sx pos (x :: xs)    (SA rec) =
   if isSpace x
      then go sx (incCol pos) xs rec
      else case term (x::xs) of
-       Succ t xs' @{prf} =>
+       Succ t xs' @{prf@(Uncons _)} =>
          let pos2 := addCol (toNat prf) pos
              bt   := bounded t pos pos2
           in go (sx :< bt) pos2 xs' rec
+       Succ _ _ => Left $ oneChar NoConsumption pos
        Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
 go sx pos [] _ = Right (sx <>> [B EOI $ oneChar pos])
 

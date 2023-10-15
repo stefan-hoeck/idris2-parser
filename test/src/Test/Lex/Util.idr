@@ -55,9 +55,7 @@ toLexRes :
 toLexRes (bs, (l,c,s)) =
   (Lin <>< map toWithBounds bs, (P (cast l) (cast c), unpack s))
 
-toLexRes' :
-     TokRes False s r a
-  -> (SnocList (PBounded a), (Position,List Char))
+toLexRes' : TokRes False s r a -> (SnocList (PBounded a), (Position,List Char))
 toLexRes' (TR pos res reason rem prf) = (res, pos, rem)
 
 export

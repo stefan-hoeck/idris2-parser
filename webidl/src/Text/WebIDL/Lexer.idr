@@ -67,7 +67,7 @@ toNum i (Just ad) Nothing = FLit $ NoExp i ad
 
 exp : Integer -> Maybe Nat -> AutoTok e IdlToken
 exp i mn (x :: xs) =
-  if toLower x == 'e' then toNum i mn . Just <$> autoTok intPlus xs
+  if toLower x == 'e' then toNum i mn . Just <$> intPlus xs
   else Succ (toNum i mn Nothing) (x::xs)
 exp i mn []        = Succ (toNum i mn Nothing) []
 
@@ -96,7 +96,7 @@ isFloat ('e' :: _) = True
 isFloat ('E' :: _) = True
 isFloat _          = False
 
-term : Tok True e IdlToken
+term : Tok e IdlToken
 term ('"':: xs) = string [<] xs
 term ('/'::'/':: xs) = comment xs
 term ('/'::'*':: xs) = mlComment xs
@@ -131,10 +131,11 @@ go :
  -> Either (Bounded ParseErr) (List (Bounded IdlToken))
 go sx _ []    _     = Right (sx <>> [])
 go sx pos xs (SA r) = case term xs of
-  Succ t xs' @{prf} =>
+  Succ t xs' @{prf@(Uncons _)} =>
     let pos2 := endPos pos prf
         sx'  := if keep t then (sx :< bounded t pos pos2) else sx
      in go sx' pos2 xs' r
+  Succ _ _ => Left $ oneChar NoConsumption pos
   Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
 
 ||| Generates a list of IdlTokens

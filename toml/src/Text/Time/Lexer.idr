@@ -39,7 +39,7 @@ readSecond cs = readInt 0 cs >>= refineSecond
 --------------------------------------------------------------------------------
 
 export
-date : StrictTok e Date
+date : AutoTok e Date
 date (y1::y2::y3::y4::'-'::m1::m2::'-'::d1::d2::t) =
   let Just y := readYear [y1,y2,y3,y4] | Nothing => unknownRange p t
       Just m := readMonth [m1,m2]      | Nothing => unknownRange p t
@@ -56,7 +56,7 @@ toMS 0     cur = refineMicroSecond (cast cur)
 toMS (S k) cur = toMS k (cur * 10)
 
 export
-prec' : Hour -> Minute -> Second -> (digs,cur : Nat) -> SafeTok LocalTime
+prec' : Hour -> Minute -> Second -> (digs,cur : Nat) -> AutoTok e LocalTime
 prec' h m s digs cur (d::t) = case isDigit d of
   False => Succ (LT h m s $ toMS digs cur) (d::t)
   True  =>  case digs of
@@ -71,7 +71,7 @@ prec h m s ('.'::d::t) =
 prec h m s xs = Succ (LT h m s Nothing) xs
 
 export
-localTime : StrictTok e LocalTime
+localTime : AutoTok e LocalTime
 localTime (h1::h2::':'::m1::m2::':'::s1::s2::t) =
   let Just hh := readHour   [h1,h2] | Nothing => unknownRange p t
       Just mm := readMinute [m1,m2] | Nothing => unknownRange p t
@@ -103,7 +103,7 @@ offset (s::h1::h2::':'::m1::m2::t) =
 offset xs = unknownRange p xs
 
 export
-offsetTime : StrictTok e OffsetTime
+offsetTime : AutoTok e OffsetTime
 offsetTime xs =
   let Succ lt ys := localTime xs | Fail s e r => Fail s e r
    in OT lt <$> offset ys
@@ -112,7 +112,7 @@ offsetTime xs =
 --          AnyTime
 --------------------------------------------------------------------------------
 
-anyTimeOnly : StrictTok e (Either LocalTime OffsetTime)
+anyTimeOnly : AutoTok e (Either LocalTime OffsetTime)
 anyTimeOnly xs =
   let Succ lt ys := localTime xs  | Fail s e r => Fail s e r
       Succ o  zs := offset {e} ys | Fail {} => Succ (Left lt) ys
@@ -123,14 +123,14 @@ addDate : Date -> Either LocalTime OffsetTime -> AnyTime
 addDate x = either (ATLocalDateTime . LDT x) (ATOffsetDateTime . ODT x)
 
 export
-anyTime : StrictTok e AnyTime
+anyTime : AutoTok e AnyTime
 anyTime xs =
   let Succ dt ys := date {e} xs | Fail {} => ATLocalTime <$> localTime xs
    in case ys of
-        'T'::t => addDate dt <$> autoTok anyTimeOnly t
-        't'::t => addDate dt <$> autoTok anyTimeOnly t
+        'T'::t => addDate dt <$> anyTimeOnly t
+        't'::t => addDate dt <$> anyTimeOnly t
         ' '::t =>
-          let Succ at zs := autoTok anyTimeOnly {e} t
+          let Succ at zs := anyTimeOnly {e} t
                 | Fail {} => Succ (ATDate dt) (' ' :: t)
            in Succ (addDate dt at) zs
         _      => Succ (ATDate dt) ys

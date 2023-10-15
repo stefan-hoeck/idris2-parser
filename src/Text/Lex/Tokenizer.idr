@@ -13,13 +13,13 @@ data Tokenizer : (errType, tokenType : Type) -> Type where
   ||| Use this for fast, direct lexing of constant tokens.
   ||| Note: It is assumed that the lexed characters do *NOT* contain
   ||| any line breaks.
-  Direct : {0 e,tt : _} -> Tok True e tt -> Tokenizer e tt
+  Direct : {0 e,tt : _} -> Tok e tt -> Tokenizer e tt
 
   Compose :
        {0 e, tt, tag : Type}
-    -> (begin    : Tok True e (tt, tag))
+    -> (begin    : Tok e (tt, tag))
     -> (middle   : Inf (tag -> Tokenizer e tt))
-    -> (end      : tag -> Tok True e tt)
+    -> (end      : tag -> Tok e tt)
     -> Tokenizer e tt
 
   (<|>) :
@@ -76,15 +76,16 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
       -> (0 acc : SuffixAcc cs)
       -> Either (Bounded $ ParseError a e) (TokRes True cs Void a)
     next (Direct f) cs _ = case f cs of
-      Succ val xs     @{p} =>
+      Succ val xs     @{p@(Uncons v)} =>
         let pos2 := endPos pos p
-         in Right (TR pos2 (toks :< bounded val pos pos2) Nothing xs p)
+         in Right (TR pos2 (toks :< bounded val pos pos2) Nothing xs (Uncons v))
+      Succ _ _ => Left $ oneChar NoConsumption pos
       Fail start errEnd r =>
         Left $ boundedErr pos start errEnd (voidLeft r)
     next (Compose beg midFn endFn) cs acc@(SA r) = case beg cs of
       Fail start errEnd r =>
         Left $ boundedErr pos start errEnd (voidLeft r)
-      Succ (st,tg) cs2 @{p2} =>
+      Succ (st,tg) cs2 @{p2@(Uncons v)} =>
         let pos2   := endPos pos p2
             middle := midFn tg
             end    := endFn tg
@@ -96,10 +97,11 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
                 Succ val cs4 @{p4}   =>
                   let pos4   := endPos pos3 p4
                       toks4  := toks3 :< bounded val pos3 pos4
-                   in Right (TR pos4 toks4 Nothing cs4 $ trans p4 (trans p3 p2))
+                   in Right (TR pos4 toks4 Nothing cs4 $ trans p4 (trans p3 $ uncons v))
                 Fail start errEnd y => case y of
                   EOI => Left $ boundedErr pos start errEnd (Unclosed $ Right st)
                   r    => Left $ boundedErr pos start errEnd (voidLeft r)
+      Succ _ _ => Left $ oneChar NoConsumption pos
     next (x <|> y) cs acc = case next x cs acc of
       Right res                  => Right res
       Left  r@(B (Unclosed _) _) => Left r

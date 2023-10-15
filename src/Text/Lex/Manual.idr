@@ -10,8 +10,8 @@ import public Data.List.Suffix.Result
 
 ||| Result of running a (strict) tokenizer.
 public export
-0 LexRes : (b : Bool) -> List Char -> (e,a : Type) -> Type
-LexRes b ts e a = Result b Char ts (ParseError Void e) a
+0 LexRes : List Char -> (e,a : Type) -> Type
+LexRes ts e a = Result Char ts (ParseError Void e) a
 
 --------------------------------------------------------------------------------
 --          Combinators
@@ -19,9 +19,9 @@ LexRes b ts e a = Result b Char ts (ParseError Void e) a
 
 public export
 (<|>) :
-     Result b t ts r a
-  -> Lazy (Result b t ts r a)
-  -> Result b t ts r a
+     Result t ts r a
+  -> Lazy (Result t ts r a)
+  -> Result t ts r a
 s@(Succ {}) <|> _ = s
 _           <|> r = r
 
@@ -104,8 +104,8 @@ binDigit _   = 1
 ||| A tokenizing function, which will consume a strict
 ||| prefix of the input list or fail with a stop reason.
 public export
-0 Tok : (b : Bool) -> (e,a : Type) -> Type
-Tok b e a = (cs : List Char) -> LexRes b cs e a
+0 Tok : (e,a : Type) -> Type
+Tok e a = (cs : List Char) -> LexRes cs e a
 
 ||| A tokenizing function, which will consume additional characters
 ||| from the input string. This can only be used if already some
@@ -115,129 +115,92 @@ public export
 AutoTok e a =
      {orig     : List Char}
   -> (cs       : List Char)
-  -> {auto   p : Suffix True cs orig}
-  -> LexRes True orig e a
-
-||| A tokenizing function that cannot fail.
-public export
-0 SafeTok : (a : Type) -> Type
-SafeTok a =
-     {0 e      : Type}
-  -> {orig     : List Char}
-  -> (cs       : List Char)
-  -> {auto   p : Suffix True cs orig}
-  -> LexRes True orig e a
-
-||| A tokenizing function, which will consume additional characters
-||| from the input string.
-public export
-0 StrictTok : (e,a : Type) -> Type
-StrictTok e a =
-     {orig     : List Char}
-  -> (cs       : List Char)
   -> {auto   p : Suffix False cs orig}
-  -> LexRes True orig e a
+  -> LexRes orig e a
 
 public export %inline
-tok : StrictTok e a -> Tok True e a
+tok : AutoTok e a -> Tok e a
 tok f ts = f ts
 
 public export %inline
-autoTok : StrictTok e a -> AutoTok e a
-autoTok f ts @{p} = weakens $ f ts @{weaken p}
-
-public export %inline
-safeTok : SafeTok a -> AutoTok e a
-safeTok f ts = f ts
-
-public export %inline
 range :
-     {0 b, bres : Bool}
-  -> {orig      : List Char}
+     {orig      : List Char}
   -> {errBegin  : List Char}
   -> (err       : ParseError Void e)
-  -> (suffixCur : Suffix b errBegin orig)
+  -> (suffixCur : Suffix False errBegin orig)
   -> (0 errEnd  : List Char)
   -> {auto sr   : Suffix False errEnd errBegin}
-  -> LexRes bres orig e a
-range err sc errEnd = Fail (weaken sc) errEnd err
+  -> LexRes orig e a
+range err sc errEnd = Fail sc errEnd err
 
 public export %inline
 invalidEscape :
-     {0 b, bres : Bool}
-  -> {orig      : List Char}
+     {orig      : List Char}
   -> {errBegin  : List Char}
-  -> (suffixCur : Suffix b errBegin orig)
+  -> (suffixCur : Suffix False errBegin orig)
   -> (0 errEnd  : List Char)
   -> {auto sr   : Suffix False errEnd errBegin}
-  -> LexRes bres orig e a
+  -> LexRes orig e a
 invalidEscape = range InvalidEscape
 
 public export %inline
 unknownRange :
-     {0 b, bres : Bool}
-  -> {orig      : List Char}
+     {orig      : List Char}
   -> {errBegin  : List Char}
-  -> (suffixCur : Suffix b errBegin orig)
+  -> (suffixCur : Suffix False errBegin orig)
   -> (0 errEnd  : List Char)
   -> {auto sr   : Suffix False errEnd errBegin}
-  -> LexRes bres orig e a
+  -> LexRes orig e a
 unknownRange sc ee = range (Unknown . Left $ packPrefix sr) sc ee
 
 public export %inline
 single :
-     {0 bres        : Bool}
-  -> {c             : Char}
+     {c             : Char}
   -> {orig,errEnd   : List Char}
   -> (err           : ParseError Void e)
-  -> (suffixCur     : Suffix b (c::errEnd) orig)
-  -> LexRes bres orig e a
+  -> (suffixCur     : Suffix False (c::errEnd) orig)
+  -> LexRes orig e a
 single r p = range r p errEnd
 
 public export %inline
 unknown :
-     {0 bres        : Bool}
-  -> {c             : Char}
+     {c             : Char}
   -> {orig,errEnd   : List Char}
-  -> (suffixCur     : Suffix b (c::errEnd) orig)
-  -> LexRes bres orig e a
+  -> (suffixCur     : Suffix False (c::errEnd) orig)
+  -> LexRes orig e a
 unknown sc = unknownRange sc errEnd
 
 public export %inline
 eoiAt :
-     {0 b, bres  : Bool}
-  -> {orig       : List Char}
-  -> (suffixCur  : Suffix b [] orig)
-  -> LexRes bres orig e a
+     {orig       : List Char}
+  -> (suffixCur  : Suffix False [] orig)
+  -> LexRes orig e a
 eoiAt sc = range EOI sc []
 
 public export %inline
 failCharClass :
-     {0 bres        : Bool}
-  -> {c             : Char}
+     {c             : Char}
   -> {orig,errEnd   : List Char}
   -> (class         : CharClass)
-  -> (suffixCur     : Suffix b (c::errEnd) orig)
-  -> LexRes bres orig e a
+  -> (suffixCur     : Suffix False (c::errEnd) orig)
+  -> LexRes orig e a
 failCharClass cc = single (ExpectedChar cc)
 
 public export %inline
 failDigit :
-     {0 bres        : Bool}
-  -> {c             : Char}
+     {c             : Char}
   -> {orig,errEnd   : List Char}
   -> (tpe           : DigitType)
-  -> (suffixCur     : Suffix b (c::errEnd) orig)
-  -> LexRes bres orig e a
+  -> (suffixCur     : Suffix False (c::errEnd) orig)
+  -> LexRes orig e a
 failDigit = failCharClass . Digit
 
 public export %inline
 fail :
-     {0 b, bres : Bool}
-  -> {errBegin  : List Char}
+     {errBegin  : List Char}
   -> {orig      : List Char}
-  -> (suffixCur : Suffix b errBegin orig)
-  -> LexRes bres orig e a
+  -> (suffixCur : Suffix False errBegin orig)
+  -> LexRes orig e a
 fail {errBegin = x::xs} p = unknown p
 fail {errBegin = []}    p = eoiAt p
 
@@ -247,14 +210,14 @@ fail {errBegin = []}    p = eoiAt p
 
 ||| Tries to read additional decimal digits onto a growing natural number.
 public export
-dec1 : (n : Nat) -> SafeTok Nat
+dec1 : (n : Nat) -> AutoTok e Nat
 dec1 n (x::xs) = if isDigit x then dec1 (n*10 + digit x) xs else succ n p
 dec1 n []      = succ n p
 
 ||| Tries to read a natural number. Fails, if this does not contain at least
 ||| one digit.
 public export
-dec : StrictTok e Nat
+dec : AutoTok e Nat
 dec (x::xs) = if isDigit x then dec1 (digit x) xs else failDigit Dec p
 dec []      = eoiAt p
 
@@ -263,27 +226,27 @@ dec []      = eoiAt p
 public export
 dec_1 : (n : Nat) -> AutoTok e Nat
 dec_1 n ('_'::x::xs) =
-  if isDigit x then dec_1 (n*10 + digit x) xs else failDigit Dec (uncons p)
+  if isDigit x then dec_1 (n*10 + digit x) xs else failDigit Dec (Uncons p)
 dec_1 n (x::xs)      = if isDigit x then dec_1 (n*10 + digit x) xs else succ n p
 dec_1 n []           = Succ n []
 
 ||| Tries to read a natural number.
 ||| Supports underscores as separators for better readability.
 public export
-decSep : StrictTok e Nat
+decSep : AutoTok e Nat
 decSep (x::xs) = if isDigit x then dec_1 (digit x) xs else failDigit Dec p
 decSep []      = eoiAt p
 
 ||| Tries to read more binary digits onto a growing natural number.
 public export
-bin1 : (n : Nat) -> SafeTok Nat
+bin1 : (n : Nat) -> AutoTok e Nat
 bin1 n (x :: xs) = if isBinDigit x then bin1 (n*2 + binDigit x) xs else succ n p
 bin1 n []        = succ n p
 
 ||| Tries to read a binary natural number.
 ||| Fails, if this does not contain at least one digit.
 public export
-bin : StrictTok e Nat
+bin : AutoTok e Nat
 bin (x::xs) = if isBinDigit x then bin1 (binDigit x) xs else failDigit Bin p
 bin []      = eoiAt p
 
@@ -292,7 +255,7 @@ bin []      = eoiAt p
 public export
 bin_1 : (n : Nat) -> AutoTok e Nat
 bin_1 n ('_' :: x :: xs) =
-  if isBinDigit x then bin_1 (n*2 + binDigit x) xs else failDigit Bin (uncons p)
+  if isBinDigit x then bin_1 (n*2 + binDigit x) xs else failDigit Bin (Uncons p)
 bin_1 n (x :: xs) =
   if isBinDigit x then bin_1 (n*2 + binDigit x) xs else succ n p
 bin_1 n []        = succ n p
@@ -301,20 +264,20 @@ bin_1 n []        = succ n p
 ||| Fails, if this does not contain at least one digit.
 ||| Supports underscores as separators for better readability.
 public export
-binSep : StrictTok e Nat
+binSep : AutoTok e Nat
 binSep (x::xs) = if isBinDigit x then bin_1 (binDigit x) xs else failDigit Bin p
 binSep []      = eoiAt p
 
 ||| Tries to read more octal digits onto a growing natural number.
 public export
-oct1 : (n : Nat) -> SafeTok Nat
+oct1 : (n : Nat) -> AutoTok e Nat
 oct1 n (x :: xs) = if isOctDigit x then oct1 (n*8 + octDigit x) xs else succ n p
 oct1 n []        = succ n p
 
 ||| Tries to read a octal natural number.
 ||| Fails, if this does not contain at least one digit.
 public export
-oct : StrictTok e Nat
+oct : AutoTok e Nat
 oct (x::xs) = if isOctDigit x then oct1 (octDigit x) xs else failDigit Oct p
 oct []      = eoiAt p
 
@@ -323,7 +286,7 @@ oct []      = eoiAt p
 public export
 oct_1 : (n : Nat) -> AutoTok e Nat
 oct_1 n ('_' :: x :: xs) =
-  if isOctDigit x then oct_1 (n*8 + octDigit x) xs else failDigit Oct (uncons p)
+  if isOctDigit x then oct_1 (n*8 + octDigit x) xs else failDigit Oct (Uncons p)
 oct_1 n (x :: xs) =
   if isOctDigit x then oct_1 (n*8 + octDigit x) xs else succ n p
 oct_1 n []        = succ n p
@@ -332,20 +295,20 @@ oct_1 n []        = succ n p
 ||| Fails, if this does not contain at least one digit.
 ||| Supports underscores as separators for better readability.
 public export
-octSep : StrictTok e Nat
+octSep : AutoTok e Nat
 octSep (x::xs) = if isOctDigit x then oct_1 (octDigit x) xs else failDigit Oct p
 octSep []      = eoiAt p
 
 ||| Tries to read more hexadecimal digits onto a growing natural number.
 public export
-hex1 : (n : Nat) -> SafeTok Nat
+hex1 : (n : Nat) -> AutoTok e Nat
 hex1 n (x :: xs) = if isHexDigit x then hex1 (n*16 + hexDigit x) xs else succ n p
 hex1 n []        = succ n p
 
 ||| Tries to read a hexadecimal natural number.
 ||| Fails, if this does not contain at least one digit.
 public export
-hex : StrictTok e Nat
+hex : AutoTok e Nat
 hex (x::xs) = if isHexDigit x then hex1 (hexDigit x) xs else failDigit Hex p
 hex []      = eoiAt p
 
@@ -354,7 +317,7 @@ hex []      = eoiAt p
 public export
 hex_1 : (n : Nat) -> AutoTok e Nat
 hex_1 n ('_' :: x :: xs) =
-  if isHexDigit x then hex_1 (n*16 + hexDigit x) xs else failDigit Hex (uncons p)
+  if isHexDigit x then hex_1 (n*16 + hexDigit x) xs else failDigit Hex (Uncons p)
 hex_1 n (x :: xs) =
   if isHexDigit x then hex_1 (n*16 + hexDigit x) xs else succ n p
 hex_1 n []        = succ n p
@@ -363,7 +326,7 @@ hex_1 n []        = succ n p
 ||| Fails, if this does not contain at least one digit.
 ||| Supports underscores as separators for better readability.
 public export
-hexSep : StrictTok e Nat
+hexSep : AutoTok e Nat
 hexSep (x::xs) = if isHexDigit x then hex_1 (hexDigit x) xs else failDigit Hex p
 hexSep []      = eoiAt p
 
@@ -373,13 +336,13 @@ hexSep []      = eoiAt p
 
 ||| A shifter that takes moves an integer prefix
 public export
-int : StrictTok e Integer
+int : AutoTok e Integer
 int ('-' :: xs) = negate . cast <$> dec xs
 int xs          = cast <$> dec xs
 
 ||| Like `int` but also allows an optional leading `'+'` character.
 public export
-intPlus : StrictTok e Integer
+intPlus : AutoTok e Integer
 intPlus ('+'::xs) = cast <$> dec xs
 intPlus xs        = int xs
 
@@ -388,7 +351,7 @@ intPlus xs        = int xs
 -----------------------------------------------------------------------------
 
 public export
-takeJustOnto : SnocList y -> (Char -> Maybe y) -> SafeTok (SnocList y)
+takeJustOnto : SnocList y -> (Char -> Maybe y) -> AutoTok e (SnocList y)
 takeJustOnto sx f (x :: xs) = case f x of
   Just vb => takeJustOnto (sx :< vb) f xs
   Nothing => Succ sx (x::xs)
@@ -397,13 +360,13 @@ takeJustOnto sx f []        = Succ sx []
 ||| Consumes and converts a list prefix until the given
 ||| function returns `Nothing`.
 public export %inline
-takeJust : (Char -> Maybe y) -> SafeTok (SnocList y)
+takeJust : (Char -> Maybe y) -> AutoTok e (SnocList y)
 takeJust f = takeJustOnto [<] f
 
 ||| Consumes and converts a strict list prefix until the given
 ||| function returns `Nothing`.
 public export %inline
-takeJust1 : (Char -> Maybe y) -> StrictTok e (SnocList y)
+takeJust1 : (Char -> Maybe y) -> AutoTok e (SnocList y)
 takeJust1 f (x::xs) = case f x of
   Just vb => takeJustOnto [<vb] f xs
   Nothing => unknown p
@@ -426,7 +389,7 @@ takeJust1 _ [] = eoiAt p
 ||| function.
 public export
 singleLineDropSpaces :
-     Tok True e a
+     Tok e a
   -> String
   -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
 singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
@@ -442,9 +405,10 @@ singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
     go p1 sx (c::cs)    (SA r) =
       if isSpace c then go (incCol p1) sx cs r
       else case f (c::cs) of
-        Succ v xs2 @{p}     =>
+        Succ v xs2 @{p@(Uncons _)} =>
           let p2 := move p1 p
            in go p2 (sx :< bounded v p1 p2) xs2 r
+        Succ _ _   => Left $ oneChar NoConsumption p1
         Fail s e r => Left $ boundedErr p1 s e r
 
 ||| Like `singleLineDropSpaces`, but consumed tokens might be
@@ -454,7 +418,7 @@ singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
 ||| function.
 public export
 multiLineDropSpaces :
-     Tok True e a
+     Tok e a
   -> String
   -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
 multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
@@ -470,9 +434,10 @@ multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
     go p1 sx (c::cs)    (SA r) =
       if isSpace c then go (incCol p1) sx cs r
       else case f (c::cs) of
-        Succ v xs2 @{p}     =>
+        Succ v xs2 @{p@(Uncons _)} =>
           let p2 := endPos p1 p
            in go p2 (sx :< bounded v p1 p2) xs2 r
+        Succ _ _   => Left $ oneChar NoConsumption p1
         Fail s e r => Left $ boundedErr p1 s e r
 
 ||| Repeatedly consumes a strict prefix of a list of characters
@@ -483,7 +448,7 @@ multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
 ||| function.
 public export
 lexManual :
-     Tok True e a
+     Tok e a
   -> String
   -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
 lexManual f s = go begin [<] (unpack s) suffixAcc
@@ -496,7 +461,8 @@ lexManual f s = go begin [<] (unpack s) suffixAcc
       -> Either (Bounded $ ParseError Void e) (List $ Bounded a)
     go p1 sx [] _      = Right $ sx <>> []
     go p1 sx cs (SA r) = case f cs of
-      Succ v xs2 @{p}     =>
+      Succ v xs2 @{p@(Uncons _)} =>
         let p2 := endPos p1 p
          in go p2 (sx :< bounded v p1 p2) xs2 r
+      Succ _ _ => Left $ oneChar NoConsumption p1
       Fail s e r => Left $ boundedErr p1 s e r

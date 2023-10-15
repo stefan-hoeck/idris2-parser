@@ -16,7 +16,7 @@ export
 decClaim : Visibility -> (fun : Name) -> (p : ParamTypeInfo) -> Decl
 decClaim vis fun p =
   let arg := p.applied
-      tpe := piAll `({0 e : Type} -> Tok False e ~(arg)) (allImplicits p "TSVDecoder")
+      tpe := piAll `({0 e : Type} -> Tok e ~(arg)) (allImplicits p "TSVDecoder")
    in simpleClaim vis fun tpe
 
 ||| Top-level declaration implementing the `TSVDecoder` interface for

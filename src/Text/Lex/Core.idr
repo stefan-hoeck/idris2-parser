@@ -21,7 +21,7 @@ import public Text.Lex.Shift
 --          Recognise
 --------------------------------------------------------------------------------
 
-infixl 8 <++>
+export infixl 8 <++>
 
 public export
 data Recognise : (strict : Bool) -> Type where

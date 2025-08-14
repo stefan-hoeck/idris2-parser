@@ -34,7 +34,7 @@ encoderImplDef f i =
 
 appArgs : TTImp -> List (BoundArg 1 Explicit) -> TTImp
 appArgs t []                 = t
-appArgs t (BA _ [x] _ :: xs) = appArgs `(encodeOnto ~(t) ~(varStr x)) xs
+appArgs t (BA _ [x] _ :: xs) = appArgs `(encodeOnto ~(t) ~(var x)) xs
 
 encClause : Name -> Con n vs -> Clause
 encClause f c =

@@ -249,7 +249,7 @@ attrImplDef f i =
 
 parameters (nms : List Name)
   ttimp : BoundArg 1 Regular -> TTImp
-  ttimp (BA (MkArg _  _ _ t) [x] _) = assertIfRec nms t `(attributes ~(varStr x))
+  ttimp (BA (MkArg _  _ _ t) [x] _) = assertIfRec nms t `(attributes ~(var x))
 
   rsh : SnocList TTImp -> TTImp
   rsh [<] = `(Nil)

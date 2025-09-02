@@ -88,8 +88,8 @@ prop_exponentialNotationDouble =
 testErr : String -> String -> Property
 testErr s exp =
   let res := case parseJSON Virtual s of
-        Left (fc,e) => printParseError s fc e
-        Right v     => show v
+        Left e  => interpolate e
+        Right v => show v
    in property1 $ res === exp
 
 prop_err1 : Property

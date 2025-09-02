@@ -66,7 +66,7 @@ Interpolation JSErr where
 
 public export %tcinline
 0 JSParseErr : Type
-JSParseErr = ParseError JSToken JSErr
+JSParseErr = InnerError JSToken JSErr
 ```
 
 ## A Manually written Lexer
@@ -211,10 +211,8 @@ tok ('t'::'r'::'u'::'e'::t)      = Succ (Lit $ JBool True) t
 tok ('f'::'a'::'l'::'s'::'e'::t) = Succ (Lit $ JBool False) t
 tok xs                           = dbl xs
 
-tokJSON :
-     String
-  -> Either (Bounded $ ParseError Void Void) (List $ Bounded JSToken)
-tokJSON = singleLineDropSpaces tok
+tokJSON : String -> Either (ParseError Void Void) (List $ Bounded JSToken)
+tokJSON s= mapFst (toParseError Virtual s) $ singleLineDropSpaces tok s
 ```
 
 ## Lexing with Combinators
@@ -266,8 +264,9 @@ jsonTokenMap =
 
 tokJSON2 :
      String
-  -> Either (Bounded $ ParseError Void Void) (List $ Bounded JSToken)
-tokJSON2 = lexManual (first jsonTokenMap)
+  -> Either (ParseError Void Void) (List $ Bounded JSToken)
+tokJSON2 s =
+  mapFst (toParseError Virtual s) $ lexManual (first jsonTokenMap) s
 ```
 
 ## Comparing the two Lexers
@@ -283,10 +282,10 @@ utility functions:
 
 ```idris
 lexAndPrint : String -> IO ()
-lexAndPrint s = putStrLn $ either (printVirtual s) show (tokJSON s)
+lexAndPrint s = putStrLn $ either interpolate show (tokJSON s)
 
 lexAndPrint2 : String -> IO ()
-lexAndPrint2 s = putStrLn $ either (printVirtual s) show (tokJSON2 s)
+lexAndPrint2 s = putStrLn $ either interpolate show (tokJSON2 s)
 ```
 
 We are mainly interested in how informative the error messages
@@ -440,27 +439,30 @@ circumstances, although this might be easier to get right in
 the hand-written case.
 
 ```idris
-parse1 : String -> Either (FileContext,JSParseErr) JsonTree
+parse1 : String -> Either (ParseError JSToken JSErr) JsonTree
 parse1 s = case tokJSON s of
-  Left x  => Left (fromBounded Virtual $ map fromVoid x)
-  Right x => result Virtual $ value x suffixAcc
+  Left x  => Left $ {error $= fromVoid} x
+  Right x => result Virtual s $ value x suffixAcc
 
 covering
-parse2 : String -> Either (List1 (FileContext,JSParseErr)) JsonTree
+parse2 : String -> Either (List1 (ParseError JSToken JSErr)) JsonTree
 parse2 s = case tokJSON2 s of
-  Left x  => Left (singleton $ fromBounded Virtual $ map fromVoid x)
+  Left x  => Left (singleton $ {error $= fromVoid} x)
   Right x => case parse value2 () x of
-    Left es                => Left (fromBounded Virtual <$> es)
+    Left es                => Left (toParseError Virtual s <$> es)
     Right ((),res,[])      => Right res
     Right ((),res,(x::xs)) =>
-      Left (singleton $ fromBounded Virtual $ Unexpected . Right <$> x)
+      Left (singleton $ toParseError Virtual s $ Unexpected . Right <$> x)
 
 testParse1 : String -> IO ()
-testParse1 s = putStrLn $ either (uncurry $ printParseError s) show (parse1 s)
+testParse1 s = putStrLn $ either interpolate show (parse1 s)
 
 covering
 testParse2 : String -> IO ()
-testParse2 s = putStrLn $ either (printParseErrors s) show (parse2 s)
+testParse2 s =
+  case parse2 s of
+    Left xs => traverse_ (putStrLn . interpolate) xs
+    Right v => printLn v
 ```
 
 ## Performance

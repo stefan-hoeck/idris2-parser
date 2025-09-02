@@ -163,7 +163,7 @@ Interpolation JSErr where
 
 public export %tcinline
 0 ParseErr : Type
-ParseErr = ParseError JSToken JSErr
+ParseErr = InnerError JSToken JSErr
 
 strLit : SnocList Char -> JSToken
 strLit = Lit . JString . cast
@@ -293,14 +293,11 @@ object b sv (x :: xs) _ = custom x.bounds ExpectedString
 object b sv [] _ = eoi
 
 export
-parseJSON :
-     Origin
-  -> String
-  -> Either (FileContext, ParseErr) JSON
+parseJSON : Origin -> String -> Either (ParseError JSToken JSErr) JSON
 parseJSON o str = case lexJSON str of
   Right ts => case value ts suffixAcc of
-    Fail0 x           => Left (fromBounded o x)
+    Fail0 x           => Left (toParseError o str x)
     Succ0 v [B EOI _] => Right v
     Succ0 v []        => Right v
-    Succ0 v (x::xs)   => Left (fromBounded o $ Unexpected . Right <$> x)
-  Left err => Left (fromBounded o err)
+    Succ0 v (x::xs)   => Left (toParseError o str $ Unexpected . Right <$> x)
+  Left err => Left (toParseError o str err)

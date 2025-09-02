@@ -121,7 +121,7 @@ term [] = eoiAt Same
 
 public export
 0 ParseErr : Type
-ParseErr = ParseError IdlToken IdlError
+ParseErr = InnerError IdlToken IdlError
 
 go :
      SnocList (Bounded IdlToken)

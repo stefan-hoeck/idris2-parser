@@ -179,7 +179,7 @@ Interpolation Err where
 
 public export
 0 PSErr : Type
-PSErr = ParseError Token Err
+PSErr = InnerError Token Err
 
 public export %inline
 fromChar : Char -> Token
@@ -365,14 +365,14 @@ rec _ _ _ (x::xs) _ = custom x.bounds ExpectedId
 rec _ _ _ [] _ = eoi
 
 export
-parseValueE : String -> Either (FileContext,PSErr) Value
+parseValueE : String -> Either (ParseError Token Err) Value
 parseValueE str = case tokens str of
-  Left x   => Left $ fromBounded Virtual x
+  Left x   => Left $ toParseError Virtual str x
   Right ts => case value ts suffixAcc of
-    Fail0 err           => Left $ fromBounded Virtual err
+    Fail0 err           => Left $ toParseError Virtual str err
     Succ0 res []        => Right res
     Succ0 res [B EOI _] => Right res
-    Succ0 res (x :: xs) => Left (fromBounded Virtual $ Unexpected . Right <$> x)
+    Succ0 res (x :: xs) => Left (toParseError Virtual str $ Unexpected . Right <$> x)
 
 export
 parseValue : String -> Maybe Value

@@ -215,8 +215,8 @@ items sx xs             (SA r) = case item xs of
   Fail0 err              => Left err
 
 export
-parse : Origin -> String -> Either (FileContext,TomlErr) TomlValue
-parse o s = mapFst (fromBounded o) $ do
+parse : Origin -> String -> Either (ParseError TomlToken TomlParseError) TomlValue
+parse o s = mapFst (toParseError o s) $ do
   ts <- lexToml s
   ti <- items [<] ts suffixAcc
   assemble (TTbl Table empty) ti suffixAcc

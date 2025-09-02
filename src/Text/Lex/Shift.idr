@@ -40,7 +40,7 @@ data ShiftRes :
     -> (start       : Shift False Char se errStart st ts)
     -> (0 errEnd    : List Char)
     -> {auto end    : Shift False Char ee errEnd se errStart}
-    -> ParseError Void Void
+    -> InnerError Void Void
     -> ShiftRes b st ts
 
 public export %inline
@@ -154,7 +154,7 @@ range :
      {0 b1,b2 : Bool}
   -> {0 giro,ruc,tser : SnocList Char}
   -> {orig,cur   : List Char}
-  -> (err        : ParseError Void Void)
+  -> (err        : InnerError Void Void)
   -> (shiftCur   : Shift b1 Char ruc cur giro orig)
   -> (0 rest     : List Char)
   -> {auto sr    : Shift False Char tser rest ruc cur}
@@ -189,7 +189,7 @@ single :
   -> {0 giro,ruc    : SnocList Char}
   -> {c             : Char}
   -> {orig,errEnd   : List Char}
-  -> (err           : ParseError Void Void)
+  -> (err           : InnerError Void Void)
   -> (shiftCur      : Shift b Char ruc (c::errEnd) giro orig)
   -> ShiftRes bres giro orig
 single r p = range r p errEnd

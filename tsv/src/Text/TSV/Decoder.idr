@@ -184,7 +184,7 @@ readTable' :
   -> Position
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
-  -> Either (Bounded $ ParseError Void e) (List a)
+  -> Either (Bounded $ InnerError Void e) (List a)
 readTable' sx pos []              _      = Right (sx <>> [])
 readTable' sx pos xs              (SA r) = case decodeFrom {a} xs of
   Succ v xs2 @{p} => case xs2 of
@@ -202,6 +202,6 @@ readTable :
      {auto _ : TSVDecoder a}
   -> Origin
   -> String
-  -> Either (FileContext,ParseError Void e) (List a)
+  -> Either (ParseError Void e) (List a)
 readTable o s =
-  mapFst (fromBounded o) (readTable' [<] begin (unpack s) suffixAcc)
+  mapFst (toParseError o s) (readTable' [<] begin (unpack s) suffixAcc)

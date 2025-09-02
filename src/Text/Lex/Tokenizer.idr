@@ -63,7 +63,7 @@ tokenise :
   -> (toks    : SnocList (Bounded a))
   -> (cs      : List Char)
   -> (0 acc   : SuffixAcc cs)
-  -> TokRes False cs (Bounded $ ParseError a e) a
+  -> TokRes False cs (Bounded $ InnerError a e) a
 tokenise x pos toks [] _ = TR pos toks Nothing [] Same
 tokenise x pos toks cs acc@(SA r) = case next x cs acc of
   Right (TR pos2 toks2 Nothing cs2 su) =>
@@ -74,7 +74,7 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
          Tokenizer e a
       -> (cs    : List Char)
       -> (0 acc : SuffixAcc cs)
-      -> Either (Bounded $ ParseError a e) (TokRes True cs Void a)
+      -> Either (Bounded $ InnerError a e) (TokRes True cs Void a)
     next (Direct f) cs _ = case f cs of
       Succ val xs     @{p} =>
         let pos2 := endPos pos p
@@ -112,5 +112,5 @@ export %inline
 lex :
      Tokenizer e a
   -> (s : String)
-  -> TokRes False (unpack s) (Bounded $ ParseError a e) a
+  -> TokRes False (unpack s) (Bounded $ InnerError a e) a
 lex x s = tokenise x begin [<] (unpack s) suffixAcc

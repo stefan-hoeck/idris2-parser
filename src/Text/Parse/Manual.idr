@@ -44,7 +44,7 @@ public export
   -> (ts : List $ Bounded t)
   -> (e,a : Type)
   -> Type
-Res b t ts e a = Result0 b (Bounded t) ts (Bounded $ ParseError t e) a
+Res b t ts e a = Result0 b (Bounded t) ts (Bounded $ InnerError t e) a
 
 public export
 0 Grammar : (strict : Bool) -> (t,e,a : Type) -> Type
@@ -158,9 +158,10 @@ export
 testParse :
      {auto _ : Show a}
   -> {auto _ : Interpolation e}
-  -> (Origin -> String -> Either (FileContext,e) a)
+  -> {auto _ : Interpolation t}
+  -> (Origin -> String -> Either (ParseError t e) a)
   -> String
   -> IO ()
 testParse f s = case f Virtual s of
-  Right res     => putStrLn "Success: \{show res}"
-  Left (fc,err) => putStrLn $ printParseError s fc err
+  Right res => putStrLn "Success: \{show res}"
+  Left err  => putStrLn $ interpolate err

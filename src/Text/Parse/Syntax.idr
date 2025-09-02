@@ -80,7 +80,7 @@ optional f ts = weaken $ (Just <$> f ts) <|> Succ0 Nothing ts @{Same}
 
 public export
 manyOnto :
-     (fatal : ParseError t e -> Bool)
+     (fatal : InnerError t e -> Bool)
   -> Grammar True t e a
   -> SnocList a
   -> AccGrammar False t e (List a)
@@ -96,7 +96,7 @@ manyOnto fatal f sx ts (SA r) = case f ts of
 |||       or not.
 public export %inline
 manyF :
-     (fatal : ParseError t e -> Bool)
+     (fatal : InnerError t e -> Bool)
   -> Grammar True t e a
   -> Grammar False t e (List a)
 manyF fatal f ts = manyOnto fatal f [<] ts suffixAcc
@@ -120,7 +120,7 @@ many = manyF (const False)
 |||       or not.
 public export %inline
 someF :
-     (fatal : ParseError t e -> Bool)
+     (fatal : InnerError t e -> Bool)
   -> Grammar True t e a
   -> Grammar True t e (List1 a)
 someF fatal f = [| f ::: manyF fatal f|]
@@ -145,7 +145,7 @@ some = someF (const False)
 |||       if the separator consists of a single, constant token.
 public export %inline
 sepByF1 :
-     (fatal : ParseError t e -> Bool)
+     (fatal : InnerError t e -> Bool)
   -> (sep : Grammar b t e ())
   -> Grammar True t e a
   -> Grammar True t e (List1 a)

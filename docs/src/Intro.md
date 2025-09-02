@@ -106,7 +106,7 @@ we will also have to deal with source locations, handled in
 ```idris
 public export
 0 Err : Type
-Err = ParseError Token Void
+Err = InnerError Token Void
 
 lit :
      SnocList (Bounded Token)
@@ -177,8 +177,7 @@ Interpolation Token where
 
 printRes : String -> Either (Bounded Err) (List $ Bounded Token) -> String
 printRes _ (Right ts) = unlines $ (\(B t bs) => "\{t}: \{bs}") <$> ts
-printRes s (Left b) =
-  uncurry (printParseError s) (virtualFromBounded b)
+printRes s (Left b)   = interpolate $ toParseError Virtual s b
 
 lexAndPrint : String -> IO ()
 lexAndPrint s = putStrLn $ printRes s (tok [<] begin $ unpack s)

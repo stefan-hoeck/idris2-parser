@@ -65,6 +65,7 @@ testTokenLex :
      {auto _ : Monad m}
   -> {auto _ : Eq a}
   -> {auto _ : Show a}
+  -> {auto _ : Interpolation a}
   -> (s    : String)
   -> (pmap : PTokenMap a)
   -> (imap : ITokenMap a)

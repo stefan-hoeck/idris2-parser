@@ -184,4 +184,4 @@ Interpolation TomlParseError where
 ||| Error type when lexing and parsing TOML files
 public export
 0 TomlErr : Type
-TomlErr = InnerError TomlToken TomlParseError
+TomlErr = InnerError TomlParseError

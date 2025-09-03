@@ -11,7 +11,7 @@ import public Data.List.Suffix.Result
 ||| Result of running a (strict) tokenizer.
 public export
 0 LexRes : (b : Bool) -> List Char -> (e,a : Type) -> Type
-LexRes b ts e a = Result b Char ts (InnerError Void e) a
+LexRes b ts e a = Result b Char ts (InnerError e) a
 
 --------------------------------------------------------------------------------
 --          Combinators
@@ -155,7 +155,7 @@ range :
      {0 b, bres : Bool}
   -> {orig      : List Char}
   -> {errBegin  : List Char}
-  -> (err       : InnerError Void e)
+  -> (err       : InnerError e)
   -> (suffixCur : Suffix b errBegin orig)
   -> (0 errEnd  : List Char)
   -> {auto sr   : Suffix False errEnd errBegin}
@@ -182,14 +182,14 @@ unknownRange :
   -> (0 errEnd  : List Char)
   -> {auto sr   : Suffix False errEnd errBegin}
   -> LexRes bres orig e a
-unknownRange sc ee = range (Unknown . Left $ packPrefix sr) sc ee
+unknownRange sc ee = range (Unknown $ packPrefix sr) sc ee
 
 public export %inline
 single :
      {0 bres        : Bool}
   -> {c             : Char}
   -> {orig,errEnd   : List Char}
-  -> (err           : InnerError Void e)
+  -> (err           : InnerError e)
   -> (suffixCur     : Suffix b (c::errEnd) orig)
   -> LexRes bres orig e a
 single r p = range r p errEnd
@@ -428,7 +428,7 @@ public export
 singleLineDropSpaces :
      Tok True e a
   -> String
-  -> Either (Bounded $ InnerError Void e) (List $ Bounded a)
+  -> Either (Bounded $ InnerError e) (List $ Bounded a)
 singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
 
   where
@@ -436,7 +436,7 @@ singleLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
       -> SnocList (Bounded a)
       -> (ts : List Char)
       -> (0 acc : SuffixAcc ts)
-      -> Either (Bounded $ InnerError Void e) (List $ Bounded a)
+      -> Either (Bounded $ InnerError e) (List $ Bounded a)
     go p1 sx []       _        = Right $ sx <>> []
     go p1 sx ('\n'::cs) (SA r) = go (incLine p1) sx cs r
     go p1 sx (c::cs)    (SA r) =
@@ -456,7 +456,7 @@ public export
 multiLineDropSpaces :
      Tok True e a
   -> String
-  -> Either (Bounded $ InnerError Void e) (List $ Bounded a)
+  -> Either (Bounded $ InnerError e) (List $ Bounded a)
 multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
 
   where
@@ -464,7 +464,7 @@ multiLineDropSpaces f s = go begin [<] (unpack s) suffixAcc
       -> SnocList (Bounded a)
       -> (ts : List Char)
       -> (0 acc : SuffixAcc ts)
-      -> Either (Bounded $ InnerError Void e) (List $ Bounded a)
+      -> Either (Bounded $ InnerError e) (List $ Bounded a)
     go p1 sx []       _        = Right $ sx <>> []
     go p1 sx ('\n'::cs) (SA r) = go (incLine p1) sx cs r
     go p1 sx (c::cs)    (SA r) =
@@ -485,7 +485,7 @@ public export
 lexManual :
      Tok True e a
   -> String
-  -> Either (Bounded $ InnerError Void e) (List $ Bounded a)
+  -> Either (Bounded $ InnerError e) (List $ Bounded a)
 lexManual f s = go begin [<] (unpack s) suffixAcc
 
   where
@@ -493,7 +493,7 @@ lexManual f s = go begin [<] (unpack s) suffixAcc
       -> SnocList (Bounded a)
       -> (ts : List Char)
       -> (0 acc : SuffixAcc ts)
-      -> Either (Bounded $ InnerError Void e) (List $ Bounded a)
+      -> Either (Bounded $ InnerError e) (List $ Bounded a)
     go p1 sx [] _      = Right $ sx <>> []
     go p1 sx cs (SA r) = case f cs of
       Succ v xs2 @{p}     =>

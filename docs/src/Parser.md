@@ -115,7 +115,7 @@ accumulates some state, so it has a slightly more complex function signature.
 With the following `IO` action, we can try out the parser at the REPL:
 
 ```idris
-parseExpr : Origin -> String -> Either (ParseError Token Void) Expr
+parseExpr : Origin -> String -> Either (ParseError Void) Expr
 parseExpr o str = case toks4 str of
   Left err => Left $ toParseError o str err
   Right ts => result o str $ expr ts suffixAcc

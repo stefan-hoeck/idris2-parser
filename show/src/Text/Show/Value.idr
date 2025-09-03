@@ -179,7 +179,7 @@ Interpolation Err where
 
 public export
 0 PSErr : Type
-PSErr = InnerError Token Err
+PSErr = InnerError Err
 
 public export %inline
 fromChar : Char -> Token
@@ -281,7 +281,7 @@ go sx pos (x :: xs)    (SA r) =
        Succ t xs' @{prf} =>
          let pos2 := addCol (toNat prf) pos
           in go (sx :< bounded t pos pos2) pos2 xs' r
-       Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
+       Fail start errEnd r => Left $ boundedErr pos start errEnd r
 go sx pos [] _ = Right (post [B EOI $ oneChar pos] sx)
 
 export
@@ -365,14 +365,14 @@ rec _ _ _ (x::xs) _ = custom x.bounds ExpectedId
 rec _ _ _ [] _ = eoi
 
 export
-parseValueE : String -> Either (ParseError Token Err) Value
+parseValueE : String -> Either (ParseError Err) Value
 parseValueE str = case tokens str of
   Left x   => Left $ toParseError Virtual str x
   Right ts => case value ts suffixAcc of
     Fail0 err           => Left $ toParseError Virtual str err
     Succ0 res []        => Right res
     Succ0 res [B EOI _] => Right res
-    Succ0 res (x :: xs) => Left (toParseError Virtual str $ Unexpected . Right <$> x)
+    Succ0 res (x :: xs) => leftErr Virtual str $ unexpected x
 
 export
 parseValue : String -> Maybe Value

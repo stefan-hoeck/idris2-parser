@@ -66,7 +66,7 @@ Interpolation JSErr where
 
 public export %tcinline
 0 JSParseErr : Type
-JSParseErr = InnerError JSToken JSErr
+JSParseErr = InnerError JSErr
 ```
 
 ## A Manually written Lexer
@@ -211,7 +211,7 @@ tok ('t'::'r'::'u'::'e'::t)      = Succ (Lit $ JBool True) t
 tok ('f'::'a'::'l'::'s'::'e'::t) = Succ (Lit $ JBool False) t
 tok xs                           = dbl xs
 
-tokJSON : String -> Either (ParseError Void Void) (List $ Bounded JSToken)
+tokJSON : String -> Either (ParseError Void) (List $ Bounded JSToken)
 tokJSON s= mapFst (toParseError Virtual s) $ singleLineDropSpaces tok s
 ```
 
@@ -262,9 +262,7 @@ jsonTokenMap =
   , (jsstring, Lit . JString . cast)
   ]
 
-tokJSON2 :
-     String
-  -> Either (ParseError Void Void) (List $ Bounded JSToken)
+tokJSON2 : String -> Either (ParseError Void) (List $ Bounded JSToken)
 tokJSON2 s =
   mapFst (toParseError Virtual s) $ lexManual (first jsonTokenMap) s
 ```
@@ -439,20 +437,20 @@ circumstances, although this might be easier to get right in
 the hand-written case.
 
 ```idris
-parse1 : String -> Either (ParseError JSToken JSErr) JsonTree
+parse1 : String -> Either (ParseError JSErr) JsonTree
 parse1 s = case tokJSON s of
   Left x  => Left $ {error $= fromVoid} x
   Right x => result Virtual s $ value x suffixAcc
 
 covering
-parse2 : String -> Either (List1 (ParseError JSToken JSErr)) JsonTree
+parse2 : String -> Either (List1 (ParseError JSErr)) JsonTree
 parse2 s = case tokJSON2 s of
   Left x  => Left (singleton $ {error $= fromVoid} x)
   Right x => case parse value2 () x of
     Left es                => Left (toParseError Virtual s <$> es)
     Right ((),res,[])      => Right res
     Right ((),res,(x::xs)) =>
-      Left (singleton $ toParseError Virtual s $ Unexpected . Right <$> x)
+      Left (singleton $ toParseError Virtual s $ Unexpected . interpolate <$> x)
 
 testParse1 : String -> IO ()
 testParse1 s = putStrLn $ either interpolate show (parse1 s)

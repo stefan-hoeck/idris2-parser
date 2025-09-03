@@ -42,7 +42,7 @@ refineNum : Tok b1 e a -> (a -> Maybe b) -> Tok False e b
 refineNum f g cs = case weaken (f cs) of
   Succ va cs2 @{p} => case g va of
     Just vb => Succ vb cs2
-    Nothing => range (OutOfBounds . Left $ packPrefix p) Same cs2
+    Nothing => range (OutOfBounds $ packPrefix p) Same cs2
   Fail x y z => Fail x y z
 
 export %inline
@@ -145,7 +145,7 @@ TSVDecoder a => TSVDecoder b => TSVDecoder (a,b) where
 export
 tab : Tok False e ()
 tab ('\t' :: xs) = Succ () xs
-tab (x :: xs)    = single (Expected $ Left "<tab>") Same
+tab (x :: xs)    = single (Expected "<tab>") Same
 tab []           = eoiAt Same
 
 decAll : All (TSVDecoder . f) ks => Tok False e (LQ.All.All f ks)
@@ -184,7 +184,7 @@ readTable' :
   -> Position
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
-  -> Either (Bounded $ InnerError Void e) (List a)
+  -> Either (Bounded $ InnerError e) (List a)
 readTable' sx pos []              _      = Right (sx <>> [])
 readTable' sx pos xs              (SA r) = case decodeFrom {a} xs of
   Succ v xs2 @{p} => case xs2 of
@@ -194,7 +194,7 @@ readTable' sx pos xs              (SA r) = case decodeFrom {a} xs of
     c :: _           =>
       let bs := Bounds.oneChar (move pos p)
        in if isControl c then Left $ B (InvalidControl c) bs
-          else Left $ B (Unexpected . Left $ show c) bs
+          else unexpected (B (show c) bs)
   Fail x y z => Left (boundedErr pos x y z)
 
 export
@@ -202,6 +202,6 @@ readTable :
      {auto _ : TSVDecoder a}
   -> Origin
   -> String
-  -> Either (ParseError Void e) (List a)
+  -> Either (ParseError e) (List a)
 readTable o s =
   mapFst (toParseError o s) (readTable' [<] begin (unpack s) suffixAcc)

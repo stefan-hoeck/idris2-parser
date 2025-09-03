@@ -106,7 +106,7 @@ we will also have to deal with source locations, handled in
 ```idris
 public export
 0 Err : Type
-Err = InnerError Token Void
+Err = InnerError Void
 
 lit :
      SnocList (Bounded Token)
@@ -138,7 +138,7 @@ tok st c (x :: xs) =
   if      isSymbol x then tok (st :< oneChar (fromChar x) c) (incCol c) xs
   else if isSpace x then tok st (next x c) xs
   else if isDigit x then lit st c (incCol c) (digit x) xs
-  else Left (oneChar (Unknown . Left $ show x) c)
+  else Left (oneChar (Unknown $ show x) c)
 tok st c []        = Right $ st <>> []
 ```
 

@@ -121,7 +121,7 @@ term [] = eoiAt Same
 
 public export
 0 ParseErr : Type
-ParseErr = InnerError IdlToken IdlError
+ParseErr = InnerError IdlError
 
 go :
      SnocList (Bounded IdlToken)
@@ -135,7 +135,7 @@ go sx pos xs (SA r) = case term xs of
     let pos2 := endPos pos prf
         sx'  := if keep t then (sx :< bounded t pos pos2) else sx
      in go sx' pos2 xs' r
-  Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
+  Fail start errEnd r => Left $ boundedErr pos start errEnd r
 
 ||| Generates a list of IdlTokens
 ||| from an input string, removing unnecessary tokens by

@@ -163,7 +163,7 @@ Interpolation JSErr where
 
 public export %tcinline
 0 ParseErr : Type
-ParseErr = ParseError JSToken JSErr
+ParseErr = InnerError JSErr
 
 strLit : SnocList Char -> JSToken
 strLit = Lit . JString . cast
@@ -249,7 +249,7 @@ go sx pos (x :: xs)    (SA rec) =
          let pos2 := addCol (toNat prf) pos
              bt   := bounded t pos pos2
           in go (sx :< bt) pos2 xs' rec
-       Fail start errEnd r => Left $ boundedErr pos start errEnd (voidLeft r)
+       Fail start errEnd r => Left $ boundedErr pos start errEnd r
 go sx pos [] _ = Right (sx <>> [B EOI $ oneChar pos])
 
 export
@@ -278,29 +278,35 @@ value (B '{' _ :: B '}' _ :: xs) _      = Succ0 (JObject []) xs
 value (B '{' b :: xs)            (SA r) = succT $ object b [<] xs r
 value xs                         _      = fail xs
 
+-- failInParenEOI b tok f res@(Fail0 (B (Unexpected s) bs)) =
+--   if f s then unclosed b tok else failInParen b tok res
+-- failInParenEOI b tok f res@(Succ0 _ (B t _ :: xs)) =
+--   if f t then unclosed b tok else failInParen b tok res
+-- failInParenEOI b tok f res = failInParen b tok res
 array b sv xs sa@(SA r) = case value xs sa of
-  Succ0 v (B ',' _ :: ys) => succT $ array b (sv :< v) ys r
-  Succ0 v (B ']' _ :: ys) => Succ0 (JArray $ sv <>> [v]) ys
-  res                     => failInParenEOI b '[' (EOI ==) res
+  Succ0 v (B ',' _ :: ys)    => succT $ array b (sv :< v) ys r
+  Succ0 v (B ']' _ :: ys)    => Succ0 (JArray $ sv <>> [v]) ys
+  r@(Succ0 v (B EOI _ :: _)) => unclosed b '['
+  r@(Fail0 (B (Unexpected "end of input") _)) => unclosed b '['
+  r                          => failInParen b '[' r
 
 object b sv (B (Lit $ JString l) _ :: B ':' _ :: xs) (SA r) =
   case succT $ value xs r of
     Succ0 v (B ',' _ :: ys) => succT $ object b (sv :< (l,v)) ys r
     Succ0 v (B '}' _ :: ys) => Succ0 (JObject $ sv <>> [(l,v)]) ys
-    res                     => failInParenEOI b '{' (EOI ==) res
+    r@(Succ0 v (B EOI _ :: _)) => unclosed b '{'
+    r@(Fail0 (B (Unexpected "end of input") _)) => unclosed b '{'
+    r                          => failInParen b '{' r
 object b sv (B (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds ':'
 object b sv (x :: xs) _ = custom x.bounds ExpectedString
 object b sv [] _ = eoi
 
 export
-parseJSON :
-     Origin
-  -> String
-  -> Either (FileContext, ParseErr) JSON
+parseJSON : Origin -> String -> Either (ParseError JSErr) JSON
 parseJSON o str = case lexJSON str of
   Right ts => case value ts suffixAcc of
-    Fail0 x           => Left (fromBounded o x)
+    Fail0 x           => Left (toParseError o str x)
     Succ0 v [B EOI _] => Right v
     Succ0 v []        => Right v
-    Succ0 v (x::xs)   => Left (fromBounded o $ Unexpected . Right <$> x)
-  Left err => Left (fromBounded o err)
+    Succ0 v (x::xs)   => leftErr o str $ unexpected x
+  Left err => Left (toParseError o str err)

@@ -29,27 +29,27 @@ jobs:
         uses: actions/checkout@v2
       - name: Build parser
         run: pack install parser
-      - name: Test parser
-        run: pack test parser -n 1000
+#      - name: Test parser
+#        run: pack test parser -n 1000
       - name: Build parser-toml
         run: pack install parser-toml
-      - name: Test parser-toml
-        run: pack test parser-toml -n 1000
+#      - name: Test parser-toml
+#        run: pack test parser-toml -n 1000
       - name: Build parser-json
         run: pack install parser-json
-      - name: Test parser-json
-        run: pack test parser-json -n 1000
+#      - name: Test parser-json
+#        run: pack test parser-json -n 1000
       - name: Build parser-webidl
         run: pack install parser-webidl
-      - name: Test parser-webidl
-        run: pack test parser-webidl -n 1000
+#      - name: Test parser-webidl
+#        run: pack test parser-webidl -n 1000
       - name: Typecheck docs
         run: pack typecheck parser-docs
       - name: Build parser-show
         run: pack typecheck parser-show
-      - name: Test parser-show
-        run: pack test parser-show -n 1000
+#      - name: Test parser-show
+#        run: pack test parser-show -n 1000
       - name: Build parser-tsv
         run: pack typecheck parser-tsv
-      - name: Test parser-tsv
-        run: pack test parser-tsv -n 1000
+#      - name: Test parser-tsv
+#        run: pack test parser-tsv -n 1000

@@ -49,12 +49,12 @@ public export %inline
 
 ||| Drops the given token after parsing the given grammar
 public export %inline
-before : Eq t => Grammar b t e a -> (c : t) -> Grammar True t e a
+before : Interpolation t => Eq t => Grammar b t e a -> (c : t) -> Grammar True t e a
 before f c = orTrue $ f <* exact c
 
 ||| Drops the given token before parsing the given grammar
 public export %inline
-after : Eq t => (o : t) -> Grammar b t e a -> Grammar True t e a
+after : Interpolation t => Eq t => (o : t) -> Grammar b t e a -> Grammar True t e a
 after o f = exact o *> f
 
 ||| Wrapps the given grammar between an opening and closing token.
@@ -62,7 +62,7 @@ after o f = exact o *> f
 ||| Note: This fails with an `Unclosed` exception if the end of
 |||       input is reached without closing the opening token.
 public export %inline
-between : Eq t => (o,c : t) -> Grammar b t e a -> Grammar True t e a
+between : Interpolation t => Eq t => (o,c : t) -> Grammar b t e a -> Grammar True t e a
 between o c f (B x b :: xs) = case o == x of
   False => expected b o
   True  =>
@@ -80,7 +80,7 @@ optional f ts = weaken $ (Just <$> f ts) <|> Succ0 Nothing ts @{Same}
 
 public export
 manyOnto :
-     (fatal : ParseError t e -> Bool)
+     (fatal : InnerError e -> Bool)
   -> Grammar True t e a
   -> SnocList a
   -> AccGrammar False t e (List a)
@@ -96,7 +96,7 @@ manyOnto fatal f sx ts (SA r) = case f ts of
 |||       or not.
 public export %inline
 manyF :
-     (fatal : ParseError t e -> Bool)
+     (fatal : InnerError e -> Bool)
   -> Grammar True t e a
   -> Grammar False t e (List a)
 manyF fatal f ts = manyOnto fatal f [<] ts suffixAcc
@@ -120,7 +120,7 @@ many = manyF (const False)
 |||       or not.
 public export %inline
 someF :
-     (fatal : ParseError t e -> Bool)
+     (fatal : InnerError e -> Bool)
   -> Grammar True t e a
   -> Grammar True t e (List1 a)
 someF fatal f = [| f ::: manyF fatal f|]
@@ -145,7 +145,7 @@ some = someF (const False)
 |||       if the separator consists of a single, constant token.
 public export %inline
 sepByF1 :
-     (fatal : ParseError t e -> Bool)
+     (fatal : InnerError e -> Bool)
   -> (sep : Grammar b t e ())
   -> Grammar True t e a
   -> Grammar True t e (List1 a)
@@ -156,9 +156,10 @@ sepByF1 fatal sep f = [| f ::: manyF fatal (seqt sep f)|]
 ||| aborting with a partial list.
 public export %inline
 sepByExact1 :
-     Eq t
+     Interpolation t
+  => Eq t
   => Eq e
   => (sep : t)
   -> Grammar True t e a
   -> Grammar True t e (List1 a)
-sepByExact1 sep = sepByF1 (/= Expected (Right sep)) (exact sep)
+sepByExact1 sep = sepByF1 (/= Expected "\{sep}") (exact sep)

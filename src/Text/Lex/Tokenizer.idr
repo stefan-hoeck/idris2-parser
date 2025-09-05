@@ -58,12 +58,13 @@ wtrans : TokRes False cs r a -> (0 y : Suffix True cs xs) -> TokRes False xs r a
 wtrans (TR x sx r rem z) y = TR x sx r rem (weaken $ trans z y)
 
 tokenise :
-     (tokenizer : Tokenizer e a)
+     {auto int : Interpolation a}
+  -> (tokenizer : Tokenizer e a)
   -> Position
   -> (toks    : SnocList (Bounded a))
   -> (cs      : List Char)
   -> (0 acc   : SuffixAcc cs)
-  -> TokRes False cs (Bounded $ ParseError a e) a
+  -> TokRes False cs (Bounded $ InnerError e) a
 tokenise x pos toks [] _ = TR pos toks Nothing [] Same
 tokenise x pos toks cs acc@(SA r) = case next x cs acc of
   Right (TR pos2 toks2 Nothing cs2 su) =>
@@ -74,16 +75,16 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
          Tokenizer e a
       -> (cs    : List Char)
       -> (0 acc : SuffixAcc cs)
-      -> Either (Bounded $ ParseError a e) (TokRes True cs Void a)
+      -> Either (Bounded $ InnerError e) (TokRes True cs Void a)
     next (Direct f) cs _ = case f cs of
       Succ val xs     @{p} =>
         let pos2 := endPos pos p
          in Right (TR pos2 (toks :< bounded val pos pos2) Nothing xs p)
       Fail start errEnd r =>
-        Left $ boundedErr pos start errEnd (voidLeft r)
+        Left $ boundedErr pos start errEnd r
     next (Compose beg midFn endFn) cs acc@(SA r) = case beg cs of
       Fail start errEnd r =>
-        Left $ boundedErr pos start errEnd (voidLeft r)
+        Left $ boundedErr pos start errEnd r
       Succ (st,tg) cs2 @{p2} =>
         let pos2   := endPos pos p2
             middle := midFn tg
@@ -98,8 +99,8 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
                       toks4  := toks3 :< bounded val pos3 pos4
                    in Right (TR pos4 toks4 Nothing cs4 $ trans p4 (trans p3 p2))
                 Fail start errEnd y => case y of
-                  EOI => Left $ boundedErr pos start errEnd (Unclosed $ Right st)
-                  r    => Left $ boundedErr pos start errEnd (voidLeft r)
+                  EOI => Left $ boundedErr pos start errEnd (Unclosed "\{st}")
+                  r   => Left $ boundedErr pos start errEnd r
     next (x <|> y) cs acc = case next x cs acc of
       Right res                  => Right res
       Left  r@(B (Unclosed _) _) => Left r
@@ -110,7 +111,8 @@ tokenise x pos toks cs acc@(SA r) = case next x cs acc of
 ||| where there are no recognised tokens.
 export %inline
 lex :
-     Tokenizer e a
+     {auto int : Interpolation a}
+  -> Tokenizer e a
   -> (s : String)
-  -> TokRes False (unpack s) (Bounded $ ParseError a e) a
+  -> TokRes False (unpack s) (Bounded $ InnerError e) a
 lex x s = tokenise x begin [<] (unpack s) suffixAcc

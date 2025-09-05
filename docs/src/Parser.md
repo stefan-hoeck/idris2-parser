@@ -115,14 +115,13 @@ accumulates some state, so it has a slightly more complex function signature.
 With the following `IO` action, we can try out the parser at the REPL:
 
 ```idris
-parseExpr : Origin -> String -> Either (FileContext,Err) Expr
+parseExpr : Origin -> String -> Either (ParseError Void) Expr
 parseExpr o str = case toks4 str of
-  Left err => Left $ fromBounded o err
-  Right ts => result o $ expr ts suffixAcc
+  Left err => Left $ toParseError o str err
+  Right ts => result o str $ expr ts suffixAcc
 
 parseAndPrint : String -> IO ()
-parseAndPrint s =
-  putStrLn $ either (uncurry $ printParseError s) show (parseExpr Virtual s)
+parseAndPrint s = putStrLn $ either interpolate show (parseExpr Virtual s)
 ```
 
 And here is an example REPL session:

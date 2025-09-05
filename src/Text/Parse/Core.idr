@@ -32,7 +32,7 @@ data Res :
     -> {0 state,t,e,a : Type}
     -> {0 ts : List $ Bounded t}
     -> (consumed : Bool)
-    -> (err      : List1 $ Bounded $ ParseError t e)
+    -> (err      : List1 $ Bounded $ InnerError e)
     -> Res b t ts state e a
 
   Succ :
@@ -46,7 +46,7 @@ data Res :
     -> Res b t ts state e a
 
 public export %inline
-FailParse (Res b t ts state e) t e where
+FailParse (Res b t ts state e) e where
   parseFail b e = Fail False (B e b ::: [])
 
 public export
@@ -136,7 +136,7 @@ data Grammar :
 --------------------------------------------------------------------------------
 
 public export %inline
-FailParse (Grammar b state t e) t e where
+FailParse (Grammar b state t e) e where
   parseFail b err = Lift $ \_,_ => parseFail b err
 
 -------------------------------------------------------------------------------
@@ -205,7 +205,7 @@ peek = Lift $ \s,cs => case cs of
 
 ||| Look at the next token in the input
 public export
-readHead : (t -> Either (ParseError t e) a) -> Grammar True s t e a
+readHead : (t -> Either (InnerError e) a) -> Grammar True s t e a
 readHead f = Lift $ \s,cs => case cs of
   h :: t => case f h.val of
     Right v  => Succ s (B v h.bounds) t %search
@@ -214,15 +214,15 @@ readHead f = Lift $ \s,cs => case cs of
 
 ||| Look at the next token in the input
 public export %inline
-terminal : (t -> Maybe a) -> Grammar True s t e a
+terminal : Interpolation t => (t -> Maybe a) -> Grammar True s t e a
 terminal f = readHead $ \h => case f h of
   Just a  => Right a
-  Nothing => Left (Unexpected $ Right h)
+  Nothing => Left (Unexpected "\{h}")
 
 ||| Look at the next token in the input
 public export
-is : Eq t => t -> Grammar True s t e ()
-is x = readHead $ \h => if x == h then Right () else Left (Expected $ Right x)
+is : Interpolation t => Eq t => t -> Grammar True s t e ()
+is x = readHead $ \h => if x == h then Right () else Left (Expected "\{x}")
 
 ||| Optionally parse a thing, with a default value if the grammar doesn't
 ||| match. May match the empty input.
@@ -427,7 +427,7 @@ parse :
   -> Grammar b state t e a
   -> state
   -> (ts : List $ Bounded t)
-  -> Either (List1 $ Bounded $ ParseError t e) (state, a, List $ Bounded t)
+  -> Either (List1 $ Bounded $ InnerError e) (state, a, List $ Bounded t)
 parse g s ts = case prs g s False ts suffixAcc of
   Fail _ errs         => Left errs
   Succ x res toks prf => Right (x, res.val, toks)
@@ -450,11 +450,12 @@ filterOnto xs f [<]       = xs
 ||| This fails with an error if not the whole input is consumed.
 export
 lexFull :
-     Origin
+     {auto int : Interpolation t}
+  -> Origin
   -> Tokenizer e t
   -> (keep : t -> Bool)
   -> (s : String)
-  -> Either (Bounded $ ParseError t e) (List $ Bounded t)
+  -> Either (Bounded $ InnerError e) (List $ Bounded t)
 lexFull orig tm keep s = case lex tm s of
   TR pos toks Nothing    _ _ => Right $ filterOnto [] keep toks
   TR _ _      (Just err) _ _ => Left err
@@ -462,13 +463,14 @@ lexFull orig tm keep s = case lex tm s of
 export
 lexAndParse :
      {0 state,t,e,a : Type}
+  -> {auto int : Interpolation t}
   -> Origin
   -> Tokenizer e t
   -> (keep : t -> Bool)
   -> Grammar b state t e a
   -> state
   -> String
-  -> Either (List1 (FileContext, ParseError t e)) (state, a)
+  -> Either (List1 (FileContext, InnerError e)) (state, a)
 lexAndParse orig tm keep gr s str =
   let Right ts := lexFull orig tm keep str
         | Left err => Left $ singleton (fromBounded orig err)

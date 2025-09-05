@@ -44,7 +44,7 @@ public export
   -> (ts : List $ Bounded t)
   -> (e,a : Type)
   -> Type
-Res b t ts e a = Result0 b (Bounded t) ts (Bounded $ ParseError t e) a
+Res b t ts e a = Result0 b (Bounded t) ts (Bounded $ InnerError e) a
 
 public export
 0 Grammar : (strict : Bool) -> (t,e,a : Type) -> Type
@@ -107,7 +107,7 @@ andFalse = andFalse (\k => Grammar k t e a)
 ||| Fails with appropriate errors if the list is empty or the conversion
 ||| fails.
 public export
-terminal : (t -> Maybe a) -> Grammar True t e a
+terminal : Interpolation t => (t -> Maybe a) -> Grammar True t e a
 terminal f (B v b :: xs) = case f v of
     Just r  => Succ0 r xs
     Nothing => unexpected (B v b)
@@ -125,7 +125,7 @@ terminalE _ []            = eoi
 ||| Fails with appropriate errors if the list is empty or the token
 ||| at the head does not match.
 public export
-exact : Eq t => t -> Grammar True t e ()
+exact : Interpolation t => Eq t => t -> Grammar True t e ()
 exact v (x::xs) = if v == x.val then Succ0 () xs else expected x.bounds v
 exact v []      = expected NoBounds v
 
@@ -137,13 +137,13 @@ peek []      = eoi
 
 ||| Check whether the next token satisfies a predicate. Does not consume.
 public export
-nextIs : (t -> Bool) -> Grammar False t e t
+nextIs : Interpolation t => (t -> Bool) -> Grammar False t e t
 nextIs f (x::xs) = if f x.val then Succ0 x.val (x :: xs) else unexpected x
 nextIs f []      = eoi
 
 ||| Check whether the next token equals the given value. Does not consume.
 public export
-nextEquals : Eq t => t -> Grammar False t e t
+nextEquals : Interpolation t => Eq t => t -> Grammar False t e t
 nextEquals v (x::xs) =
   if v == x.val then Succ0 x.val (x::xs) else expected x.bounds v
 nextEquals v []      = expected NoBounds v
@@ -158,9 +158,10 @@ export
 testParse :
      {auto _ : Show a}
   -> {auto _ : Interpolation e}
-  -> (Origin -> String -> Either (FileContext,e) a)
+  -> {auto _ : Interpolation t}
+  -> (Origin -> String -> Either (ParseError e) a)
   -> String
   -> IO ()
 testParse f s = case f Virtual s of
-  Right res     => putStrLn "Success: \{show res}"
-  Left (fc,err) => putStrLn $ printParseError s fc err
+  Right res => putStrLn "Success: \{show res}"
+  Left err  => putStrLn $ interpolate err

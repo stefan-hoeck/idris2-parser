@@ -60,72 +60,68 @@ Interpolation CharClass where
 --------------------------------------------------------------------------------
 
 public export
-data ParseError : (token, err : Type) -> Type where
+data InnerError : (err : Type) -> Type where
   ||| A custom error for the current parsing topic
-  Custom         : (err : e) -> ParseError t e
+  Custom         : (err : e) -> InnerError e
 
   ||| Unexpected end of input
-  EOI            : ParseError t e
+  EOI            : InnerError e
 
   ||| Expected the given token but got something else.
-  Expected       : Either String t -> ParseError t e
+  Expected       : String -> InnerError e
 
   ||| Expected the given type of character
-  ExpectedChar   : CharClass -> ParseError t e
+  ExpectedChar   : CharClass -> InnerError e
 
   ||| Got more input that we expected
-  ExpectedEOI    : ParseError t e
+  ExpectedEOI    : InnerError e
 
   ||| Got an invalid control character
-  InvalidControl : Char -> ParseError t e
+  InvalidControl : Char -> InnerError e
 
   ||| Got an invalid character escape sequence
-  InvalidEscape  : ParseError t e
+  InvalidEscape  : InnerError e
 
   ||| Got a (usually numeric) value that was out of bounds
-  OutOfBounds    : Either String t -> ParseError t e
+  OutOfBounds    : String -> InnerError e
 
   ||| An unclosed opening token
-  Unclosed       : Either String t -> ParseError t e
+  Unclosed       : String -> InnerError e
 
   ||| Got an unexpected token
-  Unexpected     : Either String t -> ParseError t e
+  Unexpected     : String -> InnerError e
 
   ||| Got an unknown or invalid token
-  Unknown        : Either String t -> ParseError t e
+  Unknown        : String -> InnerError e
 
-%runElab derive "ParseError" [Show,Eq]
+%runElab derive "InnerError" [Show,Eq]
 
 public export
-Bifunctor ParseError where
-  bimap f g (Custom err)        = Custom $ g err
-  bimap f g EOI                 = EOI
-  bimap f g (Expected x)        = Expected $ map f x
-  bimap f g (ExpectedChar x)    = ExpectedChar x
-  bimap f g ExpectedEOI         = ExpectedEOI
-  bimap f g (InvalidControl c1) = InvalidControl c1
-  bimap f g InvalidEscape       = InvalidEscape
-  bimap f g (OutOfBounds x)     = OutOfBounds $ map f x
-  bimap f g (Unclosed x)        = Unclosed $ map f x
-  bimap f g (Unexpected x)      = Unexpected $ map f x
-  bimap f g (Unknown x)         = Unknown $ map f x
-
-%inline
-interpEither : Interpolation t => Either String t -> String
-interpEither = either id interpolate
+Functor InnerError where
+  map f (Custom err)        = Custom $ f err
+  map f EOI                 = EOI
+  map f (Expected x)        = Expected x
+  map f (ExpectedChar x)    = ExpectedChar x
+  map f ExpectedEOI         = ExpectedEOI
+  map f (InvalidControl c1) = InvalidControl c1
+  map f InvalidEscape       = InvalidEscape
+  map f (OutOfBounds x)     = OutOfBounds x
+  map f (Unclosed x)        = Unclosed x
+  map f (Unexpected x)      = Unexpected x
+  map f (Unknown x)         = Unknown x
 
 export
-Interpolation t => Interpolation e => Interpolation (ParseError t e) where
+Interpolation e => Interpolation (InnerError e) where
   interpolate EOI                = "Unexpected end of input"
-  interpolate (Expected x)       = "Expected \{interpEither x}"
+  interpolate (Expected x)       = "Expected \{x}"
   interpolate (ExpectedChar x)   = "Expected \{x}"
   interpolate ExpectedEOI        = "Expected end of input"
   interpolate (InvalidControl c) = "Invalid control character: \{show c}"
   interpolate InvalidEscape      = "Invalid escape sequence"
-  interpolate (OutOfBounds x)    = "Value out of bounds: \{interpEither x}"
-  interpolate (Unclosed x)       = "Unclosed \{interpEither x}"
-  interpolate (Unexpected x)     = "Unexpected \{interpEither x}"
-  interpolate (Unknown x)        = "Unknown or invalid token: \{interpEither x}"
+  interpolate (OutOfBounds x)    = "Value out of bounds: \{x}"
+  interpolate (Unclosed x)       = "Unclosed \{x}"
+  interpolate (Unexpected x)     = "Unexpected \{x}"
+  interpolate (Unknown x)        = "Unknown or invalid token: \{x}"
   interpolate (Custom err)       = interpolate err
 
 --------------------------------------------------------------------------------
@@ -133,67 +129,40 @@ Interpolation t => Interpolation e => Interpolation (ParseError t e) where
 --------------------------------------------------------------------------------
 
 public export
-interface FailParse (0 m : Type -> Type) (0 t,e : Type) | m where
-  parseFail : Bounds -> ParseError t e -> m a
+interface FailParse (0 m : Type -> Type) (0 e : Type) | m where
+  parseFail : Bounds -> InnerError e -> m a
 
 public export %inline
-FailParse (Either $ Bounded $ ParseError t e) t e where
+FailParse (Either $ Bounded $ InnerError e) e where
   parseFail b err = Left (B err b)
 
 public export %inline
-FailParse (Result0 b t ts (Bounded $ ParseError x y)) x y where
+FailParse (Result0 b t ts (Bounded $ InnerError y)) y where
   parseFail b err = Fail0 (B err b)
 
 public export %inline
-custom : FailParse m t e => Bounds -> e -> m a
+custom : FailParse m e => Bounds -> e -> m a
 custom b = parseFail b . Custom
 
 public export %inline
-expected : FailParse m t e => Bounds -> t -> m a
-expected b = parseFail b . Expected . Right
+expected : Interpolation t => FailParse m e => Bounds -> t -> m a
+expected b = parseFail b . Expected . interpolate
 
 public export %inline
-unclosed : FailParse m t e => Bounds -> t -> m a
-unclosed b = parseFail b . Unclosed . Right
+unclosed : Interpolation t => FailParse m e => Bounds -> t -> m a
+unclosed b = parseFail b . Unclosed . interpolate
 
 public export %inline
-unexpected : FailParse m t e => Bounded t -> m a
-unexpected v = parseFail v.bounds (Unexpected . Right $ v.val)
+unexpected : Interpolation t => FailParse m e => Bounded t -> m a
+unexpected v = parseFail v.bounds (Unexpected . interpolate $ v.val)
 
 public export %inline
-eoi : FailParse m t e => m a
+eoi : FailParse m e => m a
 eoi = parseFail NoBounds EOI
 
 public export %inline
-expectedEOI : FailParse m t e => Bounds -> m a
+expectedEOI : FailParse m e => Bounds -> m a
 expectedEOI b = parseFail b ExpectedEOI
-
---------------------------------------------------------------------------------
---          Pretty Printing Errors
---------------------------------------------------------------------------------
-
-printPair : Interpolation a => List String -> (FileContext,a) -> List String
-printPair ls (fc,x) = "Error: \{x}" :: printFC fc ls
-
-export
-printVirtual : Interpolation a => String -> Bounded a -> String
-printVirtual s x = unlines $ printPair (lines s) (fromBounded Virtual x)
-
-export
-printParseError : Interpolation a => String -> FileContext -> a -> String
-printParseError str fc err =
-   unlines $ printPair (lines str) (fc,err)
-
-export
-printParseErrors :
-     Foldable m
-  => Interpolation a
-  => String
-  -> m (FileContext, a)
-  -> String
-printParseErrors str errs =
-  let ls := lines str
-   in unlines $ toList errs >>= printPair ls
 
 --------------------------------------------------------------------------------
 --          Parser Errors
@@ -209,81 +178,90 @@ printParseErrors str errs =
 ||| @ res : Current parsing result
 public export
 failInParen :
-     (b : Bounds)
+     {auto int : Interpolation t}
+  -> (b : Bounds)
   -> (tok : t)
-  -> Result0 b1 (Bounded t) ts (Bounded $ ParseError t y) a
-  -> Result0 b2 (Bounded t) ts (Bounded $ ParseError t y) x
+  -> Result0 b1 (Bounded t) ts (Bounded $ InnerError e) a
+  -> Result0 b2 (Bounded t) ts (Bounded $ InnerError e) x
 failInParen b tok (Fail0 (B EOI _))   = unclosed b tok
 failInParen b tok (Fail0 err)         = Fail0 err
 failInParen b tok (Succ0 _ [])        = unclosed b tok
 failInParen b tok (Succ0 _ (x :: xs)) = unexpected x
 
-||| Like `failInParen`, but with the ability to specify custom
-||| "end-of-input" tokens.
-|||
-||| @ b   : Bounds of the opening paren or token
-||| @ tok : Opening paren or token
-||| @ eoi : Returns `True` if the given token signals the end of input
-||| @ res : Current parsing result
-public export
-failInParenEOI :
-     (b : Bounds)
-  -> (tok : t)
-  -> (eoi : t -> Bool)
-  -> Result0 b1 (Bounded t) ts (Bounded $ ParseError t y) a
-  -> Result0 b2 (Bounded t) ts (Bounded $ ParseError t y) x
-failInParenEOI b tok f res@(Fail0 (B (Unexpected $ Right t) bs)) =
-  if f t then unclosed b tok else failInParen b tok res
-failInParenEOI b tok f res@(Succ0 _ (B t _ :: xs)) =
-  if f t then unclosed b tok else failInParen b tok res
-failInParenEOI b tok f res = failInParen b tok res
-
 ||| Catch-all error generator when no other rule applies.
 public export
-fail : List (Bounded t) -> Result0 b (Bounded t) ts (Bounded $ ParseError t y) a
+fail :
+     {auto int : Interpolation t}
+  -> List (Bounded t)
+  -> Result0 b (Bounded t) ts (Bounded $ InnerError y) a
 fail (x :: xs) = unexpected x
 fail []        = eoi
-
-public export
-result :
-     Origin
-  -> Result0 b (Bounded t) ts (Bounded $ ParseError t e) a
-  -> Either (FileContext, ParseError t e) a
-result o (Fail0 err)           = Left $ fromBounded o err
-result _ (Succ0 res [])        = Right res
-result o (Succ0 res (x :: xs)) = Left $ fromBounded o (Unexpected . Right <$> x)
 
 --------------------------------------------------------------------------------
 --          Identities
 --------------------------------------------------------------------------------
 
 public export
-left : Either e Void -> Either e a
-left (Left x) = Left x
-
-public export
-voidLeft : ParseError Void e -> ParseError t e
-voidLeft EOI                = EOI
-voidLeft (Expected x)       = Expected $ left x
-voidLeft (ExpectedChar x)   = ExpectedChar x
-voidLeft ExpectedEOI        = ExpectedEOI
-voidLeft (InvalidControl c) = InvalidControl c
-voidLeft InvalidEscape      = InvalidEscape
-voidLeft (OutOfBounds x)    = OutOfBounds $ left x
-voidLeft (Unclosed x)       = Unclosed $ left x
-voidLeft (Unexpected x)     = Unexpected $ left x
-voidLeft (Unknown x)        = Unknown $ left x
-voidLeft (Custom x)         = Custom x
-
-public export
-fromVoid : ParseError Void Void -> ParseError t e
+fromVoid : InnerError Void -> InnerError e
 fromVoid EOI                = EOI
-fromVoid (Expected x)       = Expected $ left x
+fromVoid (Expected x)       = Expected x
 fromVoid (ExpectedChar x)   = ExpectedChar x
 fromVoid ExpectedEOI        = ExpectedEOI
 fromVoid (InvalidControl c) = InvalidControl c
 fromVoid InvalidEscape      = InvalidEscape
-fromVoid (OutOfBounds x)    = OutOfBounds $ left x
-fromVoid (Unclosed x)       = Unclosed $ left x
-fromVoid (Unexpected x)     = Unexpected $ left x
-fromVoid (Unknown x)        = Unknown $ left x
+fromVoid (OutOfBounds x)    = OutOfBounds x
+fromVoid (Unclosed x)       = Unclosed x
+fromVoid (Unexpected x)     = Unexpected x
+fromVoid (Unknown x)        = Unknown x
+
+--------------------------------------------------------------------------------
+--          ParseError
+--------------------------------------------------------------------------------
+
+||| Pairs a parsing error (`InnerError`)
+||| with a text's origin, the error's bound, and
+||| the text itself.
+public export
+record ParseError e where
+  constructor PE
+  origin  : Origin
+  bounds  : Bounds
+  content : Maybe String
+  error   : InnerError e
+
+%runElab derive "ParseError" [Show,Eq]
+
+export
+toStreamError : Origin -> Bounded (InnerError e) -> ParseError e
+toStreamError o (B err bs) = PE o bs Nothing err
+
+export
+toParseError : Origin -> String -> Bounded (InnerError e) -> ParseError e
+toParseError o s (B err bs) = PE o bs (Just s) err
+
+export %inline
+leftErr :
+     Origin
+  -> String
+  -> Either (Bounded (InnerError e)) a
+  -> Either (ParseError e) a
+leftErr o = mapFst . toParseError o
+
+public export
+result :
+     {auto int : Interpolation t}
+  -> Origin
+  -> String
+  -> Result0 b (Bounded t) ts (Bounded $ InnerError e) a
+  -> Either (ParseError e) a
+result o s (Fail0 err)           = Left $ toParseError o s err
+result _ s (Succ0 res [])        = Right res
+result o s (Succ0 res (x :: xs)) = leftErr o s $ unexpected x
+
+export
+Interpolation e => Interpolation (ParseError e) where
+  interpolate (PE origin bounds cont err) =
+    let fc := FC origin bounds
+     in case cont of
+          Just c  => unlines $ "Error: \{err}" :: printFC fc (lines c)
+          Nothing => unlines ["Error: \{err}", interpolate fc]

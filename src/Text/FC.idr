@@ -53,7 +53,7 @@ lineNumbers sl size n (h::t) =
 export
 printFC : FileContext -> (sourceLines : List String) -> List String
 printFC fc ls = case fc.bounds of
-  NoBounds       => []
+  NoBounds       => [interpolate fc]
   BS (P sr sc) (P er ec) =>
     let  nsize  := length $ show (er + 1) 
          head   := "\{fc}"

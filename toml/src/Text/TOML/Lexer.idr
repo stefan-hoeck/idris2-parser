@@ -414,7 +414,7 @@ lex st pos sx xs (SA r) = case anyTok pos t xs of
           | Nothing => lex st pos2 sx ys r
         (t2 ** st2) := adjState t v st
      in lex st2 pos2 (sx :< bounded v pos pos2) ys r
-  Fail start errEnd y => Left $ boundedErr pos start errEnd (voidLeft y)
+  Fail start errEnd y => Left $ boundedErr pos start errEnd y
 
 export %inline
 lexToml : String -> Either (Bounded TomlErr) (List $ Bounded TomlToken)

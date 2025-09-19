@@ -130,6 +130,12 @@ data Bounds : Type where
 %runElab derive "Bounds" [Show,Eq]
 
 namespace Bounds
+  export
+  relativeTo : Bounds -> Position -> Bounds
+  relativeTo NoBounds _ = NoBounds
+  relativeTo (BS s e) p = BS (s `relativeTo` p) (e `relativeTo` p)
+
+namespace Bounds
   ||| Convert a single `Position` to a range one character wide.
   public export %inline
   oneChar : Position -> Bounds

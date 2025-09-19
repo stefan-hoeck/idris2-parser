@@ -99,6 +99,11 @@ data InnerError : (err : Type) -> Type where
 
 %runElab derive "InnerError" [Show,Eq]
 
+||| Convenience alias for `Bounded . InnerError`
+public export
+0 BoundedErr : Type -> Type
+BoundedErr = Bounded . InnerError
+
 public export
 Functor InnerError where
   map f (Custom err)        = Custom $ f err

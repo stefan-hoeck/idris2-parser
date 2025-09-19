@@ -1,5 +1,6 @@
 module Text.FC
 
+import Data.ByteString
 import Data.String
 import Derive.Prelude
 import Text.Bounds
@@ -39,6 +40,36 @@ export
 Interpolation FileContext where
   interpolate (FC o NoBounds) = interpolate o
   interpolate (FC o b)        = "\{o}: \{b}"
+
+nextRem : Fin 4 -> Bits8 -> Fin 4
+nextRem FZ     m =
+  if      m < 0b1000_0000  then 0
+  else if m < 0b1110_0000  then 1
+  else if m < 0b1111_0000  then 2
+  else                          3
+nextRem (FS x) m = weaken x
+
+||| Converts an index into a bytestring to a position
+||| (line and column) in the corresponding UTF-8 string.
+export
+toPosition : Nat -> ByteString -> Position
+toPosition n (BS x bv) = go 0 0 x 0
+  where
+    -- we iterate over a bytestring of UTF-8 encoded characters
+    -- if we are in the middle of a character, we continue until
+    -- the end of character is encountered.
+    go : (l,c : Nat) -> (n : Nat) -> Fin 4 -> (y : Ix n x) => Position
+    go l c 0     _   = P l c
+    go l c (S k) rem =
+      let byte := bv `ix` k
+          nxt  := nextRem rem byte
+       in case nxt of
+            0 => case ixToNat y >= n of
+              True  => P l c
+              False => case byte of
+                0x0a => go (l+1) 0     k nxt
+                _    => go l     (c+1) k nxt
+            _ => go l c k nxt
 
 range : Nat -> Nat -> List a -> List a
 range s e = take ((e `minus` s) + 1) . drop s

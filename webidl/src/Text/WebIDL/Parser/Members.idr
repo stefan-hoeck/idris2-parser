@@ -85,7 +85,7 @@ export
 namespaceM : Rule True NamespaceMember
 namespaceM (B "readonly" _ :: B t b :: xs) = case t of
   "attribute" => inj $ succT (MkRO <$> attribute xs)
-  _           => expected b "attribute"
+  _           => expected b "attribute" "\{t}"
 namespaceM xs = inj $ regularOperation xs
 
 iterable : Rule True PartialInterfaceMember
@@ -121,7 +121,7 @@ mixinM (B "const" _     :: xs) = MConst <$> succT (const xs)
 mixinM (B "attribute" _ :: xs) = MAttr <$> succT (attribute xs)
 mixinM (B "readonly" _ :: B t b :: xs) = case t of
   "attribute" => MAttrRO . MkRO <$> succT (attribute xs)
-  _           => expected b "attribute"
+  _           => expected b "attribute" "\{t}"
 mixinM (B "stringifier" _ :: xs) = case xs of
   B ';' b :: ys => Succ0 (MStr $ inject ()) (B (Other $ Symb ';') b :: ys)
   _             => MStr <$> succT (stringifier xs)
@@ -141,12 +141,12 @@ mems :
 mems sx b f ts (SA r) = case attributed f ts of
   Succ0 p (B ';' _ :: B '}' _ :: ys) => Succ0 (sx <>> [p]) ys
   Succ0 p (B ';' _ :: ys)            => succT $ mems (sx :< p) b f ys r
-  Succ0 p (x::xs)                    => expected x.bounds ';'
+  Succ0 p (x::xs)                    => expected x.bounds ";" "\{x.val}"
   res                                => failInParen b '{' res
 
 export
 members : Rule True a -> Rule True (List $ Attributed a)
 members g (B '{' _ :: B '}' _ :: xs) = Succ0 [] xs
 members g (B '{' b :: xs) = succT $ acc (mems [<] b g) xs
-members g (x::xs) = expected x.bounds '{'
+members g (x::xs) = expected x.bounds "{" "\{x.val}"
 members g [] = eoi

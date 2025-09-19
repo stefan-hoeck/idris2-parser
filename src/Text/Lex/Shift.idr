@@ -1,6 +1,7 @@
 module Text.Lex.Shift
 
 import Data.List
+import Data.String
 import Data.Nat
 import public Text.Lex.Manual
 import public Data.List.Shift
@@ -357,7 +358,7 @@ exact (v :: vs) (x :: xs) = case v == x of
   True => case vs of
     []        => Succ xs
     ws@(_::_) => exact {b} ws xs
-  False => single (Expected $ show v) sh
+  False => single (Expected [String.singleton v] (String.singleton x)) sh
 exact (v :: vs) []        = eoiAt sh
 
 str : AutoShift True
@@ -369,5 +370,5 @@ str []                = eoiAt sh
 public export
 string : Shifter True
 string sc ('"' :: xs) = str {b = True} xs
-string sc (h   :: t)  = single (Expected $ show '"') Same
+string sc (h   :: t)  = single (Expected ["\""] (String.singleton h)) Same
 string sc []          = eoiAt Same

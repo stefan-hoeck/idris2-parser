@@ -126,8 +126,8 @@ terminalE _ []            = eoi
 ||| at the head does not match.
 public export
 exact : Interpolation t => Eq t => t -> Grammar True t e ()
-exact v (x::xs) = if v == x.val then Succ0 () xs else expected x.bounds v
-exact v []      = expected NoBounds v
+exact v (x::xs) = if v == x.val then Succ0 () xs else expected x.bounds v "\{x.val}"
+exact v []      = expected NoBounds v ""
 
 ||| Look at the next token without consuming any input.
 public export
@@ -145,8 +145,8 @@ nextIs f []      = eoi
 public export
 nextEquals : Interpolation t => Eq t => t -> Grammar False t e t
 nextEquals v (x::xs) =
-  if v == x.val then Succ0 x.val (x::xs) else expected x.bounds v
-nextEquals v []      = expected NoBounds v
+  if v == x.val then Succ0 x.val (x::xs) else expected x.bounds v "\{x.val}"
+nextEquals v []      = expected NoBounds v ""
 
 --------------------------------------------------------------------------------
 --          Testing Parsers

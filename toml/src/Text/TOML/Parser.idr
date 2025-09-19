@@ -182,7 +182,7 @@ key = terminal $ \case TKey x => Just x; _ => Nothing
 
 keyVal : AccRule True (List1 KeyToken,TomlValue)
 keyVal (B (TKey x) _ :: B "=" _ :: xs) (SA r) = (x,) <$> succT (value xs r)
-keyVal (B (TKey _) _ :: x :: xs)       _      = expected x.bounds "="
+keyVal (B (TKey _) _ :: x :: xs)       _      = expected x.bounds "=" "\{x.val}"
 keyVal xs                              _      = fail xs
 
 inline : TomlValue -> TomlValue

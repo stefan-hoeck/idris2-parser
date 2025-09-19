@@ -64,7 +64,7 @@ args sa so xs (SA r) = case attributes xs of
     -- interleaving of optional and regular args makes no sense
     (_ :< _) => case r1 of
       []   => eoi
-      x::_ => expected x.bounds "optional"
+      x::_ => expected x.bounds "optional" "\{x.val}"
 
     -- no optional args so far, so regular arg is fine
     [<] => case trans (arg as1 r1) p of

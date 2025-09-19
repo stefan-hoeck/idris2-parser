@@ -217,12 +217,12 @@ public export %inline
 terminal : Interpolation t => (t -> Maybe a) -> Grammar True s t e a
 terminal f = readHead $ \h => case f h of
   Just a  => Right a
-  Nothing => Left (Unexpected "\{h}")
+  Nothing => Left (Expected [] "\{h}")
 
 ||| Look at the next token in the input
 public export
 is : Interpolation t => Eq t => t -> Grammar True s t e ()
-is x = readHead $ \h => if x == h then Right () else Left (Expected "\{x}")
+is x = readHead $ \h => if x == h then Right () else Left (Expected ["\{x}"] "\{h}")
 
 ||| Optionally parse a thing, with a default value if the grammar doesn't
 ||| match. May match the empty input.

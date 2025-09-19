@@ -2,7 +2,7 @@ package parser
 version   = 0.1.0
 authors   = "stefan-hoeck"
 sourcedir = "src"
-depends   = elab-util
+depends   = elab-util, bytestring
 brief     = "Types and utilities for writing total parsers and lexers"
 
 modules = Data.Bool.Rewrite

@@ -145,7 +145,7 @@ TSVDecoder a => TSVDecoder b => TSVDecoder (a,b) where
 export
 tab : Tok False e ()
 tab ('\t' :: xs) = Succ () xs
-tab (x :: xs)    = single (Expected "<tab>") Same
+tab (x :: xs)    = single (Expected ["<tab>"] (singleton x)) Same
 tab []           = eoiAt Same
 
 decAll : All (TSVDecoder . f) ks => Tok False e (LQ.All.All f ks)

@@ -145,8 +145,8 @@ fromChar = Symbol
 
 export
 Interpolation JSToken where
-  interpolate (Symbol c) = show c
-  interpolate (Lit x)  = "'\{show x}'"
+  interpolate (Symbol c) = singleton c
+  interpolate (Lit x)  = "\{show x}"
   interpolate EOI      = "end of input"
 
 public export
@@ -287,7 +287,7 @@ array b sv xs sa@(SA r) = case value xs sa of
   Succ0 v (B ',' _ :: ys)    => succT $ array b (sv :< v) ys r
   Succ0 v (B ']' _ :: ys)    => Succ0 (JArray $ sv <>> [v]) ys
   r@(Succ0 v (B EOI _ :: _)) => unclosed b '['
-  r@(Fail0 (B (Unexpected "end of input") _)) => unclosed b '['
+  r@(Fail0 (B (Expected [] "end of input") _)) => unclosed b '['
   r                          => failInParen b '[' r
 
 object b sv (B (Lit $ JString l) _ :: B ':' _ :: xs) (SA r) =
@@ -295,9 +295,9 @@ object b sv (B (Lit $ JString l) _ :: B ':' _ :: xs) (SA r) =
     Succ0 v (B ',' _ :: ys) => succT $ object b (sv :< (l,v)) ys r
     Succ0 v (B '}' _ :: ys) => Succ0 (JObject $ sv <>> [(l,v)]) ys
     r@(Succ0 v (B EOI _ :: _)) => unclosed b '{'
-    r@(Fail0 (B (Unexpected "end of input") _)) => unclosed b '{'
+    r@(Fail0 (B (Expected [] "end of input") _)) => unclosed b '{'
     r                          => failInParen b '{' r
-object b sv (B (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds ':'
+object b sv (B (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds ":" "\{x.val}"
 object b sv (x :: xs) _ = custom x.bounds ExpectedString
 object b sv [] _ = eoi
 

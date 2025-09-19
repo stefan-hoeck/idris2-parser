@@ -88,7 +88,7 @@ recrd : Bounds -> StringType -> AccRule True Distinguishable
 recrd b s (B ',' _ :: xs) (SA r) = case succT (idlAttr (Record s) xs r) of
   Succ0 t (B '>' _ :: ys) => Succ0 t ys
   res                     => failInParen b '<' res
-recrd b s (x :: xs) _ = expected x.bounds ','
+recrd b s (x :: xs) _ = expected x.bounds "," "\{x.val}"
 recrd b s []        _ = eoi
 
   -- DistinguishableType ::
@@ -116,7 +116,7 @@ distinguishable (x::xs) (SA r) = case x.val of
     B '<' b :: B "USVString"  _ :: ys => succT (recrd b USVString ys r)
     B '<' b :: y :: ys  => unexpected y
     B '<' b :: []       => unclosed b '<'
-    x :: xs             => expected x.bounds '<'
+    x :: xs             => expected x.bounds "<" "\{x.val}"
     []                  => eoi
   Ident i           => Succ0 (I i) xs
   _                 => simple (x::xs)
@@ -135,7 +135,7 @@ unionMember xs a = map (Leaf . MkUnionMember []) <$> distinguishableType xs a
 
 union b xs acc@(SA r) = case unionMember xs acc of
   Succ0 u1 (B "or" _ :: ys) => succT (zipWith Branch u1 <$> unionRest b ys r)
-  Succ0 _  (x :: _)         => expected x.bounds "or"
+  Succ0 _  (x :: _)         => expected x.bounds "or" "\{x.val}"
   res                       => failInParen b '(' res
 
 unionRest b xs acc@(SA r) = case unionMember xs acc of
@@ -169,7 +169,7 @@ idlAttr f xs acc = f [] <$> idlTpe xs acc
 idlAttrAngle f (B '<' b :: xs) (SA r) = case succT (idlAttr f xs r) of
   Succ0 v (B '>' _ :: ys) => Succ0 v ys
   res                     => failInParen b '<' res
-idlAttrAngle f (x::xs) _ = expected x.bounds '<'
+idlAttrAngle f (x::xs) _ = expected x.bounds "<" "\{x.val}"
 idlAttrAngle f []      _ = eoi
 
 export %inline

@@ -64,7 +64,7 @@ after o f = exact o *> f
 public export %inline
 between : Interpolation t => Eq t => (o,c : t) -> Grammar b t e a -> Grammar True t e a
 between o c f (B x b :: xs) = case o == x of
-  False => expected b o
+  False => expected b o "\{x}"
   True  =>
     let Succ0 v (B y b2 :: ys) := succT (f xs) | res => failInParen b x res
      in if c == y then Succ0 v ys else unexpected (B y b2)
@@ -162,4 +162,8 @@ sepByExact1 :
   => (sep : t)
   -> Grammar True t e a
   -> Grammar True t e (List1 a)
-sepByExact1 sep = sepByF1 (/= Expected "\{sep}") (exact sep)
+sepByExact1 sep = sepByF1 isExp (exact sep)
+  where
+    isExp : InnerError e -> Bool
+    isExp (Expected [s] _) = s == interpolate sep
+    isExp _                = False

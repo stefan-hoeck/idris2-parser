@@ -384,7 +384,7 @@ object b sv (B (Lit $ JString l) _ :: B ':' _ :: xs) (SA r) =
     Succ0 v (B ',' _ :: ys) => succT $ object b (sv :< (l,v)) ys r
     Succ0 v (B '}' _ :: ys) => Succ0 (JObject $ sv <>> [(l,v)]) ys
     res                     => failInParen b '{' res
-object b sv (B (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds ':'
+object b sv (B (Lit $ JString s) _ :: x :: xs) _ = expected x.bounds ":" "\{s}"
 object b sv (x :: xs)                          _ = custom x.bounds ExpectedString
 object b sv []                                 _ = eoi
 ```
@@ -450,7 +450,7 @@ parse2 s = case tokJSON2 s of
     Left es                => Left (toParseError Virtual s <$> es)
     Right ((),res,[])      => Right res
     Right ((),res,(x::xs)) =>
-      Left (singleton $ toParseError Virtual s $ Unexpected . interpolate <$> x)
+      Left (singleton $ toParseError Virtual s $ Expected [] . interpolate <$> x)
 
 testParse1 : String -> IO ()
 testParse1 s = putStrLn $ either interpolate show (parse1 s)

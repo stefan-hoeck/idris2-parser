@@ -33,14 +33,14 @@ enumRest b ss (B ',' _ :: B '}' _ :: xs)      = Succ0 (ss <>> []) xs
 enumRest b ss (B ',' _ :: B (SLit s) _ :: xs) = succF $ enumRest b (ss :< s) xs
 enumRest b ss (B ',' _ :: x  :: xs)           = custom x.bounds ExpectedStringLit
 enumRest b ss (B '}' _ :: xs)                 = Succ0 (ss <>> []) xs
-enumRest b ss (x :: xs)                       = expected x.bounds ','
+enumRest b ss (x :: xs)                       = expected x.bounds "," "\{x.val}"
 enumRest b ss []                              = unclosed b '{'
 
 -- optional trailing comma
 enumList : Rule True (List1 StringLit)
 enumList (B '{' b :: B (SLit s) _ :: xs) = (s :::) <$> succT (enumRest b [<] xs)
 enumList (B '{' b :: x :: xs) = custom x.bounds ExpectedStringLit               
-enumList (x :: xs)            = expected x.bounds '{'
+enumList (x :: xs)            = expected x.bounds "{" "\{x.val}"
 enumList []                   = eoi
 
 defn : Rule False ExtAttributeList -> Rule True Definition

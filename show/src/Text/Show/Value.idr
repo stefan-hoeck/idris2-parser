@@ -360,7 +360,7 @@ rec n b sv (B (Id y) _ :: B '=' _ :: xs) (SA r) = case succT $ value xs r of
   Succ0 v (B ',' _ :: ys) => succT $ rec n b (sv :< (y,v)) ys r
   Succ0 v (B '}' _ :: ys) => Succ0 (Rec n $ sv <>> [(y,v)]) ys
   res                     => failInParen b '{' res
-rec _ _ _ (B (Id _) _ ::x::xs) _ = expected x.bounds '='
+rec _ _ _ (B (Id _) _ ::x::xs) _ = expected x.bounds "=" "\{x.val}"
 rec _ _ _ (x::xs) _ = custom x.bounds ExpectedId
 rec _ _ _ [] _ = eoi
 

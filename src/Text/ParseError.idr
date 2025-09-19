@@ -1,5 +1,6 @@
 module Text.ParseError
 
+import Data.Bits
 import Data.List.Suffix.Result0
 import Derive.Prelude
 import Text.Bounds
@@ -67,8 +68,8 @@ data InnerError : (err : Type) -> Type where
   ||| Unexpected end of input
   EOI            : InnerError e
 
-  ||| Expected the given token but got something else.
-  Expected       : String -> InnerError e
+  ||| Expected one of the given tokens but got something else.
+  Expected       : List String -> String -> InnerError e
 
   ||| Expected the given type of character
   ExpectedChar   : CharClass -> InnerError e
@@ -88,11 +89,13 @@ data InnerError : (err : Type) -> Type where
   ||| An unclosed opening token
   Unclosed       : String -> InnerError e
 
-  ||| Got an unexpected token
-  Unexpected     : String -> InnerError e
-
   ||| Got an unknown or invalid token
   Unknown        : String -> InnerError e
+
+  ||| An unexpected non-ascii byte, either from an unexpected
+  ||| mutli-byte codepoint or from altogether invalid unicode
+  ||| input.
+  InvalidByte    : Bits8 -> InnerError e
 
 %runElab derive "InnerError" [Show,Eq]
 
@@ -100,29 +103,76 @@ public export
 Functor InnerError where
   map f (Custom err)        = Custom $ f err
   map f EOI                 = EOI
-  map f (Expected x)        = Expected x
+  map f (Expected xs x)     = Expected xs x
   map f (ExpectedChar x)    = ExpectedChar x
   map f ExpectedEOI         = ExpectedEOI
   map f (InvalidControl c1) = InvalidControl c1
   map f InvalidEscape       = InvalidEscape
   map f (OutOfBounds x)     = OutOfBounds x
   map f (Unclosed x)        = Unclosed x
-  map f (Unexpected x)      = Unexpected x
   map f (Unknown x)         = Unknown x
+  map f (InvalidByte x)     = InvalidByte x
+
+uncontrol : Char -> String
+uncontrol c = if isControl c then adj (unpack $ show c) else singleton c
+  where
+    adj : List Char -> String
+    adj = pack . filter ('\'' /=)
+
+quote : String -> String
+quote s =
+  case map uncontrol (unpack s) of
+    [c] => "'\{c}'"
+    cs  => "\"\{concat cs}\""
+
+quotes : String -> List String -> String
+quotes x []  = quote x
+quotes x [y] = "\{quote x} or \{quote y}"
+quotes x xs  = go x xs
+  where
+    go : String -> List String -> String
+    go s []        = "or \{quote s}"
+    go s (y :: ys) = "\{quote s}, " ++ go y ys
+
+hexChar : Bits8 -> Char
+hexChar 0  = '0'
+hexChar 1  = '1'
+hexChar 2  = '2'
+hexChar 3  = '3'
+hexChar 4  = '4'
+hexChar 5  = '5'
+hexChar 6  = '6'
+hexChar 7  = '7'
+hexChar 8  = '8'
+hexChar 9  = '9'
+hexChar 10 = 'a'
+hexChar 11 = 'b'
+hexChar 12 = 'c'
+hexChar 13 = 'd'
+hexChar 14 = 'e'
+hexChar _  = 'f'
+
+||| Pretty prints a byte in hexadecimal for.
+|||
+||| Example: `toHex 110 === "0x6e"`.
+export
+toHex : Bits8 -> String
+toHex x = pack ['0','x',hexChar (shiftR x 4), hexChar (x .&. 15)]
 
 export
 Interpolation e => Interpolation (InnerError e) where
-  interpolate EOI                = "Unexpected end of input"
-  interpolate (Expected x)       = "Expected \{x}"
-  interpolate (ExpectedChar x)   = "Expected \{x}"
-  interpolate ExpectedEOI        = "Expected end of input"
-  interpolate (InvalidControl c) = "Invalid control character: \{show c}"
-  interpolate InvalidEscape      = "Invalid escape sequence"
-  interpolate (OutOfBounds x)    = "Value out of bounds: \{x}"
-  interpolate (Unclosed x)       = "Unclosed \{x}"
-  interpolate (Unexpected x)     = "Unexpected \{x}"
-  interpolate (Unknown x)        = "Unknown or invalid token: \{x}"
-  interpolate (Custom err)       = interpolate err
+  interpolate EOI                  = "Unexpected end of input"
+  interpolate (Expected [] x)      = "Unexpected \{quote x}"
+  interpolate (Expected (s::ss) x) = "Expected \{quotes s ss}, but got \{quote x}"
+  interpolate (ExpectedChar x)     = "Expected \{x}"
+  interpolate ExpectedEOI          = "Expected end of input"
+  interpolate (InvalidControl c)   = "Invalid control character: '\{uncontrol c}'"
+  interpolate InvalidEscape        = "Invalid escape sequence"
+  interpolate (OutOfBounds x)      = "Value out of bounds: \{x}"
+  interpolate (Unclosed x)         = "Unclosed \{quote x}"
+  interpolate (Unknown x)          = "Unknown or invalid token: \{x}"
+  interpolate (Custom err)         = interpolate err
+  interpolate (InvalidByte x)      = "Unexpected or invalid byte: \{toHex x}"
 
 --------------------------------------------------------------------------------
 --          Interface
@@ -145,8 +195,8 @@ custom : FailParse m e => Bounds -> e -> m a
 custom b = parseFail b . Custom
 
 public export %inline
-expected : Interpolation t => FailParse m e => Bounds -> t -> m a
-expected b = parseFail b . Expected . interpolate
+expected : Interpolation t => FailParse m e => Bounds -> t -> String -> m a
+expected b v s = parseFail b $ Expected [interpolate v] s
 
 public export %inline
 unclosed : Interpolation t => FailParse m e => Bounds -> t -> m a
@@ -154,7 +204,7 @@ unclosed b = parseFail b . Unclosed . interpolate
 
 public export %inline
 unexpected : Interpolation t => FailParse m e => Bounded t -> m a
-unexpected v = parseFail v.bounds (Unexpected . interpolate $ v.val)
+unexpected v = parseFail v.bounds (Expected [] . interpolate $ v.val)
 
 public export %inline
 eoi : FailParse m e => m a
@@ -204,40 +254,58 @@ fail []        = eoi
 public export
 fromVoid : InnerError Void -> InnerError e
 fromVoid EOI                = EOI
-fromVoid (Expected x)       = Expected x
+fromVoid (Expected xs x)    = Expected xs x
 fromVoid (ExpectedChar x)   = ExpectedChar x
 fromVoid ExpectedEOI        = ExpectedEOI
 fromVoid (InvalidControl c) = InvalidControl c
 fromVoid InvalidEscape      = InvalidEscape
 fromVoid (OutOfBounds x)    = OutOfBounds x
 fromVoid (Unclosed x)       = Unclosed x
-fromVoid (Unexpected x)     = Unexpected x
 fromVoid (Unknown x)        = Unknown x
+fromVoid (InvalidByte b)    = InvalidByte b
 
 --------------------------------------------------------------------------------
 --          ParseError
 --------------------------------------------------------------------------------
 
-||| Pairs a parsing error (`InnerError`)
-||| with a text's origin, the error's bound, and
+||| Pairs a parsing error with a text's origin, the error's bound, and
 ||| the text itself.
 public export
 record ParseError e where
   constructor PE
-  origin  : Origin
-  bounds  : Bounds
-  content : Maybe String
-  error   : InnerError e
+  ||| Origin of the byte sequence that was parsed.
+  origin    : Origin
+
+  ||| Absolute bounds where the error occurred.
+  bounds    : Bounds
+
+  ||| Bounds where the error occurred relative to the string stored
+  ||| in `content`. See also the docs of `Text.ILex.FC.printFC` for an
+  ||| explanation why the distinction between relative and absolute bounds
+  ||| is necessary.
+  relBounds : Bounds
+
+  ||| Relevant part of the text that was parsed.
+  content   : Maybe String
+
+  ||| The actual error that occurred.
+  error     : InnerError e
 
 %runElab derive "ParseError" [Show,Eq]
 
-export
-toStreamError : Origin -> Bounded (InnerError e) -> ParseError e
-toStreamError o (B err bs) = PE o bs Nothing err
-
+||| Converts a bounded error to a `ParseError` by pairing it with
+||| an origin and the parsed string.
 export
 toParseError : Origin -> String -> Bounded (InnerError e) -> ParseError e
-toParseError o s (B err bs) = PE o bs (Just s) err
+toParseError o s (B err bs) = PE o bs bs (Just s) err
+
+export
+Interpolation e => Interpolation (ParseError e) where
+  interpolate (PE origin bounds relbs cont err) =
+    let fc := FC origin bounds
+     in case cont of
+          Just c  => unlines $ "Error: \{err}" :: printFC fc relbs (lines c)
+          Nothing => unlines ["Error: \{err}", interpolate fc]
 
 export %inline
 leftErr :
@@ -257,11 +325,3 @@ result :
 result o s (Fail0 err)           = Left $ toParseError o s err
 result _ s (Succ0 res [])        = Right res
 result o s (Succ0 res (x :: xs)) = leftErr o s $ unexpected x
-
-export
-Interpolation e => Interpolation (ParseError e) where
-  interpolate (PE origin bounds cont err) =
-    let fc := FC origin bounds
-     in case cont of
-          Just c  => unlines $ "Error: \{err}" :: printFC fc (lines c)
-          Nothing => unlines ["Error: \{err}", interpolate fc]

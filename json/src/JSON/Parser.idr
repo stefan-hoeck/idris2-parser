@@ -149,21 +149,9 @@ Interpolation JSToken where
   interpolate (Lit x)  = "\{show x}"
   interpolate EOI      = "end of input"
 
-public export
-data JSErr : Type where
-  ExpectedString  : JSErr
-  InvalidEscape   : JSErr
-
-%runElab derive "JSErr" [Show,Eq]
-
-export
-Interpolation JSErr where
-  interpolate ExpectedString  = "Expected string literal"
-  interpolate InvalidEscape   = "Invalid escape sequence"
-
 public export %tcinline
 0 ParseErr : Type
-ParseErr = InnerError JSErr
+ParseErr = InnerError Void
 
 strLit : SnocList Char -> JSToken
 strLit = Lit . JString . cast
@@ -264,7 +252,7 @@ lexJSON s = go [<] begin (unpack s) suffixAcc
 Rule b t =
      (xs : List $ Bounded JSToken)
   -> (0 acc : SuffixAcc xs)
-  -> Res b JSToken xs JSErr t
+  -> Res b JSToken xs Void t
 
 array : Bounds -> SnocList JSON -> Rule True JSON
 
@@ -298,11 +286,11 @@ object b sv (B (Lit $ JString l) _ :: B ':' _ :: xs) (SA r) =
     r@(Fail0 (B (Expected [] "end of input") _)) => unclosed b '{'
     r                          => failInParen b '{' r
 object b sv (B (Lit $ JString _) _ :: x :: xs) _ = expected x.bounds ":" "\{x.val}"
-object b sv (x :: xs) _ = custom x.bounds ExpectedString
+object b sv (x :: xs) _ = expected x.bounds "\"" "\{x.val}"
 object b sv [] _ = eoi
 
 export
-parseJSON : Origin -> String -> Either (ParseError JSErr) JSON
+parseJSON : Origin -> String -> Either (ParseError Void) JSON
 parseJSON o str = case lexJSON str of
   Right ts => case value ts suffixAcc of
     Fail0 x           => Left (toParseError o str x)

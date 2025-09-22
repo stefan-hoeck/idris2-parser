@@ -74,3 +74,9 @@ type   = "github"
 url    = "https://github.com/stefan-hoeck/idris2-pretty-show"
 commit = "latest:main"
 ipkg   = "pretty-show.ipkg"
+
+[custom.all.ilex-core]
+type   = "github"
+url    = "https://github.com/stefan-hoeck/idris2-ilex"
+commit = "latest:main"
+ipkg   = "core/ilex-core.ipkg"

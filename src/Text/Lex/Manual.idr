@@ -1,7 +1,7 @@
 module Text.Lex.Manual
 
 import Data.List.Quantifiers
-import Text.Bounds
+import public Text.Bounds
 import public Text.ParseError
 import public Data.List.Suffix
 import public Data.List.Suffix.Result
@@ -12,6 +12,50 @@ import public Data.List.Suffix.Result
 public export
 0 LexRes : (b : Bool) -> List Char -> (e,a : Type) -> Type
 LexRes b ts e a = Result b Char ts (InnerError e) a
+
+--------------------------------------------------------------------------------
+--          Bounds
+--------------------------------------------------------------------------------
+
+||| Shift the position by a number of columns represented by
+||| a `Suffix` value. This assumes, that no line break was "shifted".
+public export %inline
+move : Position -> Suffix b xs ys -> Position
+move p s = addCol (toNat s) p
+
+calcEnd : (line,col : Nat) -> (cs : List Char) -> Suffix b ys cs -> Position
+calcEnd l c ys          Same       = P l c
+calcEnd l c ('\n' :: t) (Uncons x) = calcEnd (S l) 0 t (unconsBoth x)
+calcEnd l c (_    :: t) (Uncons x) = calcEnd l (S c) t (unconsBoth x)
+calcEnd l c []          (Uncons x) = absurd x
+
+||| Calculates the new position from a `Suffix` by reinspecting
+||| the original list of characters.
+||| 
+||| Use this, if the consumed prefix might have contained line breaks.
+||| Otherwise, consider using `move`, which runs in O(1) instead of O(n).
+export %inline
+endPos :
+     {cs : List Char}
+  -> (pos : Position)
+  -> Suffix b ys cs
+  -> Position
+endPos pos = calcEnd pos.line pos.col cs
+
+export
+boundedErr :
+     {0 e : Type}
+  -> {ts,errStart : List Char}
+  -> Position
+  -> (start : Suffix False errStart ts)
+  -> (0 errEnd : List Char)
+  -> {auto end : Suffix False errEnd errStart}
+  -> (err : e)
+  -> Bounded e
+boundedErr pos start errEnd err =
+  let ps := endPos pos start
+      pe := endPos ps end
+   in bounded err ps pe
 
 --------------------------------------------------------------------------------
 --          Combinators

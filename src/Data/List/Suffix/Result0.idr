@@ -3,6 +3,9 @@ module Data.List.Suffix.Result0
 import Derive.Prelude
 import Data.Nat
 import Data.List.Suffix
+import Text.Bounds
+import Text.FC
+import Text.ParseError
 
 %default total
 %language ElabReflection
@@ -363,3 +366,51 @@ accumErr cur f g (x::xs) = case g cur x of
   Cont s'   => accumErr s' f g xs
   Error err => Fail0 err
 accumErr cur f g [] = Succ0 (f cur) []
+
+--------------------------------------------------------------------------------
+-- Parse Errors and Bounds
+--------------------------------------------------------------------------------
+
+public export %inline
+FailParse (Result0 b t ts (Bounded $ InnerError y)) y where
+  parseFail b err = Fail0 (B err b)
+
+||| General catch-all error generator when parsing within some kind
+||| of opening token: Will fail with an `Unclosed` error if at the
+||| end of input, or with an `Unknown` error wrapping the next token.
+||| Otherwise, will rethrow the current error.
+|||
+||| @ b   : Bounds of the opening paren or token
+||| @ tok : Opening paren or token
+||| @ res : Current parsing result
+public export
+failInParen :
+     {auto int : Interpolation t}
+  -> (b : Bounds)
+  -> (tok : t)
+  -> Result0 b1 (Bounded t) ts (Bounded $ InnerError e) a
+  -> Result0 b2 (Bounded t) ts (Bounded $ InnerError e) x
+failInParen b tok (Fail0 (B EOI _))   = unclosed b tok
+failInParen b tok (Fail0 err)         = Fail0 err
+failInParen b tok (Succ0 _ [])        = unclosed b tok
+failInParen b tok (Succ0 _ (x :: xs)) = unexpected x
+
+||| Catch-all error generator when no other rule applies.
+public export
+fail :
+     {auto int : Interpolation t}
+  -> List (Bounded t)
+  -> Result0 b (Bounded t) ts (Bounded $ InnerError y) a
+fail (x :: xs) = unexpected x
+fail []        = eoi
+
+public export
+result :
+     {auto int : Interpolation t}
+  -> Origin
+  -> String
+  -> Result0 b (Bounded t) ts (Bounded $ InnerError e) a
+  -> Either (ParseError e) a
+result o s (Fail0 err)           = Left $ toParseError o s err
+result _ s (Succ0 res [])        = Right res
+result o s (Succ0 res (x :: xs)) = leftErr o s $ unexpected x

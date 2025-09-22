@@ -8,6 +8,12 @@ import public Data.List.Shift
 
 %default total
 
+||| Shift the position by a number of columns represented by
+||| a `Shift` value. This assumes, that no line break was "shifted".
+public export %inline
+shift : Position -> Shift b t sx xs sy ys -> Position
+shift p s = addCol (toNat s) p
+
 --------------------------------------------------------------------------------
 --          ShiftRes
 --------------------------------------------------------------------------------
